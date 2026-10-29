@@ -28,8 +28,9 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   flatfender: drivetrain, open/locked diff model, low range, winch, per-tire mud
   throw onto the body, HUD text. Body is modelled in code with `mesh_kit.gd`.
 - `scripts/audio/sound_synth.gd` — every sound, synthesised at startup (~0.4 s):
-  V8 engine loops at two rpms, mud/gravel/water/winch loops, paddy and forest
-  ambience, clunk and splash one-shots. No audio files.
+  V8 engine loops at two rpms, mud/gravel/water/winch loops, quiet paddy and
+  forest beds plus a bank of separate animal calls (kept sparse on purpose),
+  clunk and splash one-shots. No audio files.
 - `scripts/audio/rig_audio.gd` — pitches and mixes those from the rig's state.
 - `scripts/vehicle/mesh_kit.gd` — procedural modelling helpers (rounded boxes,
   lathes, tubes, tori) appended into a SurfaceTool.

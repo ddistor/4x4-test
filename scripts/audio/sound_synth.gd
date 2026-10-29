@@ -263,69 +263,106 @@ static func compressor() -> AudioStreamWAV:
 
 
 # --- ambience ---------------------------------------------------------------------
+# The beds loop, so they hold nothing you could pick out and notice repeating:
+# just air and a distant insect wash. Every animal is a separate call that
+# RigAudio scatters around the listener at random.
 
-## Paddies by the lake: a chorus of palaka knocking and rasping, distant
-## crickets, breeze over the rice.
-static func paddy_ambience() -> AudioStreamWAV:
+## Paddies by the lake: breeze over the rice, a faint far-off insect wash.
+static func paddy_bed() -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 501
-	var n := RATE * 10
+	var n := RATE * 12
 	var buf := _noise(n, rng)
-	_lowpass(buf, 500.0)
+	_lowpass(buf, 450.0)
+	var hiss := _noise(n, rng)
+	_bandpass(hiss, 5200.0, 2.0)
 	for i in range(n):
-		buf[i] *= 0.5 * (0.7 + 0.3 * sin(TAU * 2.0 * i / n))
-	for frog in range(9):
-		var pitch := rng.randf_range(450.0, 1100.0)
-		var at := rng.randi() % n
-		var amp := rng.randf_range(0.25, 0.7)
-		for call in range(rng.randi_range(3, 9)):
-			var start := at + call * int(rng.randf_range(0.09, 0.16) * RATE)
-			_burst(buf, start, rng.randf_range(0.025, 0.05), pitch * rng.randf_range(0.97, 1.03), 7.0, amp, rng, 5.0)
-	var crickets := _zeros(n)
-	for c in range(30):
-		var at := rng.randi() % n
-		for pulse in range(rng.randi_range(4, 10)):
-			_burst(crickets, at + pulse * int(0.032 * RATE), 0.018, rng.randf_range(4300.0, 5000.0), 14.0, 0.25, rng, 3.0)
-	_mix(buf, crickets, 0.4)
+		var t := float(i) / n
+		buf[i] = buf[i] * (0.65 + 0.2 * sin(TAU * 2.0 * t) + 0.15 * sin(TAU * 5.0 * t + 2.0)) + hiss[i] * 0.03
 	return _to_wav(buf, true)
 
 
-## Secondary forest: kuliglig (cicada) choruses swelling in and out, a few
-## birds, wind in the canopy.
-static func forest_ambience() -> AudioStreamWAV:
+## Secondary forest: wind moving through the canopy, a distant cicada hiss.
+static func forest_bed() -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 502
-	var n := RATE * 10
+	var n := RATE * 12
 	var buf := _noise(n, rng)
-	_lowpass(buf, 600.0)
+	_lowpass(buf, 650.0)
 	_highpass(buf, 60.0)
+	var hiss := _noise(n, rng)
+	_bandpass(hiss, 4600.0, 2.5)
 	for i in range(n):
-		buf[i] *= 0.6 * (0.55 + 0.45 * sin(TAU * 3.0 * i / n + 0.4))
-	# cicadas: a hiss band round 4.5 kHz, chopped into a fast buzz, swelling
-	var cic := _noise(n, rng)
-	_bandpass(cic, 4600.0, 3.0)
-	for i in range(n):
-		var t := float(i) / RATE
-		var swell := pow(maxf(0.0, sin(TAU * 2.0 * i / n)), 1.5)
-		var buzz := pow(0.5 + 0.5 * sin(TAU * 95.0 * t), 3.0)
-		buf[i] += cic[i] * 0.9 * swell * buzz
-	# birds: short whistled phrases with a natural wobble, kept sparse and soft
-	for bird in range(7):
-		var at := rng.randi() % n
-		var base := rng.randf_range(1900.0, 3000.0)
-		for note in range(rng.randi_range(2, 4)):
-			var start := at + note * int(rng.randf_range(0.14, 0.24) * RATE)
-			var len := int(rng.randf_range(0.07, 0.14) * RATE)
-			var ph := 0.0
-			var f0 := base * rng.randf_range(0.92, 1.08)
-			var f1 := f0 * rng.randf_range(1.1, 1.4)
-			for i in range(len):
-				var u := float(i) / len
-				var vib := 1.0 + 0.03 * sin(TAU * 32.0 * float(i) / RATE)
-				ph += TAU * lerpf(f0, f1, u) * vib / RATE
-				var env := sin(PI * u) * sin(PI * u)
-				buf[(start + i) % n] += (sin(ph) + 0.2 * sin(2.0 * ph)) * env * 0.12
+		var t := float(i) / n
+		buf[i] = buf[i] * (0.55 + 0.3 * sin(TAU * 3.0 * t + 0.4) + 0.15 * sin(TAU * 7.0 * t)) + hiss[i] * 0.04
 	return _to_wav(buf, true)
+
+
+## One palaka bout: a run of knocking croaks at one frog's pitch.
+static func frog_call(seed_v: int) -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	var pitch := rng.randf_range(420.0, 1150.0)
+	var calls := rng.randi_range(2, 8)
+	var gap := rng.randf_range(0.08, 0.17)
+	var buf := _zeros(int((calls * gap + 0.2) * RATE))
+	for k in range(calls):
+		_burst(buf, int(k * gap * RATE), rng.randf_range(0.025, 0.055), pitch * rng.randf_range(0.97, 1.03), rng.randf_range(5.0, 9.0), rng.randf_range(0.6, 1.0), rng, 5.0)
+	return _to_wav(buf, false)
+
+
+## One bird phrase: a few whistled notes with a natural wobble.
+static func bird_call(seed_v: int) -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	var notes := rng.randi_range(2, 6)
+	var base := rng.randf_range(1800.0, 3400.0)
+	var buf := _zeros(int((notes * 0.26 + 0.2) * RATE))
+	var at := 0
+	var up := rng.randf() < 0.5
+	for note in range(notes):
+		var len := int(rng.randf_range(0.06, 0.16) * RATE)
+		var f0 := base * rng.randf_range(0.9, 1.1)
+		var f1 := f0 * (rng.randf_range(1.1, 1.45) if up else rng.randf_range(0.7, 0.92))
+		var ph := 0.0
+		for i in range(len):
+			var u := float(i) / len
+			ph += TAU * lerpf(f0, f1, u) * (1.0 + 0.03 * sin(TAU * 32.0 * float(i) / RATE)) / RATE
+			var env := sin(PI * u) * sin(PI * u)
+			buf[at + i] += (sin(ph) + 0.18 * sin(2.0 * ph)) * env
+		at += len + int(rng.randf_range(0.05, 0.1) * RATE)
+	_lowpass(buf, 7000.0)
+	return _to_wav(buf, false)
+
+
+## A cricket: a short trill of tight pulses.
+static func cricket_call(seed_v: int) -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	var pulses := rng.randi_range(3, 14)
+	var rate := rng.randf_range(0.025, 0.045)
+	var f := rng.randf_range(4200.0, 5400.0)
+	var buf := _zeros(int((pulses * rate + 0.1) * RATE))
+	for k in range(pulses):
+		_burst(buf, int(k * rate * RATE), 0.016, f, 14.0, 1.0, rng, 3.0)
+	return _to_wav(buf, false)
+
+
+## A kuliglig chorus: a buzz that swells over a few seconds and dies away.
+static func cicada_call(seed_v: int) -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	var dur := rng.randf_range(4.0, 8.0)
+	var n := int(dur * RATE)
+	var buf := _noise(n, rng)
+	_bandpass(buf, rng.randf_range(4200.0, 5200.0), 3.0)
+	var buzz_hz := rng.randf_range(80.0, 120.0)
+	var peak := rng.randf_range(0.3, 0.6)
+	for i in range(n):
+		var u := float(i) / n
+		var env := smoothstep(0.0, peak, u) * (1.0 - smoothstep(peak + 0.2, 1.0, u))
+		buf[i] *= env * pow(0.5 + 0.5 * sin(TAU * buzz_hz * float(i) / RATE), 3.0)
+	return _to_wav(buf, false)
 
 
 # --- one-shots ----------------------------------------------------------------------

@@ -29,6 +29,13 @@ var _splash: AudioStream
 var _last := {}
 var _was_wet := false
 
+# wildlife: a bank of separate calls, played at random round the listener
+var _calls := {}           # kind -> Array[AudioStream]
+var _last_variant := {}    # kind -> index, so the same call never plays twice running
+var _critters: Array[AudioStreamPlayer3D] = []
+var _next_call := 4.0
+var _rng := RandomNumberGenerator.new()
+
 
 func setup(r: Rig) -> void:
 	rig = r
@@ -45,8 +52,9 @@ func setup(r: Rig) -> void:
 	add_child(_oneshot)
 	_clunk = SoundSynth.clunk()
 	_splash = SoundSynth.splash()
-	_paddy_amb = _loop2d(SoundSynth.paddy_ambience())
-	_forest_amb = _loop2d(SoundSynth.forest_ambience())
+	_paddy_amb = _loop2d(SoundSynth.paddy_bed())
+	_forest_amb = _loop2d(SoundSynth.forest_bed())
+	_build_critters()
 	_last = {"diff": rig.diff_locked, "low": rig.low_range, "winch": rig.winch_active}
 
 
@@ -137,6 +145,7 @@ func _process(delta: float) -> void:
 	var f := smoothstep(35.0, 70.0, z)
 	_paddy_amb.volume_db = _db((1.0 - f) * 0.5) - 6.0
 	_forest_amb.volume_db = _db(f * 0.55) - 6.0
+	_critter_step(delta, f)
 
 
 func _play(stream: AudioStream, db: float, pitch: float) -> void:
@@ -144,3 +153,92 @@ func _play(stream: AudioStream, db: float, pitch: float) -> void:
 	_oneshot.volume_db = db
 	_oneshot.pitch_scale = pitch
 	_oneshot.play()
+
+
+# --- wildlife -----------------------------------------------------------------------
+
+const CALL_KINDS := {
+	# kind: [variants, base dB, height above ground (min, max), distance (min, max)]
+	"frog": [10, -10.0, Vector2(0.0, 0.3), Vector2(6.0, 35.0)],
+	"bird": [10, -13.0, Vector2(5.0, 14.0), Vector2(10.0, 45.0)],
+	"cricket": [6, -18.0, Vector2(0.1, 0.6), Vector2(4.0, 25.0)],
+	"cicada": [4, -15.0, Vector2(6.0, 12.0), Vector2(15.0, 50.0)],
+}
+
+
+func _build_critters() -> void:
+	_rng.randomize()
+	for kind: String in CALL_KINDS:
+		var bank: Array[AudioStream] = []
+		for v in range(CALL_KINDS[kind][0]):
+			var seed_v: int = 1000 + v * 37 + kind.length() * 1013
+			match kind:
+				"frog": bank.append(SoundSynth.frog_call(seed_v))
+				"bird": bank.append(SoundSynth.bird_call(seed_v))
+				"cricket": bank.append(SoundSynth.cricket_call(seed_v))
+				"cicada": bank.append(SoundSynth.cicada_call(seed_v))
+		_calls[kind] = bank
+		_last_variant[kind] = -1
+	for i in range(6):
+		var p := AudioStreamPlayer3D.new()
+		p.top_level = true  # placed in the world, not riding along on the rig
+		p.unit_size = 8.0
+		p.max_distance = 90.0
+		add_child(p)
+		_critters.append(p)
+
+
+## Every so often, somewhere around the listener, something calls. What
+## calls depends on where you are: frogs and crickets in the paddies, birds
+## and cicadas once you're in the forest.
+func _critter_step(delta: float, forest: float) -> void:
+	_next_call -= delta
+	if _next_call > 0.0:
+		return
+	var weights := {
+		"frog": lerpf(0.6, 0.12, forest),
+		"cricket": lerpf(0.32, 0.25, forest),
+		"bird": lerpf(0.08, 0.45, forest),
+		"cicada": lerpf(0.0, 0.18, forest),
+	}
+	var kind := "frog"
+	var total := 0.0
+	for k: String in weights:
+		total += weights[k]
+	var pick := _rng.randf() * total
+	for k: String in weights:
+		pick -= float(weights[k])
+		if pick <= 0.0:
+			kind = k
+			break
+	# one cicada chorus at a time; otherwise take a free player
+	var player: AudioStreamPlayer3D = null
+	for p in _critters:
+		if kind == "cicada" and p.playing and _calls["cicada"].has(p.stream):
+			_next_call = 0.3
+			return
+		if not p.playing and player == null:
+			player = p
+	if player == null:
+		_next_call = 0.5
+		return
+	var bank: Array = _calls[kind]
+	var v := _rng.randi() % bank.size()
+	if v == int(_last_variant[kind]):
+		v = (v + 1) % bank.size()
+	_last_variant[kind] = v
+	var spec: Array = CALL_KINDS[kind]
+	var dir := Vector2.from_angle(_rng.randf() * TAU)
+	var reach: Vector2 = spec[3]
+	var lift: Vector2 = spec[2]
+	var dist := _rng.randf_range(reach.x, reach.y)
+	var at := rig.global_position + Vector3(dir.x, 0.0, dir.y) * dist
+	at.y = rig.terrain.get_height(at.x, at.z) + _rng.randf_range(lift.x, lift.y)
+	player.global_position = at
+	player.stream = bank[v]
+	player.pitch_scale = _rng.randf_range(0.88, 1.12)
+	player.volume_db = float(spec[1]) + _rng.randf_range(-6.0, 1.0)
+	player.play()
+
+	# now and then a frog answers; otherwise a long, uneven quiet
+	_next_call = _rng.randf_range(0.3, 0.8) if kind == "frog" and _rng.randf() < 0.15 else _rng.randf_range(5.0, 14.0)
