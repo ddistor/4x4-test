@@ -7,6 +7,7 @@ extends Node
 
 const MENU := "res://scenes/menu.tscn"
 const STAGE := "res://scenes/main.tscn"
+const GARAGE := "res://scenes/garage.tscn"
 
 var stage_seed := 0
 ## -1 random (the seed decides), 0 dry season, 1 rainy season
@@ -115,6 +116,13 @@ func start_stage(seed_v: int) -> void:
 	stage_seed = seed_v
 	get_tree().paused = false
 	get_tree().change_scene_to_file(STAGE)
+
+
+## The garage: see the rig and driver you picked before driving `seed_v`.
+func to_garage(seed_v: int) -> void:
+	stage_seed = seed_v
+	get_tree().paused = false
+	get_tree().change_scene_to_file(GARAGE)
 
 
 func to_menu() -> void:

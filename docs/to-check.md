@@ -27,11 +27,16 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
-## Start menu layout
+## Garage page
 
-Rig, paint, shirt, jorts and print moved into their own two-column panel under
-the stage preview (the list ran off the bottom at 720p). `--snap-menu` saves
-`snaps/96_menu.png`. To check: it still fits at your resolution.
+*Pick your rig and drive* on the start menu now opens the garage
+(`scripts/ui/garage.gd`): your rig with the driver in it on a clay pad, turning
+slowly (drag to spin it), with Rig / Paint / Shirt / Jorts / Print beside it;
+every click rebuilds the rig so you see exactly what you'll drive. *Drive stage
+N* starts it, *Back* returns to the menu. The rig runs in a preview mode there
+(frozen body, wheels at ride height, no terrain). `--snap-garage` saves
+`snaps/95_garage.png`, `--snap-menu` the start menu. To check: dragging, and the
+rig/driver look right from all round.
 
 ## Shirt print selector
 

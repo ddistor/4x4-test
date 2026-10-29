@@ -14,6 +14,9 @@ var _drive: Button
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if "--snap-garage" in OS.get_cmdline_user_args():
+		Game.to_garage.call_deferred(Game.stage_seed)
+		return
 	if "--snap-menu" in OS.get_cmdline_user_args():
 		_snap_menu.call_deferred()
 	elif "--snap" in OS.get_cmdline_user_args():
@@ -37,7 +40,7 @@ func _ready() -> void:
 	gap.custom_minimum_size = Vector2(0, 40)
 	left.add_child(gap)
 
-	_drive = UiKit.button("Drive this stage")
+	_drive = UiKit.button("Pick your rig and drive")
 	_drive.pressed.connect(_start)
 	left.add_child(_drive)
 	var reroll := UiKit.button("Reroll the stage")
@@ -96,30 +99,6 @@ func _ready() -> void:
 	_preview = UiKit.label("", 19, UiKit.DIM)
 	pv.add_child(_preview)
 
-	# your rig and your driver: two columns under the stage preview
-	var look_panel := PanelContainer.new()
-	look_panel.add_theme_stylebox_override("panel", UiKit.box(Color(0.05, 0.04, 0.03, 0.66), 10))
-	look_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	look_panel.position = Vector2(-640, -250)
-	look_panel.custom_minimum_size = Vector2(560, 0)
-	add_child(look_panel)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 10)
-	look_panel.add_child(grid)
-	var rigs := []
-	for k in RigSpec.kinds():
-		rigs.append([k.name, Color(0, 0, 0, 0)])
-	var prints := []
-	for l: Array in Game.LOGOS:
-		prints.append([l[0], Color(0, 0, 0, 0)])
-	grid.add_child(_look_button("Rig", rigs, "rig_kind"))
-	grid.add_child(_look_button("Paint", Game.PAINTS, "paint"))
-	grid.add_child(_look_button("Shirt", Game.SHIRTS, "shirt"))
-	grid.add_child(_look_button("Jorts", Game.SHORTS, "shorts"))
-	grid.add_child(_look_button("Print", prints, "logo"))
-
 	var help := UiKit.label("W/S drive   A/D steer   G low range   L diff lock   F winch   -/= tire pressure   Backspace recover   Esc pause", 16, UiKit.DIM)
 	help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	help.position = Vector2(80, -60)
@@ -149,28 +128,6 @@ func _snap_menu() -> void:
 	get_tree().quit()
 
 
-## A button that cycles one of Game's colour choices, with a swatch beside it.
-func _look_button(what: String, choices: Array, key: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var b := UiKit.button("", 220)
-	b.add_theme_font_size_override("font_size", 18)
-	var swatch := ColorRect.new()
-	swatch.custom_minimum_size = Vector2(26, 46)
-	var show := func() -> void:
-		var c: Array = choices[Game.get(key)]
-		b.text = "%s: %s" % [what, c[0]]
-		swatch.color = c[1]
-	show.call()
-	b.pressed.connect(func() -> void:
-		Game.set(key, (int(Game.get(key)) + 1) % choices.size())
-		Game.save_look()
-		show.call())
-	row.add_child(b)
-	row.add_child(swatch)
-	return row
-
-
 func _show_seed(s: int) -> void:
 	_seed_edit.text = str(s)
 	_preview_seed(s)
@@ -185,11 +142,7 @@ func _preview_seed(s: int) -> void:
 func _start() -> void:
 	var t := _seed_edit.text
 	var s := int(t) if t.is_valid_int() else Game.random_seed()
-	_loading.visible = true
-	# let the card draw before the main thread goes off to build the world
-	await get_tree().process_frame
-	await get_tree().process_frame
-	Game.start_stage(s)
+	Game.to_garage(s)
 
 
 ## The menu backdrop, painted in code: hazy late-afternoon sky, ridgelines

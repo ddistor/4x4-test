@@ -18,7 +18,8 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   between the start menu (`scenes/menu.tscn`, the main scene) and a stage
   (`scenes/main.tscn`). `-- --seed N --weather dry|rain` on the command line.
 - `scripts/ui/start_menu.gd` — start menu (painted backdrop, stage preview, seed,
-  weather); `pause_menu.gd` — Esc; `hud.gd` — rig status, inclinometers, section
+  weather, trail); `garage.gd` — rig, paint, shirt, jorts and print, with the rig
+  and driver shown turning on a pad (the Rig in preview mode) before you drive; `pause_menu.gd` — Esc; `hud.gd` — rig status, inclinometers, section
   and distance (no clock on purpose: it's a drive, not a race); `ui_kit.gd` — shared look.
 - `scripts/main.gd` — builds environment, terrain, rig, camera, HUD, pause menu.
 - `scripts/world/stage_plan.gd` — the seeded chain of sections: paddy road first,

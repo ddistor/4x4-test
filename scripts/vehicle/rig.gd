@@ -56,10 +56,15 @@ var _spawn: Transform3D
 var driver: Driver
 var winch_aim: WinchAim
 var spec: RigSpec
+## Shown in the garage: no terrain, the body held still, wheels at ride height.
+var preview := false
 
 
 func _ready() -> void:
-	terrain = get_node(terrain_path) as Terrain
+	preview = terrain_path.is_empty()
+	if not preview:
+		terrain = get_node(terrain_path) as Terrain
+	freeze = preview
 	spec = RigSpec.get_kind(Game.rig_kind)
 	mass = spec.mass
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
@@ -85,6 +90,10 @@ func _ready() -> void:
 	_build_axles()
 	_build_cable()
 	_spawn = global_transform
+	if preview:
+		set_process_unhandled_input(false)
+		winch_aim.set_process_unhandled_input(false)
+		winch_aim.set_process(false)
 
 
 func _build_body() -> void:
@@ -251,6 +260,10 @@ func place_on_trail(z: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if preview:
+		for w in wheels:
+			w._update_mesh(w.rest_length + w.effective_radius() - 0.06, delta)
+		return
 	if global_position.y < -25.0 or global_transform.basis.y.y < -0.6 and linear_velocity.length() < 0.3:
 		# fell off the map or settled on the roof
 		recover()
