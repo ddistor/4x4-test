@@ -158,6 +158,16 @@ func _rig_shots() -> void:
 	# and a close look at the front-left corner, where nose, fender and hood meet
 	var corner := Vector3(-_rig.spec.track, 0.95, _rig.spec.fairlead.z + 0.35)
 	views.append(["97_rig_corner", corner + Vector3(-1.1, 0.5, -1.4), corner])
+	if "--snap-gaps" in OS.get_cmdline_user_args():
+		# close looks all round, for panels that don't meet
+		var tail := _rig.spec.rear_z + 0.7
+		var fr := Vector3(_rig.spec.track, 0.95, _rig.spec.fairlead.z + 0.35)
+		views = [
+			["96_gap_fr", fr + Vector3(1.1, 0.5, -1.4), fr],
+			["96_gap_rl", Vector3(-1.6, 1.5, tail + 1.4), Vector3(-0.6, 1.0, tail - 0.3)],
+			["96_gap_rr", Vector3(1.6, 1.5, tail + 1.4), Vector3(0.6, 1.0, tail - 0.3)],
+			["96_gap_roof", Vector3(-1.8, 2.9, -0.6), Vector3(-0.4, 1.7, 0.4)],
+			["96_gap_low", Vector3(-2.4, 0.35, 0.0), Vector3(0, 0.7, 0.0)]]
 	for v: Array in views:
 		cam.global_position = r * (v[1] as Vector3)
 		cam.look_at(r * (v[2] as Vector3 if v.size() > 2 else Vector3(0, 0.95, 0)), r.basis.y)
