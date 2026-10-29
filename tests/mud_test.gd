@@ -35,8 +35,9 @@ func _shot(name_: String) -> void:
 		cam.fov = 45.0
 		add_child(cam)
 	var r := rig.global_transform
-	cam.global_position = r * Vector3(-4.2, 1.3, 1.4)
-	cam.look_at(r * Vector3(0, 0.75, 0.2), Vector3.UP)
+	var close := "--close" in OS.get_cmdline_user_args()
+	cam.global_position = r * (Vector3(-2.0, 1.0, 1.4) if close else Vector3(-4.2, 1.3, 1.4))
+	cam.look_at(r * (Vector3(-0.6, 0.8, 1.2) if close else Vector3(0, 0.75, 0.2)), Vector3.UP)
 	cam.make_current()
 	for i in range(4):
 		await RenderingServer.frame_post_draw
@@ -50,7 +51,41 @@ func _wait(seconds: float) -> void:
 		await get_tree().physics_frame
 
 
+## --pictures: skip the simulation and set each stage's figures directly
+## (the windowed renderer here is too slow to sit through three minutes)
+func _pictures() -> void:
+	await _wait(1.0)
+	var river := 0.0
+	for c in terrain.crossings:
+		if c["stones"]:
+			river = c["zc"]
+			break
+	var stages := [
+		["1_wet", 0.0, 0.0, 0.0, -10.0, 0.0],
+		["2_dried", 1.0, 0.3, 0.0, -10.0, 0.0],
+		["3_flaked", 1.0, 0.3, 0.35, -10.0, 0.0],
+		["4_after_river", 0.15, 0.1, 0.35, 0.85, 0.75]]
+	for st: Array in stages:
+		for i in range(4):
+			rig.corner_mud[i] = 1.6
+		rig.cake = 0.3
+		await _wait(0.2)
+		rig.set_physics_process(false)
+		for m in rig._body_mats:
+			m.set_shader_parameter("dryness", st[1])
+			m.set_shader_parameter("flaked", st[3])
+			m.set_shader_parameter("wash_y", st[4])
+			m.set_shader_parameter("washed", st[5])
+		await _shot(st[0])
+		rig.set_physics_process(true)
+		print("saved ", st[0])
+	get_tree().quit()
+
+
 func _run() -> void:
+	if "--pictures" in OS.get_cmdline_user_args():
+		await _pictures()
+		return
 	await _wait(1.0)
 	var river := -1.0
 	for c in terrain.crossings:

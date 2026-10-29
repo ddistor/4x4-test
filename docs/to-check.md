@@ -27,6 +27,20 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Mud: slower, sets hard, flakes, washes realistically
+
+`rig.gd` (mud on the rig) and `mud_cake.gdshader`. Rolling through clay only
+flecks the arches now; it's wheelspin in deep wet mud that plasters a corner,
+and it builds over tens of seconds, not a few (seed 3 bog: ~60% after 50 s,
+was 15 s). Bog water no longer washes it. Left to dry (~3 min) it sets into a
+crust; hard knocks then chip it off along its cracks (falling chips), leaving
+dull clay-stained paint; fresh mud covers those spots again. A wade washes only
+what's below the waterline, slowly and thin edges first; set crust barely
+shifts. A lifted rig in knee-deep water only gets its wheels and axles clean.
+`tests/mud_test.tscn` runs the cycle headless (`--pictures --close` with a
+window for the four stages). To check by driving: the build-up rate, flakes
+falling off over the rock steps, and how long a ford takes to clean the sills.
+
 ## Front corners closed up
 
 On the Rubikon you could see into the body at the front corner: the grille

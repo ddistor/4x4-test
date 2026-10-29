@@ -45,6 +45,23 @@ float mud_cracks(vec3 p) {
 	return d2 - d1;
 }
 
+// Random 0..1 id of the crack cell p falls in (same cells as mud_cracks).
+float mud_cell_id(vec3 p) {
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	float d1 = 8.0;
+	float id = 0.0;
+	for (int z = -1; z <= 1; z++)
+	for (int y = -1; y <= 1; y++)
+	for (int x = -1; x <= 1; x++) {
+		vec3 g = vec3(float(x), float(y), float(z));
+		vec3 o = vec3(mud_hash(i + g), mud_hash(i + g + 31.7), mud_hash(i + g + 71.3));
+		float d = length(g + o - f);
+		if (d < d1) { d1 = d; id = mud_hash(i + g + 13.1); }
+	}
+	return id;
+}
+
 // Albedo/roughness/specular of clay at point p (mesh space), given how thick
 // it is there (0..1) and how dry the whole rig is (0..1).
 void mud_material(vec3 p, float thick, float dryness, out vec3 albedo, out float rough, out float spec) {

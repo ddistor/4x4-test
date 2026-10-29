@@ -93,18 +93,19 @@ void fragment() {
 	// a wade washes only what was under the water, from the waterline down,
 	// patchily: it goes from the thin edges first, the thick middles hold on
 	float below = 1.0 - smoothstep(wash_y - 0.06, wash_y + 0.04, p.y + (n - 0.5) * 0.08);
-	float gone = below * smoothstep(thick * 0.8, thick * 0.8 + 0.25, washed + (n - 0.5) * 0.3);
+	float gone = below * smoothstep(thick * 0.6, thick * 0.6 + 0.25, washed + (n - 0.5) * 0.3);
 	float stain = mud * gone;   // washed mud still leaves the paint dulled with clay
 	mud *= 1.0 - gone;
 	thick *= 1.0 - gone;
 
 	// dry crust chips off in flakes along its cracks, curling up at the edges first
-	vec3 fq = p * 9.0 + vec3(mud_noise(p * 4.0), mud_noise(p * 4.0 + 3.7), 0.0);
-	float cell = mud_hash(floor(fq) + 0.5);
+	vec3 fq = p * 15.0 + vec3(mud_noise(p * 5.0), mud_noise(p * 5.0 + 3.7), 0.0);
+	float cell = mud_cell_id(fq);
 	float plate = mud_cracks(fq);
 	float brittle = smoothstep(0.55, 0.95, dryness);
-	float chipped = step(cell, flaked * (1.15 - 0.5 * thick)) * brittle;
-	float curl = (1.0 - smoothstep(0.0, 0.12, plate)) * brittle * smoothstep(0.2, 0.6, thick);
+	// once chipped it stays chipped, wet or dry, until fresh mud covers it (flaked drops)
+	float chipped = step(cell + 0.002, flaked * (1.15 - 0.5 * thick));
+	float curl = (1.0 - smoothstep(0.0, 0.05, plate)) * brittle * smoothstep(0.2, 0.6, thick);
 	stain = max(stain, mud * chipped);
 	mud *= 1.0 - chipped;
 
@@ -117,7 +118,7 @@ void fragment() {
 	mud_col *= 1.0 - 0.3 * rim * (1.0 - dryness);
 
 	// lifting flake edges catch shadow; stained paint is dull and clay-tinted
-	mud_col *= 1.0 - 0.35 * curl;
+	mud_col *= 1.0 - 0.18 * curl;
 	vec3 stained = mix(paint.rgb, vec3(0.5, 0.3, 0.18), 0.35 * stain);
 	ALBEDO = mix(stained, mud_col, mud);
 	ROUGHNESS = mix(mix(paint_roughness, 0.75, stain), mud_rough, mud);

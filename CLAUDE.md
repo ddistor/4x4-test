@@ -72,6 +72,8 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   `sky` (procedural clouds), `backdrop` for the far hills. Vertex colours are
   authored as sRGB and linearised in the shader (clamp before `pow`: MSAA on
   thin blades otherwise makes NaNs that glow turns into white blobs).
+- `tests/mud_test.tscn` — mud on the rig: build-up, drying to crust, flaking on
+  knocks, washing in a river (`--pictures --close` with a window renders the stages).
 - `tests/drive_test.tscn` — headless smoke test that drives a whole stage with a
   line-follower (crawling in 4L), recovers when stuck >10 s and prints where:
   `godot --headless --path . res://tests/drive_test.tscn --quit-after 36000 -- --seed 7`
