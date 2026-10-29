@@ -48,6 +48,10 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   forest beds plus a bank of separate animal calls (kept sparse on purpose),
   clunk and splash one-shots. No audio files.
 - `scripts/audio/rig_audio.gd` — pitches and mixes those from the rig's state.
+- `scripts/vehicle/driver.gd` — the driver (motocross helmet, sleeveless tee, jorts,
+  tsinelas) and the turning steering wheel. Torso and head are damped springs
+  driven by the acceleration the rig feels; arms reach the wheel by two-bone IK.
+  Helmet is on render layer 2, hidden from the seat camera.
 - `scripts/vehicle/mesh_kit.gd` — procedural modelling helpers (rounded boxes,
   lathes, tubes, tori) appended into a SurfaceTool.
 - `scripts/vehicle/wheel.gd` — one corner: raycast suspension, brush tire, sink/drag/

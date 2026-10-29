@@ -51,6 +51,7 @@ var _flag: MeshInstance3D
 var _cable: MeshInstance3D
 var _cable_mesh: ImmediateMesh
 var _spawn: Transform3D
+var driver: Driver
 
 
 func _ready() -> void:
@@ -63,6 +64,10 @@ func _ready() -> void:
 	can_sleep = false
 	continuous_cd = true
 	_build_body()
+	driver = Driver.new()
+	driver.name = "Driver"
+	add_child(driver)
+	driver.build(self)
 	_build_wheels()
 	_build_axles()
 	_build_cable()
@@ -153,12 +158,8 @@ func _build_body() -> void:
 		rb.call(trim, Vector3(0.44, 0.55, 0.1), 0.045, back)
 	rb.call(trim, Vector3(0.82, 0.13, 0.4), 0.05, at.call(Vector3(0, 0.68, 1.2)))
 	rb.call(trim, Vector3(0.82, 0.4, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.95, 1.46)))
-	var wheel_xf := Transform3D(Basis(Vector3.RIGHT, 1.15), Vector3(-0.33, 1.2, -0.1))
-	MeshKit.torus(trim, 0.19, 0.017, wheel_xf, c, 28, 8)
-	for k in range(3):
-		var f := TAU * k / 3.0 + PI * 0.5
-		MeshKit.tube(trim, Vector3.ZERO, Vector3(cos(f), 0, sin(f)) * 0.18, 0.012, wheel_xf, c, 6)
-	MeshKit.tube(chassis, Vector3(-0.33, 0.98, -0.42), wheel_xf.origin, 0.022, Transform3D.IDENTITY, c)
+	# the steering wheel itself turns, so the driver builds it (driver.gd)
+	MeshKit.tube(chassis, Vector3(-0.33, 0.98, -0.42), Driver.WHEEL_AT, 0.022, Transform3D.IDENTITY, c)
 	MeshKit.tube(chassis, Vector3(0.02, 0.58, -0.1), Vector3(0.0, 0.98, 0.0), 0.012, Transform3D.IDENTITY, c, 6)
 	MeshKit.tube(chassis, Vector3(0.1, 0.58, -0.1), Vector3(0.12, 0.92, -0.02), 0.01, Transform3D.IDENTITY, c, 6)
 

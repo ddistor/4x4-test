@@ -1,5 +1,17 @@
 # To check in Claude Code / by hand
 
+## The driver (first sketch)
+
+In the seat: white motocross helmet with red/blue stripes, red peak and orange
+goggles, a maroon tee with the sleeves cut off, jorts with frayed cuffs, blue
+tsinelas. The steering wheel now turns with the steering and his hands stay on it.
+He moves from what the rig does: thrown to the outside in corners, folds
+forward under braking, sinks and floats over bumps, head lagging and trying to
+keep level. Things to judge by eye while driving: too floppy or too stiff
+(`_spring(...)` frequencies and the gains on `f.x` / `f.z` in
+`driver.gd::_physics_process`), proportions, colours. The seat camera (C) moved
+up to his eye height and hides his helmet.
+
 ## Hard trails, steep climbs, body roll fix
 
 - **Difficulty** (menu: Trail Moderate / Hard / Extreme, Hard by default)
@@ -88,9 +100,6 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
-- **The driver**: a typical Filipino trail driver in the seat: motocross helmet,
-  t-shirt cut sleeveless, jorts, tsinelas. Must move realistically: body sways
-  and bounces with the rig, head bobs, arms work the wheel.
 - **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
      low range.

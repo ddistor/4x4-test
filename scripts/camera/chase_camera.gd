@@ -41,6 +41,8 @@ func snap_behind() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("camera_toggle"):
 		hood_cam = not hood_cam
+		# the seat camera sits inside the driver's helmet (layer 2): hide it there
+		cull_mask = (0xFFFFF & ~2) if hood_cam else 0xFFFFF
 		_yaw = 0.0
 		_pitch = 0.0
 	elif event is InputEventMouseButton:
@@ -69,7 +71,7 @@ func _physics_process(delta: float) -> void:
 		# driver's seat (left-hand drive), free look within a head-turn
 		_yaw = clampf(_yaw, -2.2, 2.2)
 		_pitch = clampf(_pitch, -0.9, 0.7)
-		var eye := target.global_transform.translated_local(Vector3(-0.33, 1.42, 0.25))
+		var eye := target.global_transform.translated_local(Vector3(-0.33, 1.6, 0.2))
 		global_transform = eye
 		rotate_object_local(Vector3.UP, _yaw)
 		rotate_object_local(Vector3.RIGHT, _pitch)
