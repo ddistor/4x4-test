@@ -32,11 +32,12 @@ through terrain so you can find them; too cluttered?
 In the seat: white full-face helmet with a black visor (his face hidden),
 red/blue stripes and a blue chin, a maroon tee with the sleeves cut off, jorts with frayed cuffs, blue
 tsinelas. The steering wheel now turns with the steering and his hands stay on it.
-He moves from what the rig does: thrown to the outside in corners, folds
-forward under braking, sinks and floats over bumps, head lagging and trying to
-keep level. Things to judge by eye while driving: too floppy or too stiff
-(`_spring(...)` frequencies and the gains on `f.x` / `f.z` in
-`driver.gd::_physics_process`), proportions, colours. The seat camera (C) moved
+His torso (40 kg) and head (5 kg) are physics bodies on joints (hips with a
+few cm of seat cushion, neck); the engine throws them about with the rig and
+his "muscles" are damped torques holding him upright (damping ratio ~0.7, so
+he leans and settles, never rocks on his own). Swerve test: torso 5-8 deg,
+head a beat later; rolled to 79 deg he stays in the seat. Too stiff or too
+floppy: `TORSO_K` / `HEAD_K` in `driver.gd` (keep the `_C` damping in step). The seat camera (C) moved
 up to his eye height and hides his helmet. He gets muddy with the rig
 (open tub): flecks first, then splatters, capped at about 40% so he never
 turns into a clay statue (`shaders/driver.gdshader`, `reach`).
@@ -129,12 +130,6 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
-- **Driver should be physics-based** (reported: he sways left/right on his own).
-  Cause: torso/head are springs chasing the rig's measured acceleration, which
-  is noisy frame to frame, and the springs are under-damped (z 0.28-0.32).
-  Plan: torso and head as real physics bodies on springy joints to the seat,
-  thrown about only by the rig's actual motion (rollovers included). Quick
-  fallback: filter the acceleration and damp to z ~0.7.
 - **More rigs, common on PH trails** (ideas, not started): Jimny/Samurai-style
   mini (light, narrow, floats, small tires), Land Cruiser 70-style heavy wagon
   (lockers, snorkel, sinks in bogs), Hilux/Strada-style IFS pickup (stable,

@@ -401,6 +401,8 @@ func place_on_trail(z: float) -> void:
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	winch_active = false
+	if driver:
+		driver.snap()
 	for w in wheels:
 		w.sink = 0.0
 		w.slip = 0.0

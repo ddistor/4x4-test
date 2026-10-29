@@ -51,8 +51,8 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 - `scripts/vehicle/winch_aim.gd` — choosing a winch anchor: rings on everything in
   reach, mouse hover or Tab to pick, F to hook.
 - `scripts/vehicle/driver.gd` — the driver (motocross helmet, sleeveless tee, jorts,
-  tsinelas) and the turning steering wheel. Torso and head are damped springs
-  driven by the acceleration the rig feels; arms reach the wheel by two-bone IK.
+  tsinelas) and the turning steering wheel. Torso and head are physics bodies
+  on joints, held up by damped muscle torques; arms reach the wheel by two-bone IK.
   Helmet is on render layer 2, hidden from the seat camera.
 - `scripts/vehicle/mesh_kit.gd` — procedural modelling helpers (rounded boxes,
   lathes, tubes, tori) appended into a SurfaceTool.

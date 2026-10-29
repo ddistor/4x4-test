@@ -3,12 +3,13 @@ extends Node3D
 ## The driver, modelled in code: a typical trail guy in a full-face helmet,
 ## a t-shirt with the sleeves cut off, jorts and tsinelas, hands on the wheel.
 ##
-## He moves the way a body in a bucking rig does. What he feels is the rig's
-## acceleration (plus gravity) in the rig's frame; his torso is a damped
-## spring pivoting at the hips, thrown outward in corners, forward under
-## braking, bounced by every rut. The head is a second, quicker spring on
-## top that lags the torso and tries to keep the eyes level. Arms reach the
-## wheel by two-bone IK, so they follow the torso and the steering.
+## His torso and head are real physics bodies. The torso (40 kg) hangs on a
+## joint at the hips with a little seat-cushion travel; the head (5 kg) on a
+## joint at the neck. The engine throws them about with whatever the rig does:
+## lurches, ruts, landings, rollovers. His muscles are only torques that hold
+## him upright against that, well damped, the way a braced person rides; the
+## head also tries to keep the eyes level. Arms reach the wheel by two-bone
+## IK from wherever the torso has been thrown. Legs stay planted.
 ##
 ## Lives in rig space; the rig adds it and the turning steering wheel.
 
@@ -36,19 +37,20 @@ const FOREARM := 0.29
 var rig: RigidBody3D
 var steering_wheel: Node3D
 var _mat: ShaderMaterial
-var _torso: Node3D
-var _head: Node3D
+var _torso: RigidBody3D
+var _head: RigidBody3D
 var _arms: Array = []   # per side: [upper arm, forearm, hand, elbow] MeshInstance3Ds
 
-# body dynamics: angles (rad) and their rates, about the rig's X (pitch) and Z (roll)
-var _t_ang := Vector2.ZERO
-var _t_vel := Vector2.ZERO
-var _h_ang := Vector2.ZERO
-var _h_vel := Vector2.ZERO
-var _bob := 0.0
-var _bob_vel := 0.0
-var _last_v := Vector3.ZERO
-var _felt := Vector3(0, 9.8, 0)
+const NECK := Vector3(0, 0.68, 0.04)   # head pivot, in torso space
+# muscles: stiffness (N m/rad) and damping (N m s/rad) holding each body up
+const TORSO_K := 800.0     # ~2 Hz
+const TORSO_C := 85.0      # damping ratio ~0.7: leans and settles, never rocks
+const HEAD_K := 30.0
+const HEAD_C := 2.2
+const HEAD_LEVEL := 18.0                 # extra pull toward a level gaze
+# seat cushion: the torso can sink and lift a few cm
+const SEAT_K := 25000.0
+const SEAT_C := 1000.0
 
 
 func build(r: RigidBody3D) -> void:
@@ -57,14 +59,13 @@ func build(r: RigidBody3D) -> void:
 	_mat.shader = load("res://shaders/driver.gdshader")
 	_build_steering_wheel()
 	_build_legs()
-	_torso = Node3D.new()
-	_torso.position = HIP
-	add_child(_torso)
+	_torso = _body("Torso", 40.0, Vector3(0.4, 0.5, 0.24), Vector3(0, 0.3, 0.02))
 	_build_torso()
-	_head = Node3D.new()
-	_head.position = Vector3(0, 0.68, 0.04)
-	_torso.add_child(_head)
+	_head = _body("Head", 5.0, Vector3(0.28, 0.3, 0.32), Vector3(0, 0.11, 0.0))
 	_build_helmet()
+	snap()
+	_joint(rig, _torso, HIP, 0.6, 0.25, 0.04)
+	_joint(_torso, _head, HIP + NECK, 0.7, 0.6, 0.0)
 	for side: float in [-1.0, 1.0]:
 		var parts := []
 		for k in range(2):
@@ -85,7 +86,6 @@ func build(r: RigidBody3D) -> void:
 		add_child(elbow)
 		parts.append(elbow)
 		_arms.append(parts)
-	_last_v = rig.linear_velocity
 
 
 # --- modelling ---------------------------------------------------------------------
@@ -279,37 +279,77 @@ func _helmet_shell(st: SurfaceTool, visor: SurfaceTool) -> void:
 		MeshKit.cylinder(st, 0.016, 0.01, Transform3D(MeshKit.y_to(normals[i]), grid[i] + normals[i] * 0.004), VISOR, 12)
 
 
+## A body part the physics engine moves: no collisions (he's strapped in),
+## just mass and shape so it swings like a torso or a head.
+func _body(name_: String, kg: float, size: Vector3, centre: Vector3) -> RigidBody3D:
+	var b := RigidBody3D.new()
+	b.name = name_
+	b.top_level = true
+	b.mass = kg
+	b.collision_layer = 0
+	b.collision_mask = 0
+	b.can_sleep = false
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	cs.shape = box
+	cs.position = centre
+	b.add_child(cs)
+	add_child(b)
+	return b
+
+
+## Pin `b` to `a` at `at` (rig space): free to tip forward/back and side to
+## side up to `tip` rad, twist up to `twist`, and slide up/down `travel` m.
+func _joint(a: PhysicsBody3D, b: PhysicsBody3D, at: Vector3, tip: float, twist: float, travel: float) -> void:
+	var j := Generic6DOFJoint3D.new()
+	j.position = at
+	add_child(j)
+	for axis in range(3):
+		var lim := twist if axis == 1 else tip
+		match axis:
+			0:
+				j.set_flag_x(Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT, true)
+				j.set_param_x(Generic6DOFJoint3D.PARAM_ANGULAR_LOWER_LIMIT, -lim)
+				j.set_param_x(Generic6DOFJoint3D.PARAM_ANGULAR_UPPER_LIMIT, lim)
+			1:
+				j.set_flag_y(Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT, true)
+				j.set_param_y(Generic6DOFJoint3D.PARAM_ANGULAR_LOWER_LIMIT, -lim)
+				j.set_param_y(Generic6DOFJoint3D.PARAM_ANGULAR_UPPER_LIMIT, lim)
+				j.set_param_y(Generic6DOFJoint3D.PARAM_LINEAR_LOWER_LIMIT, -travel)
+				j.set_param_y(Generic6DOFJoint3D.PARAM_LINEAR_UPPER_LIMIT, travel * 0.75)
+			2:
+				j.set_flag_z(Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT, true)
+				j.set_param_z(Generic6DOFJoint3D.PARAM_ANGULAR_LOWER_LIMIT, -lim)
+				j.set_param_z(Generic6DOFJoint3D.PARAM_ANGULAR_UPPER_LIMIT, lim)
+	j.node_a = j.get_path_to(a)
+	j.node_b = j.get_path_to(b)
+
+
+## Put him back in the seat, at rest (after a reset or a teleport).
+func snap() -> void:
+	var seat := rig.global_transform * Transform3D(Basis.IDENTITY, HIP)
+	for pair: Array in [[_torso, seat], [_head, seat * Transform3D(Basis.IDENTITY, NECK)]]:
+		var b: RigidBody3D = pair[0]
+		var t: Transform3D = pair[1]
+		b.global_transform = t
+		PhysicsServer3D.body_set_state(b.get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM, t)
+		b.linear_velocity = rig.linear_velocity
+		b.angular_velocity = rig.angular_velocity
+
+
 # --- motion ------------------------------------------------------------------------
 
-func _physics_process(delta: float) -> void:
-	if rig == null or delta <= 0.0:
+func _physics_process(_delta: float) -> void:
+	if rig == null:
 		return
-	# what the body feels, in the rig's frame: acceleration minus gravity
-	var accel := (rig.linear_velocity - _last_v) / delta
-	_last_v = rig.linear_velocity
-	var felt_world := accel + Vector3(0, 9.8, 0)
-	var felt := rig.global_transform.basis.inverse() * felt_world
-	# a crash-landing spike shouldn't fling him through the windscreen
-	_felt = _felt.lerp(felt.limit_length(40.0), 1.0 - exp(-delta * 40.0))
-	var f := _felt / 9.8
-
-	# torso: thrown away from where the rig is accelerating, braced back to the seat
-	var t_target := Vector2(
-		clampf(-0.32 * f.z, -0.35, 0.06),     # pitch: braking (f.z > 0) folds him forward
-		clampf(0.4 * f.x, -0.4, 0.4))          # roll: corners throw him to the outside
-	_spring(t_target, 22.0, 0.32, delta, true)
-	# head: quicker, lags the torso, and keeps the eyes roughly level
-	var roll := rig.global_transform.basis.get_euler().z
-	var h_target := Vector2(-_t_ang.x * 0.5 - 0.15 * f.z, -_t_ang.y * 0.6 - roll * 0.35)
-	h_target -= Vector2(_t_vel.x, _t_vel.y) * 0.025
-	_spring(h_target, 30.0, 0.28, delta, false)
-	# bounce: sinks into the seat when the rig lands, floats when it drops away
-	var bob_target := clampf(-(f.y - 1.0) * 0.03, -0.06, 0.05)
-	_bob_vel += ((bob_target - _bob) * 900.0 - _bob_vel * 24.0) * delta
-	_bob += _bob_vel * delta
-
-	_torso.transform = Transform3D(Basis.from_euler(Vector3(_t_ang.x, 0, _t_ang.y)), HIP + Vector3(0, _bob, 0))
-	_head.transform = Transform3D(Basis.from_euler(Vector3(_h_ang.x, 0, _h_ang.y)), Vector3(0, 0.68, 0.04))
+	# muscles: hold the torso upright on the seat, the head on the torso,
+	# and the eyes roughly level with the horizon
+	_brace(_torso, rig, TORSO_K, TORSO_C)
+	_brace(_head, _torso, HEAD_K, HEAD_C)
+	var tilt := _head.global_basis.y.cross(Vector3.UP)
+	_head.apply_torque(tilt * HEAD_LEVEL)
+	_cushion()
 	_place_steering()
 	_place_arms()
 	# he's in an open tub: what the tires throw at the rig lands on him too
@@ -317,18 +357,30 @@ func _physics_process(delta: float) -> void:
 	_mat.set_shader_parameter("dryness", rig.get("dryness"))
 
 
-## Damped spring toward `target`; natural frequency `w` (rad/s), damping ratio `z`.
-func _spring(target: Vector2, w: float, z: float, delta: float, torso: bool) -> void:
-	var ang := _t_ang if torso else _h_ang
-	var vel := _t_vel if torso else _h_vel
-	vel += ((target - ang) * w * w - vel * 2.0 * z * w) * delta
-	ang += vel * delta
-	if torso:
-		_t_ang = ang
-		_t_vel = vel
-	else:
-		_h_ang = ang
-		_h_vel = vel
+## Torque `body` back toward its rest pose relative to `parent` (equal and
+## opposite on the parent): a damped rotational spring.
+func _brace(body: RigidBody3D, parent: RigidBody3D, k: float, c: float) -> void:
+	var rel := (parent.global_basis.inverse() * body.global_basis).get_rotation_quaternion()
+	var angle := rel.get_angle()
+	if angle > PI:
+		angle -= TAU
+	var bend := Vector3.ZERO
+	if absf(angle) > 1e-5:
+		bend = parent.global_basis * (rel.get_axis() * angle)
+	var torque := -bend * k - (body.angular_velocity - parent.angular_velocity) * c
+	body.apply_torque(torque)
+	parent.apply_torque(-torque)
+
+
+## The seat cushion under him: springs him back to sitting height.
+func _cushion() -> void:
+	var seat := rig.global_transform * HIP
+	var up := rig.global_basis.y
+	var dy := (_torso.global_position - seat).dot(up)
+	var rel_v := _torso.linear_velocity - rig.linear_velocity - rig.angular_velocity.cross(seat - rig.global_position)
+	var f := up * (-dy * SEAT_K - rel_v.dot(up) * SEAT_C)
+	_torso.apply_central_force(f)
+	rig.apply_force(-f, seat - rig.global_position)
 
 
 func _place_steering() -> void:
@@ -340,7 +392,8 @@ func _place_arms() -> void:
 	var sides: Array[float] = [-1.0, 1.0]
 	for i in range(2):
 		var sx := sides[i]
-		var shoulder: Vector3 = _torso.transform * (Basis(Vector3.RIGHT, 0.12) * Vector3(sx * 0.21, 0.54, 0.03))
+		# from wherever the physics has thrown the torso, into rig space
+		var shoulder: Vector3 = to_local(_torso.global_transform * (Basis(Vector3.RIGHT, 0.12) * Vector3(sx * 0.21, 0.54, 0.03)))
 		# hands at ten and two on the rim, turning with the wheel
 		var grip := Vector3(sx * WHEEL_R * 0.87, 0.0, -WHEEL_R * 0.5)
 		var hand: Vector3 = steering_wheel.transform * grip
