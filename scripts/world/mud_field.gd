@@ -1,0 +1,129 @@
+class_name MudField
+extends RefCounted
+## Per-cell soft-ground data for the trail. Lives alongside the terrain
+## heightmap. The physics collider is the *firm* base; everything here is
+## the soft layer on top of it that tires sink into and carve ruts through.
+##
+## Per cell:
+##   thickness  - metres of soft mud sitting on the firm base (0 = hard ground)
+##   wetness    - 0 dry clay .. 1 water-saturated soup
+##   rut        - metres already carved out / compacted by tires (<= thickness)
+##
+## Lateritic clay in Morong behaves two ways: dry it is firm and grippy, wet it
+## is slick on the surface and sucks the wheel down. Both axes matter.
+
+var width: int
+var height: int
+var cell_size: float
+var origin: Vector2  # world XZ of cell (0,0)
+
+var thickness: PackedFloat32Array
+var wetness: PackedFloat32Array
+var rut: PackedFloat32Array
+
+## RGB float image: R = rut depth (m), G = wetness, B = thickness (m). Sampled by the terrain shader.
+var image: Image
+var texture: ImageTexture
+var _dirty := false
+
+
+func _init(p_width: int, p_height: int, p_cell_size: float, p_origin: Vector2) -> void:
+	width = p_width
+	height = p_height
+	cell_size = p_cell_size
+	origin = p_origin
+	var n := width * height
+	thickness.resize(n)
+	wetness.resize(n)
+	rut.resize(n)
+	thickness.fill(0.0)
+	wetness.fill(0.0)
+	rut.fill(0.0)
+	image = Image.create(width, height, false, Image.FORMAT_RGBF)
+	texture = ImageTexture.create_from_image(image)
+
+
+func idx(cx: int, cy: int) -> int:
+	return cy * width + cx
+
+
+func world_to_cell(world_xz: Vector2) -> Vector2i:
+	var c := (world_xz - origin) / cell_size
+	return Vector2i(clampi(int(floor(c.x)), 0, width - 1), clampi(int(floor(c.y)), 0, height - 1))
+
+
+func in_bounds(c: Vector2i) -> bool:
+	return c.x >= 0 and c.y >= 0 and c.x < width and c.y < height
+
+
+## Bilinear sample of all three channels at a world XZ position.
+func sample(world_xz: Vector2) -> Dictionary:
+	var c := (world_xz - origin) / cell_size - Vector2(0.5, 0.5)
+	var x0 := clampi(int(floor(c.x)), 0, width - 2)
+	var y0 := clampi(int(floor(c.y)), 0, height - 2)
+	var tx := clampf(c.x - x0, 0.0, 1.0)
+	var ty := clampf(c.y - y0, 0.0, 1.0)
+	var i00 := idx(x0, y0)
+	var i10 := idx(x0 + 1, y0)
+	var i01 := idx(x0, y0 + 1)
+	var i11 := idx(x0 + 1, y0 + 1)
+	return {
+		"thickness": _bilerp(thickness[i00], thickness[i10], thickness[i01], thickness[i11], tx, ty),
+		"wetness": _bilerp(wetness[i00], wetness[i10], wetness[i01], wetness[i11], tx, ty),
+		"rut": _bilerp(rut[i00], rut[i10], rut[i01], rut[i11], tx, ty),
+	}
+
+
+func _bilerp(a: float, b: float, c: float, d: float, tx: float, ty: float) -> float:
+	return lerpf(lerpf(a, b, tx), lerpf(c, d, tx), ty)
+
+
+## Carve a rut: a tire pressed `amount` metres further into the soft layer
+## around world position. Radius is the tire half-width. Returns the actual
+## depth carved (limited by remaining soft mud).
+func carve(world_xz: Vector2, radius: float, amount: float) -> float:
+	if amount <= 0.0:
+		return 0.0
+	var centre := world_to_cell(world_xz)
+	var r_cells := maxi(1, int(ceil(radius / cell_size)))
+	var carved := 0.0
+	for dy in range(-r_cells, r_cells + 1):
+		for dx in range(-r_cells, r_cells + 1):
+			var c := centre + Vector2i(dx, dy)
+			if not in_bounds(c):
+				continue
+			var cell_world := origin + (Vector2(c) + Vector2(0.5, 0.5)) * cell_size
+			var d := cell_world.distance_to(world_xz)
+			if d > radius + cell_size * 0.5:
+				continue
+			var falloff := 1.0 - clampf(d / (radius + cell_size * 0.5), 0.0, 1.0)
+			var i := idx(c.x, c.y)
+			var room := thickness[i] - rut[i]
+			if room <= 0.0:
+				continue
+			var dr := minf(room, amount * falloff)
+			rut[i] += dr
+			carved = maxf(carved, dr)
+			# A wheel churning through the cell wets it slightly (brings water up).
+			wetness[i] = minf(1.0, wetness[i] + dr * 0.15)
+			image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i]))
+	if carved > 0.0:
+		_dirty = true
+	return carved
+
+
+## Push the whole image to the GPU if anything changed. Call once per frame.
+func flush() -> void:
+	if _dirty:
+		texture.update(image)
+		_dirty = false
+
+
+## Rebuild the image from the arrays (after authoring the field).
+func bake_image() -> void:
+	for y in range(height):
+		for x in range(width):
+			var i := idx(x, y)
+			image.set_pixel(x, y, Color(rut[i], wetness[i], thickness[i]))
+	texture.update(image)
+	_dirty = false
