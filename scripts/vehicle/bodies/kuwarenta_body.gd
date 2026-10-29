@@ -1,28 +1,46 @@
 class_name KuwarentaBody
 extends RefCounted
-## The Kuwarenta: a forty-series-style hardtop. Flat-sided steel body in the
-## paint picked in the menu with the white top over it, short flat hood, round
-## headlights set in the fronts of the fenders and a slotted grille between,
-## upright windshield, twin rear doors with the spare, steel bumpers and a
-## winch. Lifted on 33s. No badges: it's a type, not a brand.
+## The Kuwarenta: a forty-series-style rig the way they run on the trail,
+## top off. Flat-sided steel tub in the paint picked in the menu, round
+## front fenders that flare out over the tires, a flat grille panel carrying
+## both headlights with a dark mesh between them, a wide hood with a crowned
+## middle, a low raked windshield and a roll bar over the seats. Steel
+## bumpers, winch, spare on the back. Lifted on 33s. No badges: it's a type,
+## not a brand.
 ## Rig space: forward -Z, left -X, wheel hubs at y~0.13.
 
-const TOP := Color(0.88, 0.88, 0.85)   # the white hardtop
 const SILL := 0.5                      # bottom edge of the body
-const BELT := 1.13                     # where the windows start
-const ROOF := 1.9
+const BELT := 1.13                     # top edge of the tub
 const HALF_W := 0.8                    # body half-width
 const COWL_Z := -0.46
 const TAIL_Z := 1.74
 const NOSE_Z := -1.8
 const HUB_Y := 0.13
+# front fenders: inner edge by the hood, outer face over the tire
+const FX_IN := 0.6
+const FX_OUT := 0.9
+const F_TOP := 1.05
+const F_SHOULDER := 0.12               # radius of the rounded top edge
+const F_FRONT := 0.62                  # bottom of the fender at the nose
+const HOOD_Y := 1.06
+# headlights in the grille panel
+const HL_X := 0.46
+const HL_Y := 0.83
+# windshield: low, raked back a little
+const WS_TILT := 0.2
+const WS_H := 0.5
+# roll bar hoop behind the front seats
+const HOOP_Z := 0.66
+const HOOP_X := 0.72
+const HOOP_TOP := 1.86
 
 
 static func build(rig: Rig) -> void:
 	BodyKit.collide(rig, COWL_Z, TAIL_Z, 0.55, 1.17, HALF_W)          # body
-	BodyKit.collide(rig, NOSE_Z, COWL_Z, 0.58, 1.1, HALF_W + 0.01)    # front clip
+	BodyKit.collide(rig, NOSE_Z, COWL_Z, 0.58, 1.1, FX_OUT)           # front clip
 	for col: Array in [
-		[Vector3(1.58, 0.76, 2.18), Vector3(0, 1.52, 0.64)],  # cab under the top
+		[Vector3(1.48, 0.62, 1.24), Vector3(0, 1.5, 0.08)],   # windshield to roll bar
+		[Vector3(1.48, 0.5, 1.0), Vector3(0, 1.4, 1.2)],      # roll bar back to the tail
 		[Vector3(1.72, 0.16, 0.16), Vector3(0, 0.6, -1.9)],   # bumper
 	]:
 		var cs := CollisionShape3D.new()
@@ -33,10 +51,9 @@ static func build(rig: Rig) -> void:
 		rig.add_child(cs)
 
 	var paint := MeshKit.begin()
-	var top := MeshKit.begin()       # white hardtop
-	var steel := MeshKit.begin()     # bumpers, winch, mirrors: satin black
-	var bright := MeshKit.begin()    # grille, bezels, handles: brushed steel
-	var chassis := MeshKit.begin()
+	var steel := MeshKit.begin()     # bumpers, roll bar, winch, mirrors: satin black
+	var bright := MeshKit.begin()    # bezels, handles: brushed steel
+	var chassis := MeshKit.begin()   # frame, grille mesh
 	var trim := MeshKit.begin()      # seats, dash pad
 	var c := Color.WHITE
 	var at := func(p: Vector3) -> Transform3D: return Transform3D(Basis.IDENTITY, p)
@@ -55,7 +72,7 @@ static func build(rig: Rig) -> void:
 	# body tub: floor, sides with the rear arch cut, back panel, cowl and dash
 	BodyKit.floor_panel(paint, rig.spec, COWL_Z, TAIL_Z, HALF_W - 0.02, SILL + 0.01, c)
 	BodyKit.wheel_houses(paint, rig.spec, rz, HALF_W, SILL, c)
-	BodyKit.wheel_houses(paint, rig.spec, fz, HALF_W + 0.03, 0.6, c)
+	BodyKit.wheel_houses(paint, rig.spec, fz, FX_OUT, F_FRONT, c)
 	for sx: float in [-1.0, 1.0]:
 		_side_panel(paint, sx * HALF_W, COWL_Z, TAIL_Z, SILL, BELT, [[rz, arch]], 0.035, c)
 		# rear arch: a rolled lip round the cut
@@ -63,74 +80,71 @@ static func build(rig: Rig) -> void:
 		# door shut lines and handles
 		rb.call(chassis, Vector3(0.006, BELT - SILL - 0.06, 0.008), 0.002, at.call(Vector3(sx * (HALF_W + 0.018), (BELT + SILL) * 0.5, 0.52)))
 		rb.call(bright, Vector3(0.025, 0.025, 0.12), 0.008, at.call(Vector3(sx * (HALF_W + 0.025), BELT - 0.09, 0.4)))
-		# body-colour belt rail along the top of the sides
+		# body-colour rail rolled over the top of the sides
 		rb.call(paint, Vector3(0.06, 0.04, TAIL_Z - COWL_Z), 0.015, at.call(Vector3(sx * (HALF_W - 0.01), BELT, (TAIL_Z + COWL_Z) * 0.5)))
 	rb.call(paint, Vector3(1.62, BELT - SILL, 0.04), 0.02, at.call(Vector3(0, (BELT + SILL) * 0.5, TAIL_Z)))
-	rb.call(chassis, Vector3(0.008, BELT - SILL - 0.05, 0.006), 0.002, at.call(Vector3(-0.08, (BELT + SILL) * 0.5, TAIL_Z + 0.022)))
+	rb.call(paint, Vector3(1.62, 0.04, 0.06), 0.015, at.call(Vector3(0, BELT, TAIL_Z)))
+	rb.call(chassis, Vector3(1.4, 0.006, 0.006), 0.002, at.call(Vector3(0, BELT - 0.12, TAIL_Z + 0.022)))   # tailgate seam
 	rb.call(paint, Vector3(1.62, BELT - SILL + 0.02, 0.04), 0.02, at.call(Vector3(0, (BELT + SILL) * 0.5, COWL_Z)))
 	rb.call(paint, Vector3(1.62, 0.07, 0.26), 0.03, at.call(Vector3(0, BELT + 0.02, COWL_Z - 0.08)))
 	rb.call(trim, Vector3(1.3, 0.1, 0.2), 0.04, at.call(Vector3(0, BELT - 0.04, COWL_Z + 0.12)))
 
-	# front fenders: flat tops with a rounded outer edge, the front faces
-	# carry the headlights, the arch cut round the front tire
-	var fender_in := 0.53
-	var fw := HALF_W + 0.03 - fender_in
-	var fx := (HALF_W + 0.03 + fender_in) * 0.5
-	var fender_top := 1.04
-	var fender_front := 0.6
+	# front fenders: round-shouldered, flared out over the tires, the arch cut
+	# round the front tire and a rolled lip on it
 	for sx: float in [-1.0, 1.0]:
-		rb.call(paint, Vector3(fw, 0.05, COWL_Z - NOSE_Z), 0.022, at.call(Vector3(sx * fx, fender_top, (COWL_Z + NOSE_Z) * 0.5)))
-		_side_panel(paint, sx * (HALF_W + 0.03), NOSE_Z + 0.03, COWL_Z, SILL, fender_top, [[fz, arch]], 0.035, c, fender_front)
-		_arch_lip(paint, sx * (HALF_W + 0.03), fz, arch, fender_front, c)
-		rb.call(paint, Vector3(fw, fender_top - fender_front + 0.03, 0.05), 0.022, at.call(Vector3(sx * fx, (fender_top + fender_front) * 0.5, NOSE_Z)))
+		_fender(paint, sx, fz, arch, c)
+		_arch_lip(paint, sx * (FX_OUT + 0.02), fz, arch, F_FRONT, c)
 		# inner fender apron beside the engine
-		rb.call(paint, Vector3(0.03, fender_top - 0.62, COWL_Z - NOSE_Z), 0.01, at.call(Vector3(sx * fender_in, (fender_top + 0.62) * 0.5, (COWL_Z + NOSE_Z) * 0.5)))
-		# headlight bezel and lens on the fender face, signal lamp under it
-		var bez := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * fx, 0.9, NOSE_Z - 0.03))
-		MeshKit.lathe(bright, [Vector2(0.07, -0.025), Vector2(0.1, -0.025), Vector2(0.104, 0.0),
-			Vector2(0.098, 0.025), Vector2(0.078, 0.025)], bez, c, 24)
+		rb.call(paint, Vector3(0.03, F_TOP - 0.62, COWL_Z - NOSE_Z), 0.01, at.call(Vector3(sx * FX_IN, (F_TOP + 0.62) * 0.5, (COWL_Z + NOSE_Z) * 0.5)))
 		# mirror on the cowl
 		MeshKit.tube(steel, Vector3(sx * (HALF_W + 0.02), BELT + 0.05, COWL_Z + 0.05), Vector3(sx * (HALF_W + 0.16), BELT + 0.25, COWL_Z - 0.02), 0.01, Transform3D.IDENTITY, c, 6)
 		MeshKit.cylinder(steel, 0.075, 0.025, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * (HALF_W + 0.17), BELT + 0.27, COWL_Z - 0.03)), c, 16)
 
-	# hood: flat, a slight crown, between the fenders
-	rb.call(paint, Vector3(fender_in * 2.0 + 0.02, 0.06, COWL_Z - NOSE_Z - 0.04), 0.025, at.call(Vector3(0, 1.085, (COWL_Z + NOSE_Z) * 0.5 - 0.01)))
-	rb.call(paint, Vector3(0.5, 0.03, COWL_Z - NOSE_Z - 0.2), 0.012, at.call(Vector3(0, 1.12, (COWL_Z + NOSE_Z) * 0.5)))
+	# hood: wide, a raised crown down the middle, the front edge rolled down
+	_hood(paint, c)
 
-	# grille: a bright slotted panel between the fenders
-	rb.call(bright, Vector3(fender_in * 2.0, 0.44, 0.04), 0.02, at.call(Vector3(0, 0.86, NOSE_Z + 0.01)))
-	for k in range(9):
-		rb.call(chassis, Vector3(0.04, 0.34, 0.02), 0.008, at.call(Vector3((k - 4) * 0.1, 0.85, NOSE_Z - 0.006)))
-	rb.call(paint, Vector3(fender_in * 2.0, 0.08, 0.05), 0.02, at.call(Vector3(0, 0.6, NOSE_Z + 0.02)))
+	# grille panel: flat, between the fenders, both headlights in it and a
+	# dark mesh between them
+	var gz := NOSE_Z + 0.05
+	rb.call(paint, Vector3(FX_IN * 2.0, 0.44, 0.04), 0.015, at.call(Vector3(0, 0.8, gz)))
+	rb.call(chassis, Vector3(0.52, 0.26, 0.03), 0.012, at.call(Vector3(0, 0.84, gz - 0.012)))
+	for k in range(7):
+		rb.call(steel, Vector3(0.5, 0.008, 0.012), 0.003, at.call(Vector3(0, 0.73 + k * 0.037, gz - 0.03)))
+	for k in range(13):
+		rb.call(steel, Vector3(0.008, 0.24, 0.012), 0.003, at.call(Vector3((k - 6) * 0.04, 0.84, gz - 0.032)))
+	for sx: float in [-1.0, 1.0]:
+		var bez := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * HL_X, HL_Y, gz - 0.03))
+		MeshKit.lathe(bright, [Vector2(0.075, -0.03), Vector2(0.1, -0.03), Vector2(0.106, 0.0),
+			Vector2(0.1, 0.03), Vector2(0.08, 0.03)], bez, c, 24)
 
-	# windshield: nearly upright frame on the cowl
-	var ws := Transform3D(Basis(Vector3.RIGHT, 0.1), Vector3(0, BELT + 0.04, COWL_Z - 0.06))
-	var wh := ROOF - BELT - 0.09
-	rb.call(paint, Vector3(1.6, 0.05, 0.05), 0.015, ws * at.call(Vector3(0, 0.0, 0)))
-	rb.call(paint, Vector3(1.6, 0.05, 0.05), 0.015, ws * at.call(Vector3(0, wh, 0)))
+	# windshield: a low frame raked back on the cowl, a hinge at each foot
+	var ws := Transform3D(Basis(Vector3.RIGHT, WS_TILT), Vector3(0, BELT + 0.06, COWL_Z - 0.08))
+	rb.call(paint, Vector3(1.56, 0.06, 0.05), 0.015, ws * at.call(Vector3(0, 0.0, 0)))
+	rb.call(paint, Vector3(1.56, 0.045, 0.045), 0.015, ws * at.call(Vector3(0, WS_H, 0)))
 	for sx: float in [-1.0, 1.0]:
-		rb.call(paint, Vector3(0.06, wh, 0.05), 0.015, ws * at.call(Vector3(sx * 0.77, wh * 0.5, 0)))
-	rb.call(paint, Vector3(0.03, wh, 0.035), 0.01, ws * at.call(Vector3(0, wh * 0.5, 0)))
-	for sx: float in [-1.0, 1.0]:
-		MeshKit.tube(steel, ws * Vector3(sx * 0.38 - 0.22, 0.04, -0.03), ws * Vector3(sx * 0.38 + 0.1, 0.4, -0.03), 0.006, Transform3D.IDENTITY, c, 5)
+		rb.call(paint, Vector3(0.05, WS_H, 0.045), 0.015, ws * at.call(Vector3(sx * 0.755, WS_H * 0.5, 0)))
+		rb.call(chassis, Vector3(0.06, 0.05, 0.08), 0.01, at.call(Vector3(sx * 0.7, BELT + 0.04, COWL_Z - 0.06)))
+		MeshKit.tube(steel, ws * Vector3(sx * 0.36 - 0.2, 0.05, -0.03), ws * Vector3(sx * 0.36 + 0.08, 0.32, -0.03), 0.006, Transform3D.IDENTITY, c, 5)
 
-	# the white hardtop: roof, rain gutters, pillars, window frames
-	var top_z0 := COWL_Z - 0.06 + sin(0.1) * wh
-	rb.call(top, Vector3(1.64, 0.06, TAIL_Z - top_z0 + 0.03), 0.035, at.call(Vector3(0, ROOF, (TAIL_Z + top_z0) * 0.5)))
+	# roll bar: a hoop behind the front seats, bars forward to the windshield
+	# corners and back down to the tail
+	var tl := Vector3(-HOOP_X, HOOP_TOP, HOOP_Z)
+	var tr := Vector3(HOOP_X, HOOP_TOP, HOOP_Z)
+	var ws_top_l := ws * Vector3(-0.74, WS_H, 0.03)
+	var ws_top_r := ws * Vector3(0.74, WS_H, 0.03)
+	var bars: Array = [
+		[Vector3(-HOOP_X, BELT, HOOP_Z), tl], [Vector3(HOOP_X, BELT, HOOP_Z), tr], [tl, tr],
+		[tl, ws_top_l], [tr, ws_top_r],
+		[tl, Vector3(-HOOP_X, BELT, TAIL_Z - 0.12)], [tr, Vector3(HOOP_X, BELT, TAIL_Z - 0.12)],
+		[Vector3(-HOOP_X, BELT + 0.25, HOOP_Z), Vector3(HOOP_X, HOOP_TOP - 0.05, HOOP_Z)],   # diagonal brace
+	]
+	for bar: Array in bars:
+		MeshKit.tube(steel, bar[0], bar[1], 0.026, Transform3D.IDENTITY, c, 10)
+	for p: Vector3 in [tl, tr, ws_top_l, ws_top_r]:
+		MeshKit.sphere(steel, 0.03, at.call(p), c, 10)
 	for sx: float in [-1.0, 1.0]:
-		rb.call(top, Vector3(0.03, 0.025, TAIL_Z - top_z0), 0.01, at.call(Vector3(sx * 0.815, ROOF - 0.035, (TAIL_Z + top_z0) * 0.5)))
-		# pillars: behind the door, the wide rear quarter, the back corner
-		for p: Array in [[0.54, 0.09], [1.04, 0.05], [TAIL_Z - 0.05, 0.12]]:
-			rb.call(top, Vector3(0.04, ROOF - BELT, float(p[1])), 0.012, at.call(Vector3(sx * HALF_W, (ROOF + BELT) * 0.5, float(p[0]))))
-		rb.call(top, Vector3(0.04, 0.05, TAIL_Z - 0.54), 0.012, at.call(Vector3(sx * HALF_W, BELT + 0.04, (TAIL_Z + 0.54) * 0.5)))
-		# door window frame (body colour, like the doors)
-		rb.call(paint, Vector3(0.035, 0.03, 0.98), 0.01, at.call(Vector3(sx * HALF_W, ROOF - 0.06, 0.03)))
-	# back of the top: a frame round the two rear-door windows
-	var bh := ROOF - BELT
-	rb.call(top, Vector3(1.62, 0.07, 0.04), 0.015, at.call(Vector3(0, ROOF - 0.04, TAIL_Z)))
-	rb.call(top, Vector3(1.62, 0.07, 0.04), 0.015, at.call(Vector3(0, BELT + 0.04, TAIL_Z)))
-	for px: float in [-0.76, -0.04, 0.04, 0.76]:
-		rb.call(top, Vector3(0.09 if absf(px) > 0.5 else 0.07, bh, 0.04), 0.015, at.call(Vector3(px, (ROOF + BELT) * 0.5, TAIL_Z)))
+		rb.call(steel, Vector3(0.1, 0.02, 0.1), 0.005, at.call(Vector3(sx * HOOP_X, BELT + 0.01, HOOP_Z)))
+		rb.call(steel, Vector3(0.1, 0.02, 0.1), 0.005, at.call(Vector3(sx * HOOP_X, BELT + 0.01, TAIL_Z - 0.12)))
 
 	# seats, rear bench, steering column, shifters
 	var seat := rig.spec.seat
@@ -147,11 +161,11 @@ static func build(rig: Rig) -> void:
 	# bumpers and the winch
 	rb.call(steel, Vector3(1.72, 0.14, 0.14), 0.025, at.call(Vector3(0, 0.6, -1.9)))
 	rb.call(steel, Vector3(1.64, 0.12, 0.12), 0.025, at.call(Vector3(0, 0.58, TAIL_Z + 0.1)))
-	MeshKit.cylinder(chassis, 0.08, 0.44, Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(0, 0.72, -1.88)), c, 16)
+	MeshKit.cylinder(chassis, 0.08, 0.44, Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(0, 0.72, -1.9)), c, 16)
 	for sx: float in [-1.0, 1.0]:
-		MeshKit.cylinder(chassis, 0.095, 0.06, Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(sx * 0.25, 0.72, -1.88)), c, 16)
+		MeshKit.cylinder(chassis, 0.095, 0.06, Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(sx * 0.25, 0.72, -1.9)), c, 16)
 		rb.call(steel, Vector3(0.04, 0.12, 0.04), 0.01, at.call(Vector3(sx * 0.62, 0.6, -1.99)))
-	rb.call(steel, Vector3(0.22, 0.08, 0.05), 0.015, at.call(Vector3(0, 0.72, -1.97)))
+	rb.call(steel, Vector3(0.22, 0.08, 0.05), 0.015, at.call(Vector3(0, 0.72, -1.99)))
 
 	# spare on a swing-out carrier at the back, off to the left
 	var spare := MeshInstance3D.new()
@@ -164,27 +178,19 @@ static func build(rig: Rig) -> void:
 
 	var chassis_mat := rig._body_mat(Color(0.05, 0.05, 0.05), 0.7, 0.2, 0.0)
 	rig._add_mesh(MeshKit.commit(paint, rig.paint_mat(0.22, 0.8)))   # picked in the start menu
-	rig._add_mesh(MeshKit.commit(top, rig._body_mat(TOP, 0.3, 0.0, 0.6)))
 	rig._add_mesh(MeshKit.commit(steel, rig._body_mat(Color(0.03, 0.03, 0.032), 0.55, 0.3, 0.0)))
 	rig._add_mesh(MeshKit.commit(bright, rig._body_mat(Color(0.62, 0.63, 0.62), 0.32, 0.85, 0.0)))
 	rig._add_mesh(MeshKit.commit(chassis, chassis_mat))
 	rig._add_mesh(MeshKit.commit(trim, rig._body_mat(Color(0.06, 0.055, 0.05), 0.6, 0.0, 0.0)))
 
-	# glass: windshield, door and quarter windows, the back doors
+	# glass: just the windshield
 	var glass := StandardMaterial3D.new()
 	glass.albedo_color = Color(0.5, 0.58, 0.62, 0.25)
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	glass.roughness = 0.05
 	glass.metallic_specular = 0.9
 	var gst := MeshKit.begin()
-	for sx: float in [-1.0, 1.0]:
-		MeshKit.rounded_box(gst, Vector3(0.72, wh - 0.06, 0.008), 0.004, ws * at.call(Vector3(sx * 0.38, wh * 0.5, 0)), c, 1)
-		var wy := (ROOF - 0.08 + BELT + 0.07) * 0.5
-		var wy_h := ROOF - 0.08 - BELT - 0.07
-		MeshKit.rounded_box(gst, Vector3(0.008, wy_h, 0.94), 0.004, at.call(Vector3(sx * HALF_W, wy, 0.03)), c, 1)
-		MeshKit.rounded_box(gst, Vector3(0.008, wy_h, 0.42), 0.03, at.call(Vector3(sx * HALF_W, wy, 0.8)), c, 1)
-		MeshKit.rounded_box(gst, Vector3(0.008, wy_h, 0.5), 0.03, at.call(Vector3(sx * HALF_W, wy, 1.38)), c, 1)
-		MeshKit.rounded_box(gst, Vector3(0.62, wy_h, 0.008), 0.03, at.call(Vector3(sx * 0.4, wy, TAIL_Z + 0.022)), c, 1)
+	MeshKit.rounded_box(gst, Vector3(1.46, WS_H - 0.05, 0.008), 0.004, ws * at.call(Vector3(0, WS_H * 0.5, 0)), c, 1)
 	rig._add_mesh(MeshKit.commit(gst, glass))
 	var lamp := StandardMaterial3D.new()
 	lamp.albedo_color = Color(0.95, 0.93, 0.85)
@@ -194,8 +200,8 @@ static func build(rig: Rig) -> void:
 	lamp.roughness = 0.1
 	var lst := MeshKit.begin()
 	for sx: float in [-1.0, 1.0]:
-		var lens := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * fx, 0.9, NOSE_Z - 0.035))
-		MeshKit.lathe(lst, [Vector2(0.0, -0.02), Vector2(0.082, -0.02), Vector2(0.065, 0.0), Vector2(0.0, 0.012)], lens, c, 20)
+		var lens := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * HL_X, HL_Y, gz - 0.035))
+		MeshKit.lathe(lst, [Vector2(0.0, -0.022), Vector2(0.084, -0.022), Vector2(0.068, 0.0), Vector2(0.0, 0.012)], lens, c, 20)
 	rig._add_mesh(MeshKit.commit(lst, lamp))
 	var amber := StandardMaterial3D.new()
 	amber.albedo_color = Color(0.9, 0.5, 0.08)
@@ -204,7 +210,8 @@ static func build(rig: Rig) -> void:
 	amber.emission_energy_multiplier = 0.3
 	var ast := MeshKit.begin()
 	for sx: float in [-1.0, 1.0]:
-		MeshKit.cylinder(ast, 0.035, 0.03, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * fx, 0.77, NOSE_Z - 0.03)), c, 12)
+		# signal lamps on the fronts of the fenders, beside the headlights
+		MeshKit.cylinder(ast, 0.04, 0.03, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * 0.73, 0.82, NOSE_Z - 0.01)), c, 12)
 	rig._add_mesh(MeshKit.commit(ast, amber))
 	var tail := StandardMaterial3D.new()
 	tail.albedo_color = Color(0.5, 0.03, 0.02)
@@ -216,6 +223,123 @@ static func build(rig: Rig) -> void:
 		MeshKit.rounded_box(tst, Vector3(0.08, 0.16, 0.03), 0.012, at.call(Vector3(sx * 0.72, 0.9, TAIL_Z + 0.03)), c, 2)
 	rig._add_mesh(MeshKit.commit(tst, tail))
 
+
+## One front fender on side `sx`: a sheet from the inner edge by the hood over
+## a rounded shoulder and down the outer face, flaring out at its bottom edge,
+## which follows the wheel arch round the axle at `fz`. The top drops in a
+## curve at the nose, and both ends are closed.
+static func _fender(st: SurfaceTool, sx: float, fz: float, arch: float, col: Color) -> void:
+	var rows: Array[PackedVector3Array] = []
+	var refs: Array[Vector3] = []
+	var n := 40
+	for i in range(n + 1):
+		var z := lerpf(NOSE_Z, COWL_Z, float(i) / n)
+		var t := clampf((NOSE_Z + 0.24 - z) / 0.24, 0.0, 1.0)
+		var top := F_TOP - 0.14 * (1.0 - sqrt(1.0 - t * t))
+		var yb := lerpf(F_FRONT, SILL, smoothstep(COWL_Z - 0.3, COWL_Z, z))
+		var dz := z - fz
+		if absf(dz) < arch:
+			yb = maxf(yb, HUB_Y + sqrt(arch * arch - dz * dz))
+		yb = minf(yb, top - F_SHOULDER - 0.03)
+		var row := PackedVector3Array()
+		for k in range(3):
+			row.append(Vector3(lerpf(FX_IN, FX_OUT - F_SHOULDER, k / 3.0), top, z))
+		for k in range(7):
+			var a := PI * 0.5 * k / 6.0
+			row.append(Vector3(FX_OUT - F_SHOULDER + sin(a) * F_SHOULDER, top - F_SHOULDER + cos(a) * F_SHOULDER, z))
+		for k in range(1, 4):
+			row.append(Vector3(FX_OUT + 0.012 * k / 3.0, lerpf(top - F_SHOULDER, yb + 0.03, k / 3.0), z))
+		row.append(Vector3(FX_OUT + 0.03, yb, z))
+		for k in range(row.size()):
+			row[k] = Vector3(row[k].x * sx, row[k].y, row[k].z)
+		rows.append(row)
+		refs.append(Vector3(sx * FX_IN, 0.5, z))
+	_shell(st, rows, refs, 0.025, col)
+	# close the nose and the back: the section filled in down to its bottom edge
+	for end: Array in [[0, -1.0], [n, 1.0]]:
+		var row: PackedVector3Array = rows[end[0]]
+		var nn := Vector3(0, 0, end[1])
+		var last := row[row.size() - 1]
+		var corner := Vector3(sx * FX_IN, last.y, last.z)
+		var mid := (row[0] + corner) * 0.5 + Vector3(sx * 0.1, 0, 0)
+		var loop: Array[Vector3] = []
+		for p in row:
+			loop.append(p)
+		loop.append(corner)
+		for k in range(loop.size()):
+			MeshKit._tri(st, Transform3D.IDENTITY, [mid, loop[k], loop[(k + 1) % loop.size()]], [nn, nn, nn], col)
+
+
+## The hood: between the fenders from the nose to the cowl, crowned in the
+## middle with its sides and front edge rolled down.
+static func _hood(st: SurfaceTool, col: Color) -> void:
+	var rows: Array[PackedVector3Array] = []
+	var refs: Array[Vector3] = []
+	var hw := FX_IN + 0.03
+	var z0 := NOSE_Z + 0.03
+	var z1 := COWL_Z - 0.03
+	var n := 16
+	for i in range(n + 1):
+		var z := lerpf(z0, z1, float(i) / n)
+		var drop := 0.05 * pow(clampf((z0 + 0.08 - z) / 0.08, 0.0, 1.0), 2.0)
+		var row := PackedVector3Array()
+		for k in range(21):
+			var x := lerpf(-hw, hw, k / 20.0)
+			var ax := absf(x)
+			var y := HOOD_Y + 0.02 * (1.0 - pow(x / hw, 2.0))
+			y += 0.022 * smoothstep(0.27, 0.19, ax)              # the raised middle
+			y -= 0.035 * smoothstep(hw - 0.06, hw, ax)           # sides rolled down
+			row.append(Vector3(x, y - drop, z))
+		rows.append(row)
+		refs.append(Vector3(0, 0.7, z))
+	_shell(st, rows, refs, 0.02, col)
+
+
+## A sheet of steel through rows of points (rows run along the part, each an
+## open line across it), `thick` deep, skinned on both sides and round its
+## edges. `refs` holds a point inside the part for each row: the outer skin
+## faces away from it.
+static func _shell(st: SurfaceTool, rows: Array[PackedVector3Array], refs: Array[Vector3], thick: float, col: Color) -> void:
+	var n := rows.size()
+	var m := rows[0].size()
+	var outer: Array[PackedVector3Array] = []
+	var inner: Array[PackedVector3Array] = []
+	for i in range(n):
+		var nr := PackedVector3Array()
+		var ir := PackedVector3Array()
+		for k in range(m):
+			var e := rows[i][mini(k + 1, m - 1)] - rows[i][maxi(k - 1, 0)]
+			var u := rows[mini(i + 1, n - 1)][k] - rows[maxi(i - 1, 0)][k]
+			var nn := e.cross(u)
+			var away := rows[i][k] - refs[i]
+			if nn.length_squared() < 1e-12:
+				nn = away
+			nn = nn.normalized()
+			if nn.dot(away) < 0.0:
+				nn = -nn
+			nr.append(nn)
+			ir.append(rows[i][k] - nn * thick)
+		outer.append(nr)
+		inner.append(ir)
+	var I := Transform3D.IDENTITY
+	for i in range(n - 1):
+		for k in range(m - 1):
+			var o := outer
+			MeshKit._quad(st, I, [rows[i][k], rows[i + 1][k], rows[i + 1][k + 1], rows[i][k + 1]],
+				[o[i][k], o[i + 1][k], o[i + 1][k + 1], o[i][k + 1]], col)
+			MeshKit._quad(st, I, [inner[i][k], inner[i + 1][k], inner[i + 1][k + 1], inner[i][k + 1]],
+				[-o[i][k], -o[i + 1][k], -o[i + 1][k + 1], -o[i][k + 1]], col)
+		# the two long edges
+		for e: Array in [[0, 1], [m - 1, m - 2]]:
+			var k: int = e[0]
+			var nn := (rows[i][k] - rows[i][e[1]]).normalized()
+			MeshKit._quad(st, I, [rows[i][k], rows[i + 1][k], inner[i + 1][k], inner[i][k]], [nn, nn, nn, nn], col)
+	# the two ends
+	for e: Array in [[0, 1], [n - 1, n - 2]]:
+		var i: int = e[0]
+		for k in range(m - 1):
+			var nn := (rows[i][k] - rows[e[1]][k]).normalized()
+			MeshKit._quad(st, I, [rows[i][k], rows[i][k + 1], inner[i][k + 1], inner[i][k]], [nn, nn, nn, nn], col)
 
 
 ## A flat body side at `x` from z0 to z1, from `bottom` up to `top_y`, with

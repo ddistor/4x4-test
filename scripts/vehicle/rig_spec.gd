@@ -81,14 +81,15 @@ static func _gera() -> RigSpec:
 	return s
 
 
-## A 40-series-style hardtop: short, upright, leaf springs front and rear,
-## two-tone with the white top. Heavier than the Gera and longer between
-## the axles, on 33s; the stiff leaves keep it flat but lift a wheel sooner.
+## A 40-series-style rig, top off with a roll bar: short, upright, round
+## flared fenders, leaf springs front and rear. Heavier than the Gera and
+## longer between the axles, on 33s; the stiff leaves keep it flat but lift
+## a wheel sooner.
 static func _kuwarenta() -> RigSpec:
 	var s := RigSpec.new()
 	s.id = "kuwarenta"
 	s.name = "Kuwarenta"
-	s.blurb = "Forty-series-style hardtop on 33s: leaf springs, short and tough, a classic."
+	s.blurb = "Forty-series-style on 33s, top off, roll bar: leaf springs, short and tough, a classic."
 	s.mass = 2050.0
 	s.center_of_mass = Vector3(0, 0.56, -0.05)
 	s.track = 0.74

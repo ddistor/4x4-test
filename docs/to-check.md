@@ -160,18 +160,24 @@ paper (`assets/driver/saligawsaw_4x4.png`); its black shadow lettering
 disappears on the club black shirt and shows on light ones. Rendered here on the
 black tee. `--logo N` picks one for a run.
 
-## Kuwarenta (forty-series-style hardtop)
+## Kuwarenta (forty-series-style, top off)
 
 Second rig in the *Rig* picker: `bodies/kuwarenta_body.gd`, spec in
-`rig_spec.gd::_kuwarenta`. Two-tone (menu paint + white top), round headlights in
-the fender fronts, slotted grille, upright windshield, side and rear-door
-windows, arches cut round 33s, spare on a rear carrier, winch bumper. Heavier
+`rig_spec.gd::_kuwarenta`. Reworked from a trail photo: round-shouldered front
+fenders that flare out over the tires (`_fender`), both headlights in a flat
+grille panel with a dark mesh between them, signal lamps on the fender fronts,
+a wide hood with a crowned middle (`_hood`), a low windshield raked back, and a
+roll bar over the seats instead of the glass hardtop. Arches cut round 33s, spare on a rear carrier, winch bumper. Rendered with
+`--snap --snap-rig --rig kuwarenta --look 4,0,0` (Bay blue). To check by
+driving: the seat camera view with the lower windshield and the roll bar;
+the arch-to-tire gap is set by bump clearance, so it stays. Heavier
 (2050 kg), longer wheelbase (2.29 m), stiffer leaf-spring rate and less droop
 than the Gera. Rendered from outside with `--snap --snap-rig --rig
 kuwarenta`; the headless bot drives it through the paddies and lahar fine. To
 check by driving: feels heavier and flatter than the Gera, lifts a wheel
 sooner on the kanal ruts; seat camera (C) sits right behind the windshield;
-the winch line leaves the bumper.
+the winch line leaves the bumper; rolled over, the roll bar (not a roof box)
+now holds it up.
 
 ## Rig picker
 
