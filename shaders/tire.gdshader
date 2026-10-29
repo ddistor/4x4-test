@@ -9,6 +9,7 @@ render_mode cull_back, depth_draw_opaque;
 
 uniform float tire_mud : hint_range(0.0, 1.0) = 0.0;
 uniform float dryness : hint_range(0.0, 1.0) = 0.3;
+uniform vec3 wheel_paint : source_color = vec3(0.03, 0.03, 0.032);   // black, or silver steelies
 
 varying vec3 lp;
 varying vec3 mask;
@@ -21,7 +22,7 @@ void vertex() {
 void fragment() {
 	float lug = mask.r;
 	float wheel = mask.g;
-	vec3 base = mix(vec3(0.028, 0.028, 0.03), vec3(0.03, 0.03, 0.032), wheel);
+	vec3 base = mix(vec3(0.028, 0.028, 0.03), wheel_paint, wheel);
 	base *= 1.0 - 0.85 * mask.b;
 	float rough = mix(0.88, 0.4, wheel);
 

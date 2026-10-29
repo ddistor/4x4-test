@@ -21,6 +21,7 @@ var rear_z := 1.05
 var wheel_mount_y := 0.35
 var tire_radius := 0.445
 var tire_width := 0.32
+var wheel_color := Color(0.03, 0.03, 0.032)  # black beadlocks; silver for steelies
 var spring_stiffness := 38000.0             # N/m per corner (see wheel.gd)
 var droop := 0.15                           # extra travel below rest, m
 var bump := 0.2                             # up-travel from ride height to the bump stop, m
@@ -96,6 +97,7 @@ static func _gerilya() -> RigSpec:
 	s.center_of_mass = Vector3(0, 0.55, -0.1)
 	s.tire_radius = 0.47
 	s.tire_width = 0.33
+	s.wheel_color = Color(0.6, 0.61, 0.6)   # silver steelies
 	s.droop = 0.18
 	s.drive_force_low = 28000.0
 	s.build_body = GeraBody.build_trail

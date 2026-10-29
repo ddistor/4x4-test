@@ -168,7 +168,10 @@ a full cage with its own front hoop, a flat rust-brown steel plate for a roof
 and a single-strip LED light bar under its front edge, the windshield folded
 flat on the hood, US Willys tub sides with the deep curved door cutout
 (`_scooped_side`; full-height flat sides read Japanese-built) and rounded back
-corners,
+corners, the Willys grille with round shoulders and tall slots
+(`_grille_panel`), the army blackout lamp on the left fender, round cowl
+mirrors, silver steel wheels (`RigSpec.wheel_color`, a `tire.gdshader` uniform;
+every other rig keeps black),
 an army-green bumper with D-rings and four driving lights round the winch,
 wire guards over the headlights, rock sliders, tan bucket seats, a jerry can.
 On 37s, 2000 kg, a bit more droop and low-range pull than the Gera. Rendered

@@ -202,6 +202,7 @@ func _build_wheels() -> void:
 		var w := RigWheel.new()
 		w.radius = spec.tire_radius
 		w.width = spec.tire_width
+		w.wheel_color = spec.wheel_color
 		w.stiffness = spec.spring_stiffness
 		w.max_travel = spec.droop
 		# bump stop where the hub has risen `bump` above ride height

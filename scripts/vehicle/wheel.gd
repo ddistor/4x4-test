@@ -41,6 +41,7 @@ var _lat_drift := 0.0         # sideways creep while near-stopped (static grip)
 
 var mesh: MeshInstance3D
 var tire_mat: ShaderMaterial
+var wheel_color := Color(0.03, 0.03, 0.032)   # the steel wheel's paint (RigSpec)
 var spray: GPUParticles3D
 var splash: GPUParticles3D
 var mist: GPUParticles3D
@@ -58,6 +59,7 @@ func _build_mesh() -> void:
 	mesh = MeshInstance3D.new()
 	tire_mat = ShaderMaterial.new()
 	tire_mat.shader = load("res://shaders/tire.gdshader")
+	tire_mat.set_shader_parameter("wheel_paint", wheel_color)
 	# mesh +Y ends up pointing to rig -X, so the left wheels face out as built
 	mesh.mesh = MeshKit.commit(build_wheel_mesh(radius, width, not left_side), tire_mat)
 	add_child(mesh)

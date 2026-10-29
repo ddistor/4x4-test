@@ -93,9 +93,16 @@ static func _build(rig: Rig, trail: bool) -> void:
 		KuwarentaBody._side_panel(paint, sx * 0.52, -1.6, -0.37, 0.56, 0.97, [[rig.spec.front_z, arch]], 0.03, c)
 
 	# grille: body-colour plate, slotted, round headlights set into it
-	rb.call(paint, Vector3(1.0, 0.64, 0.05), 0.025, at.call(Vector3(0, 0.88, -1.6)))
-	for k in range(9):
-		rb.call(chassis, Vector3(0.034, 0.4, 0.02), 0.008, at.call(Vector3((k - 4) * 0.062, 0.82, -1.627)))
+	if trail:
+		# the Willys grille: a pressed panel with round shoulders at the top
+		# corners round the headlights, tall slots running up between them
+		_grille_panel(paint, 0.5, 0.56, 1.2, 0.15, -1.6, 0.05, c)
+		for k in range(9):
+			rb.call(chassis, Vector3(0.036, 0.5, 0.02), 0.01, at.call(Vector3((k - 4) * 0.06, 0.86, -1.627)))
+	else:
+		rb.call(paint, Vector3(1.0, 0.64, 0.05), 0.025, at.call(Vector3(0, 0.88, -1.6)))
+		for k in range(9):
+			rb.call(chassis, Vector3(0.034, 0.4, 0.02), 0.008, at.call(Vector3((k - 4) * 0.062, 0.82, -1.627)))
 	for sx: float in [-1.0, 1.0]:
 		var bez := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * 0.37, 1.0, -1.65))
 		MeshKit.lathe(steel, [Vector2(0.06, -0.03), Vector2(0.095, -0.03), Vector2(0.1, 0.0),
@@ -204,6 +211,14 @@ static func _build(rig: Rig, trail: bool) -> void:
 		rb.call(roof, Vector3(1.38, 0.02, 1.06), 0.008, at.call(Vector3(0, 1.975, 0.15)))
 		rb.call(roof, Vector3(1.38, 0.05, 0.02), 0.006, at.call(Vector3(0, 1.96, -0.38)))
 		rb.call(steel, Vector3(1.0, 0.08, 0.08), 0.015, at.call(Vector3(0, 1.88, -0.33)))
+		# the army blackout lamp on the left fender, and round mirrors on the cowl
+		var bo := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(-0.66, 1.05, -1.32))
+		MeshKit.cylinder(drab, 0.055, 0.12, bo, c, 14)
+		rb.call(drab, Vector3(0.13, 0.02, 0.1), 0.006, at.call(Vector3(-0.66, 1.115, -1.35)))   # its hood
+		rb.call(drab, Vector3(0.03, 0.06, 0.03), 0.006, at.call(Vector3(-0.66, 0.99, -1.3)))
+		for sx: float in [-1.0, 1.0]:
+			MeshKit.tube(steel, Vector3(sx * 0.7, 1.15, -0.36), Vector3(sx * 0.86, 1.4, -0.4), 0.01, Transform3D.IDENTITY, c, 6)
+			MeshKit.cylinder(steel, 0.075, 0.025, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * 0.87, 1.43, -0.41)), c, 16)
 		# jerry can behind the passenger seat
 		var can: Transform3D = at.call(Vector3(0.4, 0.8, 0.88))
 		rb.call(drab, Vector3(0.16, 0.46, 0.34), 0.02, can)
@@ -215,6 +230,7 @@ static func _build(rig: Rig, trail: bool) -> void:
 	var spare := MeshInstance3D.new()
 	rig.spare_mat = ShaderMaterial.new()
 	rig.spare_mat.shader = load("res://shaders/tire.gdshader")
+	rig.spare_mat.set_shader_parameter("wheel_paint", rig.spec.wheel_color)
 	spare.mesh = MeshKit.commit(RigWheel.build_wheel_mesh(rig.spec.tire_radius, rig.spec.tire_width, false), rig.spare_mat)
 	spare.transform = Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 1.0, 1.79))
 	rig.add_child(spare)
@@ -265,6 +281,35 @@ static func _build(rig: Rig, trail: bool) -> void:
 	for sx: float in [-1.0, 1.0]:
 		MeshKit.rounded_box(tst, Vector3(0.09, 0.13, 0.03), 0.012, at.call(Vector3(sx * 0.6, 0.98, 1.61)), c, 2)
 	rig._add_mesh(MeshKit.commit(tst, tail))
+
+
+## A flat panel facing forward at `z`, `half_w` wide from `y0` up to `y1`,
+## its top corners rounded off by `r`, `thick` deep (the Willys grille).
+static func _grille_panel(st: SurfaceTool, half_w: float, y0: float, y1: float, r: float, z: float, thick: float, col: Color) -> void:
+	var outline: Array[Vector2] = [Vector2(-half_w, y0), Vector2(half_w, y0)]
+	# right shoulder (0 to 90 deg), then the left (90 to 180), round the top
+	for side: float in [1.0, -1.0]:
+		var cx := side * (half_w - r)
+		for k in range(9):
+			var a := PI * 0.5 * k / 8.0 + (0.0 if side > 0.0 else PI * 0.5)
+			outline.append(Vector2(cx + cos(a) * r, y1 - r + sin(a) * r))
+	var front := z - thick * 0.5
+	var back := z + thick * 0.5
+	var mid := Vector2(0, (y0 + y1) * 0.5)
+	var m := outline.size()
+	for k in range(m):
+		var p := outline[k]
+		var q := outline[(k + 1) % m]
+		for face: Array in [[front, Vector3.FORWARD], [back, Vector3.BACK]]:
+			var fz: float = face[0]
+			var nn: Vector3 = face[1]
+			MeshKit._tri(st, Transform3D.IDENTITY, [Vector3(mid.x, mid.y, fz), Vector3(p.x, p.y, fz), Vector3(q.x, q.y, fz)], [nn, nn, nn], col)
+		var e := q - p
+		var side_n := Vector3(e.y, -e.x, 0).normalized()
+		if side_n.dot(Vector3(p.x - mid.x, p.y - mid.y, 0)) < 0.0:
+			side_n = -side_n
+		MeshKit._quad(st, Transform3D.IDENTITY, [Vector3(p.x, p.y, front), Vector3(q.x, q.y, front), Vector3(q.x, q.y, back), Vector3(p.x, p.y, back)],
+			[side_n, side_n, side_n, side_n], col)
 
 
 ## Top edge of the trail tub's side at `z`: full height at the cowl and the
