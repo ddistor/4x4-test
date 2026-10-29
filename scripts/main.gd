@@ -27,6 +27,11 @@ func _ready() -> void:
 	hud.rig_path = rig.get_path()
 	add_child(hud)
 
+	if "--snap" in OS.get_cmdline_user_args():
+		var snap: Node = load("res://scripts/snapshot.gd").new()
+		snap.name = "Snapshot"
+		add_child(snap)
+
 
 func _build_environment() -> void:
 	# Late-afternoon rainy-season light: soft, warm, hazy.

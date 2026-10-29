@@ -178,13 +178,20 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func reset_to_spawn() -> void:
 	# Put it back on the road, upright, pointed up the trail.
-	var t := _spawn
-	t.origin = Vector3(terrain.trail_x_at(6.0), terrain.get_height(terrain.trail_x_at(6.0), 6.0) + 1.2, 6.0)
-	t.basis = Basis.looking_at(Vector3(0, 0, 1), Vector3.UP)
+	place_on_trail(6.0)
+
+
+## Drop the rig on the trail centre at distance `z`, upright, facing up-trail.
+func place_on_trail(z: float) -> void:
+	var x := terrain.trail_x_at(z)
+	var t := Transform3D(Basis.looking_at(Vector3(0, 0, 1), Vector3.UP), Vector3(x, terrain.get_height(x, z) + 1.2, z))
 	global_transform = t
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	winch_active = false
+	for w in wheels:
+		w.sink = 0.0
+		w.slip = 0.0
 
 
 func _physics_process(delta: float) -> void:

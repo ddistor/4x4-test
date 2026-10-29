@@ -19,6 +19,15 @@ func _ready() -> void:
 	fov = 70.0
 
 
+## Jump straight to the chase position (no lag). Used by snapshot mode.
+func snap_behind() -> void:
+	var fwd := -target.global_transform.basis.z
+	fwd.y = 0.0
+	_pos = target.global_position - fwd.normalized() * distance + Vector3(0, height, 0)
+	global_position = _pos
+	look_at(target.global_position + Vector3(0, look_height, 0), Vector3.UP)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("camera_toggle"):
 		hood_cam = not hood_cam

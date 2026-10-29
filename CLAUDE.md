@@ -30,6 +30,12 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   line-follower and prints position/sink/slip each second:
   `godot --headless --path . res://tests/drive_test.tscn --quit-after 20000`
 
+## Seeing the game without a hand on the keyboard
+
+`Godot.exe --path . -- --snap` (needs a window, not `--headless`) drops the rig at
+six spots along the trail plus one driving shot and saves PNGs to `snaps/`. Read
+them to check visuals and tune. Spots are listed in `scripts/snapshot.gd`.
+
 ## Conventions
 
 - Forward is -Z (Godot). The rig spawns facing world +Z, so its left is world +X.
