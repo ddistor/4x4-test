@@ -360,7 +360,9 @@ func reset_to_spawn() -> void:
 ## Drop the rig on the trail centre at distance `z`, upright, facing up-trail.
 func place_on_trail(z: float) -> void:
 	var x := terrain.trail_x_at(z)
-	var t := Transform3D(Basis.looking_at(Vector3(0, 0, 1), Vector3.UP), Vector3(x, terrain.get_height(x, z) + 1.2, z))
+	# face along the trail, not just up the map: it curves from the first metre
+	var heading := Vector3(terrain.trail_x_at(z + 3.0) - terrain.trail_x_at(z - 3.0), 0.0, 6.0)
+	var t := Transform3D(Basis.looking_at(heading, Vector3.UP), Vector3(x, terrain.get_height(x, z) + 1.2, z))
 	global_transform = t
 	# also straight to the server: from inside a physics-frame callback the
 	# node-side set alone gets overwritten by the next step
