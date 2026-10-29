@@ -1,6 +1,6 @@
 class_name Driver
 extends Node3D
-## The driver, modelled in code: a typical trail guy in a motocross helmet,
+## The driver, modelled in code: a typical trail guy in a full-face helmet,
 ## a t-shirt with the sleeves cut off, jorts and tsinelas, hands on the wheel.
 ##
 ## He moves the way a body in a bucking rig does. What he feels is the rig's
@@ -169,73 +169,64 @@ func _build_torso() -> void:
 
 
 func _build_helmet() -> void:
-	# head local: origin at the top of the neck. One shaped shell: the chin
-	# bar sweeps forward and down to a point, a wide eye port is set into it
-	# for the goggles, a brow ridge over that, and a long pointed peak.
+	# head local: origin at the top of the neck. A full-face helmet: one
+	# smooth shell with the chin tapering forward, and a glossy black visor
+	# across the front.
 	var st := MeshKit.begin()
-	_face(st)
-	_helmet_shell(st)
-	_goggles(st)
-	_helmet_peak(st)
+	var visor := MeshKit.begin()
+	_helmet_shell(st, visor)
 	var helmet := _part(st, _head, "Helmet")
 	helmet.layers = 2  # hidden from the driver's-seat camera, which sits inside it
+	var glass := StandardMaterial3D.new()
+	glass.albedo_color = Color(0.015, 0.015, 0.02)
+	glass.roughness = 0.04
+	glass.metallic = 0.3
+	var vi := MeshInstance3D.new()
+	vi.name = "Visor"
+	vi.mesh = MeshKit.commit(visor, glass)
+	vi.layers = 2
+	_head.add_child(vi)
 
 
-## His face, inside the helmet: what shows through the eye port round the
-## goggles. Cheeks, a nose, a bit of chin above the chin bar.
-func _face(st: SurfaceTool) -> void:
-	MeshKit.sphere(st, 1.0, Transform3D(Basis.IDENTITY.scaled(Vector3(0.1, 0.125, 0.128)), Vector3(0, 0.1, -0.012)), SKIN, 18)
-	for sx: float in [-1.0, 1.0]:
-		MeshKit.sphere(st, 0.034, Transform3D(Basis.IDENTITY, Vector3(sx * 0.045, 0.085, -0.115)), SKIN, 10)  # cheeks
-	MeshKit.sweep(st, PackedVector3Array([Vector3(0, 0.125, -0.128), Vector3(0, 0.098, -0.148)]), PackedFloat32Array([0.012, 0.017]), Transform3D.IDENTITY, SKIN, 8)  # nose
-	MeshKit.rounded_box(st, Vector3(0.05, 0.008, 0.02), 0.004, Transform3D(Basis.IDENTITY, Vector3(0, 0.072, -0.128)), SKIN_DK, 2)  # mouth line
-
-
-func _helmet_shell(st: SurfaceTool) -> void:
-	var rings := 40
+## The shell is a lat/long grid in 5 degree steps (lat -55..90). The visor
+## covers a lat/long window (lat -20..20, lon -60..60 off the front), so its
+## edges run along grid lines and come out clean.
+func _helmet_shell(st: SurfaceTool, visor: SurfaceTool) -> void:
+	var step := deg_to_rad(5.0)
+	var lat0 := deg_to_rad(-55.0)
+	var rings := 29
 	var segs := 72
 	var centre := Vector3(0, 0.11, 0)
 	var grid: Array[Vector3] = []
+	var dirs: Array[Vector3] = []
 	var cols: Array[Color] = []
-	var open: Array[bool] = []   # inside the eye port: no shell there
 	for ri in range(rings + 1):
-		var lat := lerpf(deg_to_rad(-60.0), PI * 0.5, float(ri) / rings)
+		var lat := lat0 + ri * step
 		for si in range(segs):
-			var lon := TAU * si / segs
-			# lon 0 faces forward (-Z)
+			var lon := si * step - PI   # -180..175, 0 = straight ahead
 			var d := Vector3(cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon))
-			var p := d * Vector3(0.135, 0.15, 0.168)
-			var front := smoothstep(0.2, 0.95, -d.z)
-			var below := 1.0 - smoothstep(-0.42, -0.2, d.y)
-			var jaw := front * below
-			# chin bar: a wide jaw that drops down and forward, the further down the
-			# further out (an angled front, not a bill), pinched only at the very tip
-			var down := smoothstep(-0.18, -0.8, d.y)
-			p.z -= 0.13 * front * down * (0.6 + 0.4 * down)
-			p.y -= 0.05 * front * down
-			p.x *= 1.0 - 0.18 * jaw * smoothstep(0.8, 1.0, -d.z)
-			# eye port: a wide opening set back into the shell
-			# eye port: a big opening onto his face, rounded off at the corners
-			var port := smoothstep(0.45, 0.62, -d.z) * smoothstep(-0.48, -0.38, d.y) * (1.0 - smoothstep(0.3, 0.38, d.y))
-			p -= d * 0.012 * port
-			open.append(port > 0.55)
-			# brow ridge over the port
-			p += d * 0.012 * smoothstep(0.45, 0.75, -d.z) * smoothstep(0.32, 0.4, d.y) * (1.0 - smoothstep(0.45, 0.6, d.y))
-			# the lower back flares out a little over the neck
-			p += Vector3(d.x, 0.0, maxf(d.z, 0.0)) * 0.03 * (1.0 - smoothstep(-0.85, -0.45, d.y)) * smoothstep(-0.2, 0.4, d.z)
+			var p := d * Vector3(0.138, 0.152, 0.17)
+			var front := smoothstep(0.35, 1.0, -d.z)
+			var down := smoothstep(-0.25, -0.8, d.y)
+			# chin: tapers forward and a little narrower toward the bottom
+			p.z -= 0.06 * front * down
+			p.x *= 1.0 - 0.12 * front * down
+			# lower back rolls out slightly over the neck
+			p += Vector3(d.x, 0.0, maxf(d.z, 0.0)) * 0.02 * (1.0 - smoothstep(-0.85, -0.45, d.y)) * smoothstep(-0.2, 0.4, d.z)
 			grid.append(centre + p)
+			dirs.append(d)
 			var c := HELMET
-			if d.y > 0.18 and d.z > -0.92:
-				if d.x > -0.13 and d.x < -0.03:
+			if d.y > 0.4 and d.z > -0.85:
+				if d.x > -0.11 and d.x < -0.035:
 					c = STRIPE_R
-				elif d.x > 0.03 and d.x < 0.13:
+				elif d.x > 0.035 and d.x < 0.11:
 					c = STRIPE_B
-			if jaw > 0.5:
+			# blue chin and a black vent, on grid lines so their edges are clean
+			var off := si - segs / 2
+			if ri < 5 and absi(off) < 9:
 				c = STRIPE_B
-			if front > 0.85 and d.y < -0.55 and d.y > -0.8 and absf(d.x) < 0.12:
-				c = VISOR  # mouth vent on the front of the chin bar
-			if port > 0.25:
-				c = VISOR  # rubber trim round the opening
+			if ri >= 1 and ri < 3 and absi(off) < 2:
+				c = VISOR
 			cols.append(c)
 	var normals: Array[Vector3] = []
 	for ri in range(rings + 1):
@@ -249,6 +240,8 @@ func _helmet_shell(st: SurfaceTool) -> void:
 				if cr.length_squared() > 1e-10:
 					n = cr.normalized() * signf(cr.dot(p - centre))
 			normals.append(n)
+	var win_lat := Vector2i(7, 15)    # rings for lat -20..20
+	var win_lon := 12                 # segments either side of straight ahead (60 degrees)
 	for ri in range(rings):
 		for si in range(segs):
 			var ids: Array[int] = [ri * segs + si, ri * segs + (si + 1) % segs,
@@ -258,86 +251,34 @@ func _helmet_shell(st: SurfaceTool) -> void:
 			for i in ids:
 				q.append(grid[i])
 				qn.append(normals[i])
-			if open[ids[0]] and open[ids[1]] and open[ids[2]] and open[ids[3]]:
+			var off := si - segs / 2
+			if ri >= win_lat.x and ri < win_lat.y and off >= -win_lon and off < win_lon:
+				# the visor: same patch, standing a few millimetres proud
+				var vq: Array[Vector3] = []
+				for k in range(4):
+					vq.append(q[k] + qn[k] * 0.006)
+				MeshKit._quad(visor, Transform3D.IDENTITY, vq, qn, VISOR)
 				continue
 			MeshKit._quad(st, Transform3D.IDENTITY, q, qn, cols[ids[0]])
-
-
-## Motocross goggles: a thick foam-backed frame curving round the eye port,
-## a wraparound tinted lens, and a wide strap round the back of the helmet.
-func _goggles(st: SurfaceTool) -> void:
-	var y := 0.138
-	var r := 0.162
-	var n := 14
-	var frame := PackedVector3Array()
-	var lens_top := PackedVector3Array()
-	var lens_bot := PackedVector3Array()
-	for i in range(n + 1):
-		var a := lerpf(-0.78, 0.78, float(i) / n)
-		# the lens dips in the middle over the nose
-		var dip := 0.012 * (1.0 - smoothstep(0.0, 0.25, absf(a)))
-		frame.append(Vector3(sin(a) * r, y, -cos(a) * r))
-		lens_top.append(Vector3(sin(a) * (r + 0.038), y + 0.03, -cos(a) * (r + 0.038)))
-		lens_bot.append(Vector3(sin(a) * (r + 0.038), y - 0.032 + dip, -cos(a) * (r + 0.038)))
-	# frame: top and bottom rims, ends, all chunky black
-	for k in range(2):
-		var rim := PackedVector3Array()
-		var rr := PackedFloat32Array()
-		for i in range(n + 1):
-			var p := lens_top[i] if k == 0 else lens_bot[i]
-			rim.append(p + (Vector3(0, 0.006, 0) if k == 0 else Vector3(0, -0.006, 0)))
-			rr.append(0.011)
-		MeshKit.sweep(st, rim, rr, Transform3D.IDENTITY, VISOR, 6)
-	for e: int in [0, n]:
-		MeshKit.tube(st, lens_top[e] + Vector3(0, 0.006, 0), lens_bot[e] - Vector3(0, 0.006, 0), 0.013, Transform3D.IDENTITY, VISOR, 6)
-	# foam body behind the lens, filling the eye port
-	var foam := PackedFloat32Array()
-	for i in range(n + 1):
-		foam.append(0.034)
-	MeshKit.sweep(st, frame, foam, Transform3D.IDENTITY, VISOR, 8)
-	# the lens: a curved orange mirror strip, both faces
-	for i in range(n):
-		var q: Array[Vector3] = [lens_bot[i], lens_bot[i + 1], lens_top[i + 1], lens_top[i]]
-		var out := ((q[0] + q[1] + q[2] + q[3]) * 0.25 - Vector3(0, y, 0)).normalized()
-		MeshKit._quad(st, Transform3D.IDENTITY, q, [out, out, out, out], LENS)
-	# strap: a wide band from the frame ends round the back of the shell
-	var band := 0.036
-	var m := 24
-	for i in range(m):
-		var a0 := lerpf(0.75, TAU - 0.75, float(i) / m)
-		var a1 := lerpf(0.75, TAU - 0.75, float(i + 1) / m)
-		var p0 := Vector3(sin(a0) * 0.145, y, -cos(a0) * 0.176)
-		var p1 := Vector3(sin(a1) * 0.145, y, -cos(a1) * 0.176)
-		var o0 := Vector3(p0.x, 0.0, p0.z).normalized()
-		var o1 := Vector3(p1.x, 0.0, p1.z).normalized()
-		var h := Vector3(0, band * 0.5, 0)
-		var col := HELMET if i >= m / 2 - 3 and i <= m / 2 + 2 else VISOR  # the brand name across the back
-		MeshKit._quad(st, Transform3D.IDENTITY, [p0 - h, p1 - h, p1 + h, p0 + h], [o0, o1, o1, o0], col)
-
-
-func _helmet_peak(st: SurfaceTool) -> void:
-	# a flat, pointed visor off the forehead, tipped up at the front
-	var xf := Transform3D(Basis(Vector3.RIGHT, 0.25), Vector3(0, 0.2, -0.08))
-	var outline: Array[Vector3] = [Vector3(-0.15, 0, 0.06), Vector3(-0.125, 0, -0.16), Vector3(0, 0, -0.24),
-		Vector3(0.125, 0, -0.16), Vector3(0.15, 0, 0.06)]
-	var mid := Vector3(0, 0, -0.08)
-	for side: float in [1.0, -1.0]:
-		var n := Vector3.UP * side
-		var off := Vector3(0, 0.008 * side, 0)
-		for i in range(outline.size() - 1):
-			MeshKit._tri(st, xf, [mid + off, outline[i] + off, outline[i + 1] + off], [n, n, n], STRIPE_R)
-		MeshKit._tri(st, xf, [mid + off, outline[outline.size() - 1] + off, outline[0] + off], [n, n, n], STRIPE_R)
-	# a rolled edge so it reads as one thick moulding, not two sheets
-	var edge := PackedVector3Array(outline)
+	# the visor's edge seal and its two pivots
+	var edge := PackedVector3Array()
 	var er := PackedFloat32Array()
-	for i in range(edge.size()):
-		er.append(0.008)
-	MeshKit.sweep(st, edge, er, xf, STRIPE_R, 6)
-	# a white stripe down its middle
-	for i in range(2):
-		var x := (i - 0.5) * 0.03
-		MeshKit._quad(st, xf, [Vector3(x - 0.008, 0.0092, 0.04), Vector3(x + 0.008, 0.0092, 0.04), Vector3(x + 0.008, 0.0092, -0.19), Vector3(x - 0.008, 0.0092, -0.19)],
-			[Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP], HELMET)
+	var loop: Array[int] = []
+	for k in range(-win_lon, win_lon + 1):
+		loop.append(win_lat.y * segs + segs / 2 + k)
+	for ri in range(win_lat.y - 1, win_lat.x - 1, -1):
+		loop.append(ri * segs + segs / 2 + win_lon)
+	for k in range(win_lon - 1, -win_lon - 1, -1):
+		loop.append(win_lat.x * segs + segs / 2 + k)
+	for ri in range(win_lat.x + 1, win_lat.y + 1):
+		loop.append(ri * segs + segs / 2 - win_lon)
+	for i in loop:
+		edge.append(grid[i] + normals[i] * 0.004)
+		er.append(0.006)
+	MeshKit.sweep(st, edge, er, Transform3D.IDENTITY, VISOR, 6)
+	for side: int in [-win_lon - 1, win_lon + 1]:
+		var i := (win_lat.y - 1) * segs + segs / 2 + side
+		MeshKit.cylinder(st, 0.016, 0.01, Transform3D(MeshKit.y_to(normals[i]), grid[i] + normals[i] * 0.004), VISOR, 12)
 
 
 # --- motion ------------------------------------------------------------------------

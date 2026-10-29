@@ -2,9 +2,9 @@
 
 ## The driver (first sketch)
 
-In the seat: white motocross helmet (one shaped shell: angular chin bar, eye
-port, brow ridge) with red/blue stripes, blue chin bar, red peak, and motocross
-goggles (foam frame, orange wraparound lens, strap round the back), a maroon tee with the sleeves cut off, jorts with frayed cuffs, blue
+In the seat: white full-face helmet with a black visor (his face hidden),
+red/blue stripes and a blue chin,
+ a maroon tee with the sleeves cut off, jorts with frayed cuffs, blue
 tsinelas. The steering wheel now turns with the steering and his hands stay on it.
 He moves from what the rig does: thrown to the outside in corners, folds
 forward under braking, sinks and floats over bumps, head lagging and trying to
