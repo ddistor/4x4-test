@@ -233,6 +233,35 @@ static func winch() -> AudioStreamWAV:
 	return _to_wav(buf, true)
 
 
+## Letting air out of a valve: a bright, steady hiss with a little flutter.
+static func air_hiss() -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 88
+	var n := RATE
+	var buf := _noise(n, rng)
+	_highpass(buf, 2500.0)
+	_lowpass(buf, 9000.0)
+	for i in range(n):
+		buf[i] *= 0.85 + 0.15 * sin(TAU * 13.0 * i / RATE)
+	return _to_wav(buf, true)
+
+
+## Portable 12 V compressor: a piston thudding ~30 times a second, motor
+## buzz and the rattle of the housing.
+static func compressor() -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 89
+	var n := RATE
+	var buf := _zeros(n)
+	for k in range(30):
+		_burst(buf, int(k * RATE / 30.0), 0.03, 240.0, 1.5, 1.0, rng, 7.0)
+		_burst(buf, int(k * RATE / 30.0), 0.015, 2200.0, 4.0, 0.35, rng, 9.0)
+	var motor := _noise(n, rng)
+	_bandpass(motor, 600.0, 2.0)
+	_mix(buf, motor, 0.25)
+	return _to_wav(buf, true)
+
+
 # --- ambience ---------------------------------------------------------------------
 
 ## Paddies by the lake: a chorus of palaka knocking and rasping, distant

@@ -54,6 +54,19 @@ driving it. In order:
    line in `rig_audio.gd::_process`; the sounds themselves are in
    `sound_synth.gd`.
 
+10. **Tread packing.** Crawl slowly through the sticky clay and the HUD should
+    start saying "tread packed" and the rig loses bite; give it wheel speed and
+    the tires fling clean. Rates in `wheel.gd` (`fill` / `clear`).
+11. **Airing down** (stop first, then `-` / `=`): 35 → 28 → 22 → 18 → 15 → 12
+    psi. Hiss when letting air out, compressor when filling (slow). Lower =
+    floats and grips better in mud (A/B on the first clay: 35 m vs 30 m in 12 s
+    at 15 vs 35 psi), squats a little, steers vaguer. Under 15 psi, hard
+    cornering can pop a bead ("OFF THE BEAD"); Backspace reseats it.
+12. **Rollover.** Inclinometer bottom right (amber 25°, red 35° roll). Tilt-table
+    test: holds 33° and rolls at 36° on dry ground, slides first on wet clay.
+    Centre of mass raised to ~0.8 m off the ground; parked tires now hold on a
+    slope instead of creeping (static grip in `wheel.gd`, `_lat_drift`).
+
 Known guesses to validate: spring/damper numbers in `wheel.gd`, mud drag
 coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
@@ -64,6 +77,14 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
   glassy pool with reflections.
 - ~~**Flung mud lands**~~ done: dug clay piles into berms beside the rut and
   spinning tires throw clods behind (negative rut in `MudField.deposit`).
+- **After the procedural stage — realism plan:**
+  1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
+     low range.
+  2. Recovery kit: shovel (dig out a high-centred rig), traction boards,
+     high-lift jack; snatch strap if a buddy rig arrives.
+  3. Damage: mud-caked radiator overheats, axle/CV snaps when shock-loaded with
+     lockers in, tie rod bends on rocks, hydrolock in deep water (snorkel fix).
+  4. Weather: rain that wets the trail over time, growing puddles, slicker clay.
 - **Procedural stage, different every run**: one long track chained from
   Philippine terrain sections — Rizal laterite clay, Pinatubo lahar/ash
   riverbeds, boulder river crossings, Cordillera rocky switchbacks, Ilocos /

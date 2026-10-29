@@ -19,6 +19,8 @@ var _mud: AudioStreamPlayer3D
 var _gravel: AudioStreamPlayer3D
 var _water: AudioStreamPlayer3D
 var _winch: AudioStreamPlayer3D
+var _air: AudioStreamPlayer3D
+var _compressor: AudioStreamPlayer3D
 var _oneshot: AudioStreamPlayer3D
 var _paddy_amb: AudioStreamPlayer
 var _forest_amb: AudioStreamPlayer
@@ -36,6 +38,8 @@ func setup(r: Rig) -> void:
 	_gravel = _loop3d(SoundSynth.gravel(4), 3.0)
 	_water = _loop3d(SoundSynth.water(5), 3.0)
 	_winch = _loop3d(SoundSynth.winch(), 3.0, Vector3(0, 0.75, -1.8))
+	_air = _loop3d(SoundSynth.air_hiss(), 2.0, Vector3(-0.8, 0.1, -1.3))
+	_compressor = _loop3d(SoundSynth.compressor(), 2.5, Vector3(0, 0.8, 1.2))
 	_oneshot = AudioStreamPlayer3D.new()
 	_oneshot.unit_size = 4.0
 	add_child(_oneshot)
@@ -114,6 +118,8 @@ func _process(delta: float) -> void:
 	_water.volume_db = lerpf(_water.volume_db, _db(swash), smooth)
 	_water.pitch_scale = 0.85 + speed * 0.03
 	_winch.volume_db = lerpf(_winch.volume_db, -6.0 if rig.winch_active else -80.0, smooth)
+	_air.volume_db = lerpf(_air.volume_db, -12.0 if rig.airing < 0 else -80.0, smooth)
+	_compressor.volume_db = lerpf(_compressor.volume_db, -8.0 if rig.airing > 0 else -80.0, smooth)
 
 	# --- one-shots ------------------------------------------------------------
 	var now := {"diff": rig.diff_locked, "low": rig.low_range, "winch": rig.winch_active}

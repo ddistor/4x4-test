@@ -35,6 +35,10 @@ var cake := 0.0          # 0..1 belly line from wallowing
 var corner_mud: Array[float] = [0.0, 0.0, 0.0, 0.0]  # 0..2 clay each tire has thrown on the body
 var dryness := 0.4
 var wheel_status: Array[Dictionary] = []
+var psi_target := 35.0
+var airing := 0          # -1 letting air out, +1 compressor running, 0 idle
+
+const PSI_STEPS: Array[float] = [35.0, 28.0, 22.0, 18.0, 15.0, 12.0]
 
 const CORNER_PARAMS: Array[StringName] = [&"corner_fl", &"corner_fr", &"corner_rl", &"corner_rr"]
 
@@ -52,7 +56,9 @@ func _ready() -> void:
 	terrain = get_node(terrain_path) as Terrain
 	mass = 1950.0
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	center_of_mass = Vector3(0, 0.3, -0.1)  # engine up front
+	# engine up front, and high: lifted on 35s puts it ~0.8 m off the ground,
+	# so it rolls on an off-camber before it slides (tilt-table ~40 deg)
+	center_of_mass = Vector3(0, 0.5, -0.1)
 	can_sleep = false
 	continuous_cd = true
 	_build_body()
@@ -348,6 +354,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		low_range = not low_range
 	elif event.is_action_pressed("winch"):
 		_toggle_winch()
+	elif event.is_action_pressed("air_down") or event.is_action_pressed("air_up"):
+		var i := PSI_STEPS.find(psi_target) + (1 if event.is_action_pressed("air_down") else -1)
+		psi_target = PSI_STEPS[clampi(i, 0, PSI_STEPS.size() - 1)]
 	elif event.is_action_pressed("reset_rig"):
 		reset_to_spawn()
 
@@ -373,6 +382,9 @@ func place_on_trail(z: float) -> void:
 	for w in wheels:
 		w.sink = 0.0
 		w.slip = 0.0
+		# reseat any bead that came off; pressure goes back to the target
+		w.debeaded = false
+		w.psi = psi_target
 
 
 func _physics_process(delta: float) -> void:
@@ -446,6 +458,7 @@ func _physics_process(delta: float) -> void:
 
 	# --- winch -----------------------------------------------------------------
 	_winch_step(delta)
+	_air_step(delta)
 
 	# --- mud on the rig -------------------------------------------------------
 	# Each tire throws what it churns onto the bodywork around and behind it:
@@ -543,6 +556,31 @@ func mud_amount() -> float:
 	return clampf(corners / 8.0 * 0.75 + cake * 0.4, 0.0, 1.0)
 
 
+## Air down / up toward psi_target, but only while stopped: you get out and
+## let air out of each valve (quick), or run the compressor (slow).
+func _air_step(delta: float) -> void:
+	airing = 0
+	if speed_kmh > 3.0:
+		return
+	for w in wheels:
+		if w.debeaded:
+			continue
+		if w.psi > psi_target + 0.05:
+			w.psi = move_toward(w.psi, psi_target, 2.5 * delta)
+			airing = -1
+		elif w.psi < psi_target - 0.05:
+			w.psi = move_toward(w.psi, psi_target, 0.8 * delta)
+			airing = 1
+
+
+## Body roll and pitch in degrees (+roll = leaning right, +pitch = nose up).
+func roll_pitch() -> Vector2:
+	var b := global_transform.basis
+	var roll := rad_to_deg(asin(clampf(-b.x.y, -1.0, 1.0)))
+	var pitch := rad_to_deg(asin(clampf(-b.z.y, -1.0, 1.0)))
+	return Vector2(roll, pitch)
+
+
 func status_text() -> String:
 	var lines := []
 	lines.append("%3.0f km/h   %s   %s" % [speed_kmh, "4L" if low_range else "4H", "DIFF LOCK" if diff_locked else "diff open"])
@@ -561,6 +599,18 @@ func status_text() -> String:
 			tag = "firm"
 		if s["slip"] > 0.3:
 			tag += "  SPINNING"
+		if w.packing > 0.5:
+			tag += "  tread packed"
+		if w.debeaded:
+			tag += "  OFF THE BEAD"
 		lines.append("%s  %s" % [names[i], tag])
+	var psi_line := "tires %.0f psi" % wheels[0].psi
+	if airing < 0:
+		psi_line += "  airing down to %.0f" % psi_target
+	elif airing > 0:
+		psi_line += "  compressor on, to %.0f" % psi_target
+	elif absf(wheels[0].psi - psi_target) > 0.5:
+		psi_line += "  (stop to set %.0f)" % psi_target
+	lines.append(psi_line)
 	lines.append("mud on rig %.0f%%" % (mud_amount() * 100.0))
 	return "\n".join(lines)

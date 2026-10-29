@@ -27,7 +27,12 @@ var steer_angle := 0.0
 var ground := {}              # last terrain sample
 var _last_compression := 0.0
 
-var tire_mud := 0.0           # 0..1 how packed the tread is (visual)
+var tire_mud := 0.0           # 0..1 mud coating the tire (visual)
+var packing := 0.0            # 0..1 tread voids filled with clay: a slick tire
+var psi := 35.0               # tire pressure
+var debeaded := false         # aired down too far and cornered hard: tire off the rim
+var _bead_stress := 0.0
+var _lat_drift := 0.0         # sideways creep while near-stopped (static grip)
 
 var mesh: MeshInstance3D
 var tire_mat: ShaderMaterial
@@ -36,6 +41,7 @@ var splash: GPUParticles3D
 var mist: GPUParticles3D
 
 const NOMINAL_LOAD := 5500.0
+const STREET_PSI := 35.0
 
 
 func _ready() -> void:
@@ -240,7 +246,8 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var space := rig.get_world_3d().direct_space_state
 	var top := global_position
 	var down := -rig.global_transform.basis.y
-	var ray_len := rest_length + max_travel + radius + 0.9  # 0.9: deepest mud we allow
+	var r := effective_radius()
+	var ray_len := rest_length + max_travel + r + 0.9  # 0.9: deepest mud we allow
 	var query := PhysicsRayQueryParameters3D.create(top, top + down * ray_len)
 	query.exclude = [rig.get_rid()]
 	var hit := space.intersect_ray(query)
@@ -265,18 +272,19 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# Soft surface the tire would rest on if it didn't sink: firm + room.
 	var surface_dist: float = (hit.position - top).length() - room
 	# How far it wants to sink: wetter + heavier + spinning = deeper, capped by room.
-	var load_k := clampf(load / NOMINAL_LOAD, 0.4, 1.6)
+	# aired down = longer footprint = lower ground pressure = floats more
+	var load_k := clampf(load / NOMINAL_LOAD, 0.4, 1.6) / (1.0 + 0.6 * aired())
 	var target_sink: float = room * clampf((0.25 + 0.75 * wet) * load_k + 0.35 * slip, 0.0, 1.0)
 	var yield_rate := 2.5 + 6.0 * slip  # churning mud gives way faster
 	sink = move_toward(sink, target_sink, yield_rate * delta * maxf(room, 0.05))
 	sink = minf(sink, room)
 	var contact_dist: float = surface_dist + sink
-	contact = contact_dist <= rest_length + max_travel + radius
+	contact = contact_dist <= rest_length + max_travel + r
 	contact_point = top + down * contact_dist
 	contact_normal = hit.normal
 
 	# --- suspension ------------------------------------------------------
-	var compression: float = (rest_length + radius) - contact_dist
+	var compression: float = (rest_length + r) - contact_dist
 	var spring := 0.0
 	if contact:
 		var comp_vel := (compression - _last_compression) / delta
@@ -286,7 +294,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 			spring += stiffness * 4.0 * (compression - rest_length * 0.95)
 	_last_compression = compression
 	load = spring
-	var hub := top + down * (contact_dist - radius)
+	var hub := top + down * (contact_dist - r)
 	rig.apply_force(-down * spring, hub - rig.global_position)
 
 	if not contact:
@@ -306,13 +314,18 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var vel := rig.linear_velocity + rig.angular_velocity.cross(contact_point - rig.global_position)
 	var v_fwd := vel.dot(fwd)
 	var v_lat := vel.dot(right)
+	var planar_speed := Vector2(v_fwd, v_lat).length()
 
 	# --- grip -----------------------------------------------------------
 	var soft := smoothstep(0.03, 0.2, room + ground["rut"])
 	var mu := lerpf(0.95, 0.40, wet)                    # slick when wet
 	mu *= 1.0 - 0.15 * soft                              # soup has less to push on
 	var sink_ratio := sink / maxf(room, 0.05)
-	mu += 0.3 * sink_ratio * (1.0 - wet * 0.5)           # bite once the tire is in
+	mu += 0.3 * sink_ratio * (1.0 - wet * 0.5) * (1.0 - 0.7 * packing)  # bite once the tire is in
+	mu += aired() * (0.06 + 0.16 * soft)                 # bigger footprint, lugs wrap the ground
+	mu *= 1.0 - 0.3 * packing                            # tread full of clay: a slick
+	if debeaded:
+		mu *= 0.45
 	var mu_lat := mu + 0.45 * smoothstep(0.05, 0.25, ground["rut"])  # rut walls guide
 	var cap := mu * load
 	if grip_cap_override >= 0.0:
@@ -327,7 +340,22 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	if slipping:
 		f_long = signf(f_long) * cap
 	# --- lateral --------------------------------------------------------
-	var f_lat := -v_lat * load * 1.9
+	# soft sidewalls squirm: aired down steers vaguer
+	var f_lat := -v_lat * load * 1.9 * (1.0 - 0.3 * aired())
+	# Static grip: a parked tire holds rather than creeping downhill. Near a
+	# stop, sideways creep winds up a spring that pulls back (capped by mu).
+	if planar_speed < 1.0:
+		_lat_drift = clampf(_lat_drift + v_lat * delta, -0.15, 0.15)
+	else:
+		_lat_drift = 0.0
+	f_lat -= _lat_drift * load * 14.0
+	# Cornering hard on a soft tire can roll the bead off the rim.
+	if psi < 15.0 and not debeaded and load > 0.0:
+		var demand := absf(f_lat) / load
+		_bead_stress = maxf(0.0, _bead_stress + (demand - 0.85) * (15.0 - psi) * 0.6 * delta)
+		if _bead_stress > 1.0:
+			debeaded = true
+			psi = 0.0
 	f_lat = clampf(f_lat, -mu_lat * load, mu_lat * load)
 	# friction circle: a spinning tire has little sideways grip
 	var long_use := absf(f_long) / maxf(cap, 1.0)
@@ -337,7 +365,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# Pushing a tire through mud: drag that grows with sink and wetness, plus
 	# water drag in the creek. This is what makes the bog feel like a bog.
 	var planar := vel - contact_normal * vel.dot(contact_normal)
-	var drag_c := sink * 1500.0 * (0.6 + 0.6 * wet) + water * 900.0
+	var drag_c := sink * 1500.0 * (0.6 + 0.6 * wet) + water * 900.0 + (400.0 if debeaded else 0.0)
 	var f_drag := -planar * drag_c
 	# suction: hard to get moving from a stop in deep mud
 	if planar.length() < 0.6 and sink > 0.08:
@@ -351,7 +379,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		target_slip = clampf((absf(drive_force) - cap) / maxf(cap, 500.0), 0.0, 1.0)
 	slip = lerpf(slip, target_slip, delta * 8.0)
 	var free_omega := signf(drive_force) * 28.0 * (0.3 + 0.7 * slip)
-	var rolling_omega := v_fwd / radius
+	var rolling_omega := v_fwd / r
 	omega = lerpf(rolling_omega, free_omega, slip)
 
 	# Carve: settling into the mud makes a rut; spinning flings it out faster.
@@ -384,7 +412,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# throws a rooster tail, rolling through just flicks lumps.
 	var surf_speed := absf(omega) * radius
 	var throw_dir := signf(omega) if absf(omega) > 0.5 else 1.0
-	spray.position = Vector3(0, -(contact_dist - radius) + radius * 0.1, throw_dir * radius * 0.75)
+	spray.position = Vector3(0, -(contact_dist - r) + r * 0.1, throw_dir * r * 0.75)
 	var spm := spray.process_material as ParticleProcessMaterial
 	spm.direction = Vector3(0, 0.7, throw_dir)
 	spm.initial_velocity_max = clampf(surf_speed * 0.9, 4.0, 14.0)
@@ -395,17 +423,36 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	mist.global_position = contact_point + Vector3.UP * 0.3
 	mist.emitting = splash.emitting and planar.length() > 2.5
 
-	# tread packs fast in the slop, flings clean slowly on firm ground
+	# the tire gets coated fast in the slop, flings clean slowly on firm ground
 	if soft > 0.3:
 		tire_mud = move_toward(tire_mud, 1.0, delta * soft * (0.4 + 1.5 * slip))
 	else:
 		tire_mud = move_toward(tire_mud, 0.2 * tire_mud, delta * 0.01 * surf_speed)
 	if water > 0.15:
 		tire_mud = move_toward(tire_mud, 0.0, delta * 0.15 * planar.length())
-	tire_mat.set_shader_parameter("tire_mud", tire_mud)
+	# Packing: crawling slowly through sticky clay (wet, but not soup) fills
+	# the tread until it's a slick. Wheel speed flings it out - the reason you
+	# keep the revs up in mud - and water washes it.
+	var sticky := clampf(1.0 - absf(wet - 0.55) * 1.8, 0.15, 1.0)
+	var fill := soft * sticky * (1.0 - smoothstep(3.0, 8.0, surf_speed)) * 0.3
+	var clear := smoothstep(4.0, 11.0, surf_speed) * 0.7 + (0.02 * surf_speed if soft < 0.3 else 0.0)
+	packing = clampf(packing + (fill - clear) * delta, 0.0, 1.0)
+	if water > 0.15:
+		packing = move_toward(packing, 0.0, delta * 0.3 * (0.5 + planar.length()))
+	tire_mat.set_shader_parameter("tire_mud", maxf(tire_mud * 0.8, packing))
 
 	_update_mesh(contact_dist, delta)
 	return result
+
+
+## 0 at street pressure (35 psi) .. 1 fully aired down (12 psi).
+func aired() -> float:
+	return 1.0 if debeaded else clampf((STREET_PSI - psi) / (STREET_PSI - 12.0), 0.0, 1.0)
+
+
+## Rolling radius: a soft tire squats, a debeaded one sits on its rim.
+func effective_radius() -> float:
+	return radius - 0.045 * aired() - (0.1 if debeaded else 0.0)
 
 
 var _spin := 0.0
@@ -416,5 +463,5 @@ func _update_mesh(contact_dist: float, delta: float) -> void:
 	_spin -= omega * delta
 	# cylinder axis is Y: rotate it onto X (the axle), spin about X, then yaw for steering
 	var b := Basis.from_euler(Vector3(0, steer_angle, 0)) * Basis(Vector3.RIGHT, _spin) * Basis(Vector3.BACK, PI / 2.0)
-	hub_offset = Vector3(0, -(contact_dist - radius), 0)
-	mesh.transform = Transform3D(b, Vector3(0, -(contact_dist - radius), 0))
+	hub_offset = Vector3(0, -(contact_dist - effective_radius()), 0)
+	mesh.transform = Transform3D(b, hub_offset)
