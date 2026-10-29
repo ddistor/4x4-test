@@ -58,6 +58,9 @@ var winch_aim: WinchAim
 var spec: RigSpec
 ## Shown in the garage: no terrain, the body held still, wheels at ride height.
 var preview := false
+## In the preview: front-left and rear-right at the bump stop, the others at
+## full droop, to check every body clears its tires.
+var flex := false
 
 
 func _ready() -> void:
@@ -183,6 +186,8 @@ func _build_wheels() -> void:
 		w.width = spec.tire_width
 		w.stiffness = spec.spring_stiffness
 		w.max_travel = spec.droop
+		# bump stop where the hub has risen `bump` above ride height
+		w.bump_limit = RigSpec.RIDE_HUB_Y + spec.bump - spec.wheel_mount_y + w.rest_length
 		w.position = entry[0]
 		w.steerable = entry[1]
 		w.left_side = entry[2]
@@ -261,8 +266,12 @@ func place_on_trail(z: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	if preview:
-		for w in wheels:
-			w._update_mesh(w.rest_length + w.effective_radius() - 0.06, delta)
+		for i in wheels.size():
+			var w := wheels[i]
+			var d := w.rest_length + w.effective_radius() - 0.06
+			if flex:
+				d = 0.0 if i == 0 or i == 3 else 99.0   # clamped to the bump stop / full droop
+			w._update_mesh(d, delta)
 		return
 	if global_position.y < -25.0 or global_transform.basis.y.y < -0.6 and linear_velocity.length() < 0.3:
 		# fell off the map or settled on the roof

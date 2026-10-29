@@ -14,6 +14,7 @@ var _loading: Control
 var _yaw := 2.3
 var _spin := 0.12      # rad/s while nobody is dragging
 var _dragging := false
+var _flex := false
 
 
 func _ready() -> void:
@@ -60,6 +61,14 @@ func _ready() -> void:
 	col.add_child(_choice("Shirt", Game.SHIRTS, "shirt"))
 	col.add_child(_choice("Jorts", Game.SHORTS, "shorts"))
 	col.add_child(_choice("Print", prints, "logo"))
+	var flex := UiKit.button("Suspension: at ride height", 400)
+	flex.pressed.connect(func() -> void:
+		_flex = not _flex
+		flex.text = "Suspension: flexed (bump and droop)" if _flex else "Suspension: at ride height"
+		_rig.flex = _flex)
+	col.add_child(flex)
+	if "--flex" in OS.get_cmdline_user_args():
+		flex.pressed.emit()
 	var gap2 := Control.new()
 	gap2.custom_minimum_size = Vector2(0, 8)
 	col.add_child(gap2)
@@ -154,6 +163,7 @@ func _rebuild() -> void:
 	# hubs ride ~0.05 m above the body origin in the preview pose
 	_rig.position = Vector3(0, _rig.spec.tire_radius - 0.05, 0)
 	_rig.driver.snap()
+	_rig.flex = _flex
 
 
 func _show_names() -> void:
@@ -209,9 +219,18 @@ func _drive() -> void:
 
 
 func _snap() -> void:
-	for i in range(30):
-		await RenderingServer.frame_post_draw
+	_spin = 0.0
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://snaps"))
-	get_viewport().get_texture().get_image().save_png("res://snaps/95_garage.png")
-	print("saved ", ProjectSettings.globalize_path("res://snaps/95_garage.png"))
+	# the usual view, then (with --flex) round the rig to check the tires clear
+	var yaws := [[_yaw, "95_garage"]]
+	if _flex:
+		var id := RigSpec.get_kind(Game.rig_kind).id
+		yaws = [[2.3, "95_flex_front_" + id], [1.57, "95_flex_side_" + id], [-2.3, "95_flex_rear_" + id]]
+	for y: Array in yaws:
+		_yaw = y[0]
+		for i in range(30):
+			await RenderingServer.frame_post_draw
+		var path := "res://snaps/%s.png" % y[1]
+		get_viewport().get_texture().get_image().save_png(path)
+		print("saved ", ProjectSettings.globalize_path(path))
 	get_tree().quit()

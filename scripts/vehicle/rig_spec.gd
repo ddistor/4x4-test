@@ -23,6 +23,20 @@ var tire_radius := 0.445
 var tire_width := 0.32
 var spring_stiffness := 38000.0             # N/m per corner (see wheel.gd)
 var droop := 0.15                           # extra travel below rest, m
+var bump := 0.2                             # up-travel from ride height to the bump stop, m
+
+## Where the hubs ride (rig space y) when the rig sits on level ground.
+const RIDE_HUB_Y := 0.13
+
+
+## Highest the top of a tire reaches, at the bump stop: wheel wells clear this.
+func max_tire_top() -> float:
+	return RIDE_HUB_Y + bump + tire_radius
+
+
+## Inner face of the tires, with a little room: floors and tubs stay inboard of it.
+func tire_inner() -> float:
+	return track - tire_width * 0.5 - 0.04
 # drivetrain (see the @export defaults at the top of rig.gd)
 var drive_force_high := 13000.0
 var speed_high := 26.0

@@ -20,8 +20,8 @@ const HUB_Y := 0.13
 
 
 static func build(rig: Rig) -> void:
+	BodyKit.collide(rig, NOSE_Z, TAIL_Z, 0.55, 1.19, HALF_W)   # body and nose
 	for col: Array in [
-		[Vector3(1.86, 0.64, 4.5), Vector3(0, 0.87, -0.06)],    # body and nose
 		[Vector3(1.82, 0.8, 3.0), Vector3(0, 1.58, 0.74)],      # cab
 		[Vector3(1.96, 0.18, 0.18), Vector3(0, 0.62, -2.46)],   # bumper
 	]:
@@ -43,7 +43,7 @@ static func build(rig: Rig) -> void:
 		MeshKit.rounded_box(st, size, r, xf, c)
 	var fz := rig.spec.front_z
 	var rz := rig.spec.rear_z
-	var arch := rig.spec.tire_radius + 0.17
+	var arch := BodyKit.well_radius(rig.spec)   # clears a tire at the bump stop
 
 	for sx: float in [-1.0, 1.0]:
 		rb.call(chassis, Vector3(0.09, 0.16, 4.3), 0.01, at.call(Vector3(sx * 0.46, 0.46, -0.06)))
@@ -51,7 +51,9 @@ static func build(rig: Rig) -> void:
 		rb.call(chassis, Vector3(0.92, 0.08, 0.08), 0.01, at.call(Vector3(0, 0.46, z)))
 
 	# body sides, nose to tail, both arches cut; floor, cowl, tail panel
-	rb.call(paint, Vector3(HALF_W * 2.0 - 0.06, 0.04, TAIL_Z - COWL_Z), 0.01, at.call(Vector3(0, SILL + 0.01, (TAIL_Z + COWL_Z) * 0.5)))
+	BodyKit.floor_panel(paint, rig.spec, COWL_Z, TAIL_Z, HALF_W - 0.03, SILL + 0.01, c)
+	for zc: float in [fz, rz]:
+		BodyKit.wheel_houses(plastic, rig.spec, zc, HALF_W, SILL, c)
 	for sx: float in [-1.0, 1.0]:
 		var x := sx * HALF_W
 		KuwarentaBody._side_panel(paint, x, NOSE_Z + 0.05, TAIL_Z, SILL, BELT, [[fz, arch], [rz, arch]], 0.035, c)

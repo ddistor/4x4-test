@@ -7,8 +7,8 @@ extends RefCounted
 
 static func build(rig: Rig) -> void:
 	# Collision: tub, hood/front clip, bumper and the cage top.
+	BodyKit.collide(rig, -0.34, 1.58, 0.55, 1.17, 0.725)   # tub, split round the rear wheels
 	for c: Array in [
-		[Vector3(1.45, 0.62, 1.92), Vector3(0, 0.86, 0.62)],
 		[Vector3(1.05, 0.6, 1.3), Vector3(0, 0.88, -0.98)],
 		[Vector3(1.75, 0.16, 0.16), Vector3(0, 0.6, -1.74)],
 		[Vector3(1.3, 0.78, 1.0), Vector3(0, 1.56, 0.16)],
@@ -38,14 +38,14 @@ static func build(rig: Rig) -> void:
 		rb.call(chassis, Vector3(0.84, 0.08, 0.08), 0.01, at.call(Vector3(0, 0.45, z)))
 
 	# tub: floor, sides cut for the rear wheels, flat rear fenders, back panel
-	rb.call(paint, Vector3(1.38, 0.04, 1.88), 0.01, at.call(Vector3(0, 0.56, 0.62)))
+	BodyKit.floor_panel(paint, rig.spec, -0.32, 1.56, 0.69, 0.56, c)
 	for sx: float in [-1.0, 1.0]:
 		rb.call(paint, Vector3(0.045, 0.44, 0.93), 0.02, at.call(Vector3(sx * 0.705, 0.78, 0.13)))
 		rb.call(paint, Vector3(0.05, 0.21, 1.93), 0.025, at.call(Vector3(sx * 0.705, 1.07, 0.62)))
-		# inner wheel tub and the flat fender lip over the tire
-		rb.call(paint, Vector3(0.24, 0.42, 1.02), 0.04, at.call(Vector3(sx * 0.57, 0.77, 1.1)))
+		# the flat fender lip over the tire
 		rb.call(paint, Vector3(0.27, 0.035, 1.02), 0.012, at.call(Vector3(sx * 0.8, 0.975, 1.1)))
 	rb.call(paint, Vector3(1.45, 0.62, 0.05), 0.025, at.call(Vector3(0, 0.865, 1.58)))
+	BodyKit.wheel_houses(paint, rig.spec, rig.spec.rear_z, 0.705, 0.56, c)
 	# cowl and dash
 	rb.call(paint, Vector3(1.45, 0.62, 0.05), 0.02, at.call(Vector3(0, 0.865, -0.33)))
 	rb.call(paint, Vector3(1.45, 0.07, 0.24), 0.03, at.call(Vector3(0, 1.17, -0.43)))

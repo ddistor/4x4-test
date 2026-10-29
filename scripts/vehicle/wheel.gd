@@ -12,6 +12,7 @@ const RAY_LIFT := 0.4
 @export var width := 0.32
 @export var rest_length := 0.36     # suspension travel at rest
 @export var max_travel := 0.15      # extra droop below rest (~0.28 m below ride height)
+@export var bump_limit := 0.342     # compression where the bump stop takes over (set from the RigSpec)
 @export var stiffness := 38000.0
 @export var damping := 3600.0       # bump
 @export var rebound_ratio := 2.6    # rebound damping = damping * this
@@ -318,8 +319,8 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		var damp := damping * (rebound_ratio if comp_vel < 0.0 else 1.0)
 		spring = maxf(0.0, stiffness * compression + damp * comp_vel + axle_load)
 		# bottoming out
-		if compression > rest_length * 0.95:
-			spring += stiffness * 4.0 * (compression - rest_length * 0.95)
+		if compression > bump_limit:
+			spring += stiffness * 4.0 * (compression - bump_limit)
 	_last_compression = compression
 	spring *= upright
 	load = spring
@@ -498,8 +499,10 @@ var hub_offset := Vector3.ZERO  # where the hub sits below this node (for axles)
 
 
 func _update_mesh(contact_dist: float, delta: float) -> void:
-	# in the air the wheel hangs at full droop; it never follows the ground further
-	contact_dist = minf(contact_dist, rest_length + max_travel + effective_radius())
+	# in the air the wheel hangs at full droop; it never follows the ground further,
+	# and it never shows past the bump stop up into the wheel well
+	contact_dist = clampf(contact_dist, rest_length + effective_radius() - bump_limit - 0.02,
+		rest_length + max_travel + effective_radius())
 	_spin -= omega * delta
 	# cylinder axis is Y: rotate it onto X (the axle), spin about X, then yaw for steering
 	var b := Basis.from_euler(Vector3(0, steer_angle, 0)) * Basis(Vector3.RIGHT, _spin) * Basis(Vector3.BACK, PI / 2.0)

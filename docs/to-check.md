@@ -27,6 +27,21 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Tires no longer hit the body
+
+The bodies had flat floors and boxy inner tubs running right over the wheels
+(the tire poked through the floor even at ride height on some rigs), arch cuts
+lower than a tire at the bump stop, and collision boxes filling the space the
+tires move through. Now (`bodies/body_kit.gd`, shared by every body): each
+rig has an up-travel `bump` in its RigSpec (0.2 m, the old bump stop), the
+tire mesh never shows past it, real wheel wells clear a tire there, floors
+stay inboard of the tires, arch cuts are the well's size, and collision boxes
+are split so nothing solid sits where a tire can go. The garage has a
+*Suspension* button to show the rig flexed (two wheels at the bump stop, two
+at full droop); checked all four with `--snap-garage --flex --rig ID`. Drive
+test positions on seed 7 match before. To check by driving: no more
+clunking on ledges and ruts where the tire used to meet the body.
+
 ## Ronda (big four-door wagon, the Patrol)
 
 Fourth rig: `bodies/ronda_body.gd`, spec `rig_spec.gd::_ronda`. Long hood with a

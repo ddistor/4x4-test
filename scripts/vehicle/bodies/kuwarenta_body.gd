@@ -19,9 +19,9 @@ const HUB_Y := 0.13
 
 
 static func build(rig: Rig) -> void:
+	BodyKit.collide(rig, COWL_Z, TAIL_Z, 0.55, 1.17, HALF_W)          # body
+	BodyKit.collide(rig, NOSE_Z, COWL_Z, 0.58, 1.1, HALF_W + 0.01)    # front clip
 	for col: Array in [
-		[Vector3(1.6, 0.62, 2.2), Vector3(0, 0.86, 0.64)],    # body
-		[Vector3(1.62, 0.52, 1.34), Vector3(0, 0.84, -1.13)], # front clip
 		[Vector3(1.58, 0.76, 2.18), Vector3(0, 1.52, 0.64)],  # cab under the top
 		[Vector3(1.72, 0.16, 0.16), Vector3(0, 0.6, -1.9)],   # bumper
 	]:
@@ -44,7 +44,7 @@ static func build(rig: Rig) -> void:
 		MeshKit.rounded_box(st, size, r, xf, c)
 	var fz := rig.spec.front_z
 	var rz := rig.spec.rear_z
-	var arch := rig.spec.tire_radius + 0.13
+	var arch := BodyKit.well_radius(rig.spec)   # the cut clears a tire at the bump stop
 
 	# frame and crossmembers
 	for sx: float in [-1.0, 1.0]:
@@ -53,12 +53,13 @@ static func build(rig: Rig) -> void:
 		rb.call(chassis, Vector3(0.84, 0.08, 0.08), 0.01, at.call(Vector3(0, 0.45, z)))
 
 	# body tub: floor, sides with the rear arch cut, back panel, cowl and dash
-	rb.call(paint, Vector3(1.56, 0.04, TAIL_Z - COWL_Z), 0.01, at.call(Vector3(0, SILL + 0.01, (TAIL_Z + COWL_Z) * 0.5)))
+	BodyKit.floor_panel(paint, rig.spec, COWL_Z, TAIL_Z, HALF_W - 0.02, SILL + 0.01, c)
+	BodyKit.wheel_houses(paint, rig.spec, rz, HALF_W, SILL, c)
+	BodyKit.wheel_houses(paint, rig.spec, fz, HALF_W + 0.03, 0.6, c)
 	for sx: float in [-1.0, 1.0]:
 		_side_panel(paint, sx * HALF_W, COWL_Z, TAIL_Z, SILL, BELT, [[rz, arch]], 0.035, c)
-		# rear arch: a rolled lip round the cut, and the inner wheel tub
+		# rear arch: a rolled lip round the cut
 		_arch_lip(paint, sx * HALF_W, rz, arch, SILL, c)
-		rb.call(paint, Vector3(0.22, BELT - 0.72, arch * 2.0), 0.04, at.call(Vector3(sx * (HALF_W - 0.13), (BELT + 0.72) * 0.5, rz)))
 		# door shut lines and handles
 		rb.call(chassis, Vector3(0.006, BELT - SILL - 0.06, 0.008), 0.002, at.call(Vector3(sx * (HALF_W + 0.018), (BELT + SILL) * 0.5, 0.52)))
 		rb.call(bright, Vector3(0.025, 0.025, 0.12), 0.008, at.call(Vector3(sx * (HALF_W + 0.025), BELT - 0.09, 0.4)))
