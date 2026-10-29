@@ -27,6 +27,17 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Ronda (big four-door wagon, the Patrol)
+
+Fourth rig: `bodies/ronda_body.gd`, spec `rig_spec.gd::_ronda`. Long hood with a
+raised centre, flat sides, four doors and rear quarter windows, big black
+flares, rectangular lamps and a barred grille, snorkel up the right A-pillar,
+roof rack, side steps, spare on the back door, winch bumper. Heaviest rig
+(2650 kg), longest (2.97 m wheelbase), on 35s, coils with the most droop
+(0.2 m), the most low-range pull. Headless bot: quickest through the paddies
+and lahar of the four. To check by driving: wide turning circle, sinks deep in
+the bog, walks up the rock steps; the snorkel and rack read from the chase cam.
+
 ## Feroz (boxy 90s two-door, the Feroza)
 
 Third rig: `bodies/feroz_body.gd`, spec `rig_spec.gd::_feroz`. Paint over black
@@ -225,7 +236,7 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
   1. Land Cruiser 40-series style: short, upright, leaf springs, a classic. **Built: Kuwarenta.**
   2. Feroza style: small boxy 90s 4x4, light, short wheelbase. **Built: Feroz.**
   3. Vitara style: small 90s SUV, nimble, modest clearance.
-  4. Patrol style: big heavy wagon, solid axles, long travel, sinks in bogs.
+  4. Patrol style: big heavy wagon, solid axles, long travel, sinks in bogs. **Built: Ronda.**
   5. Defender style (Land Rover): boxy, flat panels, coil-sprung solid axles.
   6. Rubicon style (modern Wrangler): lockers, disconnecting sway bar, big tires.
   7. FJ Cruiser style: retro body, independent front suspension, wide and stable.

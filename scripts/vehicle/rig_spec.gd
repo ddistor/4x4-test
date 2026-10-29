@@ -42,6 +42,7 @@ static func kinds() -> Array[RigSpec]:
 	out.append(_gera())
 	out.append(_kuwarenta())
 	out.append(_feroz())
+	out.append(_ronda())
 	return out
 
 
@@ -121,4 +122,35 @@ static func _feroz() -> RigSpec:
 	s.seat = Vector3(-0.34, 0.78, 0.2)
 	s.wheel_at = Vector3(-0.34, 1.16, -0.17)
 	s.build_body = FerozBody.build
+	return s
+
+
+## Ronda ("on patrol"): a big four-door wagon from the 90s-2000s, lifted on
+## 35s, coil springs and long travel, a diesel that pulls from nothing.
+## The heaviest rig: it walks up ledges and rides the ruts, but it sinks
+## in the bog where the light ones float.
+static func _ronda() -> RigSpec:
+	var s := RigSpec.new()
+	s.id = "ronda"
+	s.name = "Ronda"
+	s.blurb = "Big four-door wagon on 35s: coils, long travel, diesel torque. Heavy, sinks in the bog."
+	s.mass = 2650.0
+	s.center_of_mass = Vector3(0, 0.6, -0.12)
+	s.track = 0.82
+	s.front_z = -1.5
+	s.rear_z = 1.47
+	s.tire_radius = 0.445
+	s.tire_width = 0.32
+	s.spring_stiffness = 52000.0
+	s.droop = 0.2
+	s.drive_force_high = 16000.0
+	s.speed_high = 28.0
+	s.drive_force_low = 34000.0
+	s.speed_low = 10.0
+	s.max_steer = deg_to_rad(30.0)
+	s.axle_roll_stiffness = 26000.0
+	s.fairlead = Vector3(0, 0.74, -2.56)
+	s.seat = Vector3(-0.42, 0.88, 0.02)
+	s.wheel_at = Vector3(-0.42, 1.28, -0.38)
+	s.build_body = RondaBody.build
 	return s
