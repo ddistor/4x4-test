@@ -1,4 +1,4 @@
-﻿# To check in Claude Code / by hand
+# To check in Claude Code / by hand
 
 ## Rollover, jumps, mud that moved
 
@@ -67,7 +67,7 @@ the engine bay under them, like the real ones).
 
 ## Rock gully (new section kind)
 
-"Rock gully Â· Wawa, Montalban" (`gully` in `stage_plan.gd::KINDS`, shaped in
+"Rock gully · Wawa, Montalban" (`gully` in `stage_plan.gd::KINDS`, shaped in
 `terrain.gd`): a sunken cut through dense forest, a grey rock wall on one side
 and a steep earth bank on the other, the floor ~4.5 m wide. Wet red clay with
 stones half-buried in it in rock gardens, big ones fallen at the foot of the
@@ -163,18 +163,19 @@ black tee. `--logo N` picks one for a run.
 ## Kuwarenta (forty-series-style, top off)
 
 Second rig in the *Rig* picker: `bodies/kuwarenta_body.gd`, spec in
-`rig_spec.gd::_kuwarenta`. Reworked from a trail photo: round-shouldered front
+`rig_spec.gd::_kuwarenta`. Reworked from trail photos: round-shouldered front
 fenders that flare out over the tires (`_fender`), both headlights in a flat
 grille panel with a dark mesh between them, signal lamps on the fender fronts,
-a wide hood with a crowned middle (`_hood`), doors off (a low step in the opening, hinge stubs on the cowl post), a broad\nnearly upright windshield frame, and a roll bar over the seats instead of the glass hardtop. Arches cut round 33s, spare on a rear carrier, winch bumper. Rendered with
-`--snap --snap-rig --rig kuwarenta --look 4,0,0` (Bay blue). To check by
-driving: the seat camera view with the lower windshield and the roll bar;
-the arch-to-tire gap is set by bump clearance, so it stays. Heavier
+a wide hood with a crowned middle rolled down over the grille (`_hood`), doors
+off (a low step in the opening, hinge stubs on the cowl post), a broad nearly
+upright windshield frame, and a roll bar over the seats instead of the glass
+hardtop. Arches cut round 33s, spare on a rear carrier, winch bumper. Heavier
 (2050 kg), longer wheelbase (2.29 m), stiffer leaf-spring rate and less droop
-than the Gera. Rendered from outside with `--snap --snap-rig --rig
-kuwarenta`; the headless bot drives it through the paddies and lahar fine. To
-check by driving: feels heavier and flatter than the Gera, lifts a wheel
-sooner on the kanal ruts; seat camera (C) sits right behind the windshield;
+than the Gera. Rendered with `--snap --snap-rig --rig kuwarenta --look 4,0,0`
+(Bay blue); the headless bot drives it through the paddies and cogon fine. The
+arch-to-tire gap is set by bump clearance, so it stays. To check by driving:
+feels heavier and flatter than the Gera, lifts a wheel sooner on the kanal
+ruts; seat camera (C) behind the new windshield, the roll bar in view;
 the winch line leaves the bumper; rolled over, the roll bar (not a roof box)
 now holds it up.
 
@@ -268,11 +269,11 @@ the finish with no recoveries using the crawling line-follower; the rainy seed
 0. **Start menu (F5).** Painted backdrop, stage preview on the right (season,
    sections, places, lengths). *Reroll* draws a new stage, typing a seed previews
    it, *Weather* cycles random / dry season / rainy season. *Drive this stage*
-   shows "Building the stageâ€¦" for ~4 s, then drops you on the barangay road.
+   shows "Building the stage…" for ~4 s, then drops you on the barangay road.
 1. **Pause (Esc).** Resume, restart the same stage, new stage, back to the start
    menu, quit. Sound should stop while paused.
 2. **HUD.** Top centre: section number, name and place, metres along the trail.
-   No timer on purpose. Under the bamboo FINISH arch: "You made itâ€¦" for 8 s.
+   No timer on purpose. Under the bamboo FINISH arch: "You made it…" for 8 s.
 3. **Each section, by feel** (`scripts/world/terrain.gd`, `_kind_height` /
    `_kind_soil`; lengths and climbs in `stage_plan.gd::KINDS`):
    - *Barangay road*: gravel road between flooded paddies, as before.
@@ -280,9 +281,9 @@ the finish with no recoveries using the crawling line-follower; the rainy seed
      creek in a level bottom. The creek exit was the one hang-up in testing
      (fixed by levelling the trail round fords); if it's still a wall, `bank` /
      `drop` of the creek in `_plan_features`.
-   - *Kanal ruts*: two deep V-ruts (0.3â€“0.6 m) that wander and pull the wheels
+   - *Kanal ruts*: two deep V-ruts (0.3–0.6 m) that wander and pull the wheels
      off line; the crown between them can high-centre you.
-   - *Boulder river*: wide, shallow (0.4â€“0.55 m) clear water over cobbles, boulders
+   - *Boulder river*: wide, shallow (0.4–0.55 m) clear water over cobbles, boulders
      either side (small, crawlable ones on the line), foam where it's thin, the
      current streaking across. Wet stone is slicker.
    - *Lahar wash*: wide grey ash floor between gullied ash cliffs; loose (grip
@@ -290,7 +291,7 @@ the finish with no recoveries using the crawling line-follower; the rainy seed
    - *Rock steps*: bedrock ledges and small boulders up an open hillside. Crawl it
      in 4L; at speed the rig launches off the ledges.
    - *Logging-road bog*: sunken forest road with a chain of water-filled holes;
-     slow and deep (sink ~0.3â€“0.4 m) but passable in 4L with lockers.
+     slow and deep (sink ~0.3–0.4 m) but passable in 4L with lockers.
    - *Cogon hills*: open grassland, head-high talahib over a faint two-track,
      hidden holes in and beside the wheel lines.
    - *Niyogan farm road*: dry dirt road through coconut rows and saging, the odd puddle.
