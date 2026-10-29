@@ -182,7 +182,7 @@ func _multi(mesh: Mesh, xforms: Array[Transform3D], name_: String, shadows := tr
 
 func _ground_xf(x: float, z: float, scale: float, sink := 0.05) -> Transform3D:
 	var b := Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * scale)
-	return Transform3D(b, Vector3(x, terrain.get_height(x, z) - sink, z))
+	return Transform3D(b, Vector3(x, terrain.low_ground(x, z, 0.25 * scale) - sink, z))
 
 
 # --- broadleaf trees -------------------------------------------------------------

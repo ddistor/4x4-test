@@ -369,6 +369,16 @@ func _build_heights() -> void:
 			heights[j * nx + i] = _height_at(i * CELL, z, bl, th, tx, inv, near_cross, near_pits)
 
 
+## The lowest ground within `r` of (x, z): what anything with a footprint
+## (a boulder, a trunk) has to reach down to so no side of it hangs in the air.
+func low_ground(x: float, z: float, r: float) -> float:
+	var low := get_height(x, z)
+	for k in range(8):
+		var a := TAU * k / 8.0
+		low = minf(low, get_height(x + cos(a) * r, z + sin(a) * r))
+	return low
+
+
 func get_height(x: float, z: float) -> float:
 	var n := RES_X + 1
 	var fx := clampf(x / CELL, 0.0, RES_X - 0.001)
@@ -699,7 +709,10 @@ func _place_rocks() -> void:
 	var add := func(x: float, z: float, r: float, sink: float) -> void:
 		if x < 3.0 or x > WIDTH - 3.0 or z < 2.0 or z > length - 2.0:
 			return
-		rock_spots.append(Vector4(x, get_height(x, z) - r * sink, z, r))
+		# sit it on the lowest ground under its footprint, so on a slope the
+		# downhill side is bedded in instead of hanging in the air
+		var low := low_ground(x, z, r * 0.8)
+		rock_spots.append(Vector4(x, low - r * sink, z, r))
 		if r > 0.9 and absf(x - trail_x_at(z)) < 14.0:
 			tree_anchors.append(Vector3(x, get_height(x, z) + r * 0.5, z))  # a boulder takes a tree saver too
 	for s in plan.sections:
@@ -800,6 +813,9 @@ func _build_trees() -> void:
 			if y < water_at(x, z) + 0.3:
 				continue  # not in the river
 			var scale := rng.randf_range(0.75, 1.15)
+			# root the trunk at the lowest ground round its base, so on a bank
+			# the downhill side doesn't hang out over the slope
+			y = low_ground(x, z, 0.45 * scale)
 			placements.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * scale), Vector3(x, y - 0.15, z)))
 			if off < 22.0:
 				solid.call(x, y, z, scale)  # winch anchor, and a trunk you can't drive through
@@ -813,7 +829,7 @@ func _build_trees() -> void:
 					var z := gz + rng.randf_range(-1.2, 1.2)
 					var dx := absf(x - trail_x_at(z))
 					if dx > 4.8 and dx < 60.0 and rng.randf() < 0.85:
-						var y := get_height(x, z)
+						var y := low_ground(x, z, 0.3)
 						palm_spots.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.85, 1.15)), Vector3(x, y - 0.1, z)))
 						if dx < 22.0:
 							solid.call(x, y, z, 0.8)

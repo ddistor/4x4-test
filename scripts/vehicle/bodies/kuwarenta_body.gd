@@ -216,24 +216,6 @@ static func build(rig: Rig) -> void:
 		MeshKit.rounded_box(tst, Vector3(0.08, 0.16, 0.03), 0.012, at.call(Vector3(sx * 0.72, 0.9, TAIL_Z + 0.03)), c, 2)
 	rig._add_mesh(MeshKit.commit(tst, tail))
 
-	# whip with an orange flag off the back corner
-	var whip_base := Vector3(0.72, ROOF + 0.02, TAIL_Z - 0.1)
-	var wst := MeshKit.begin()
-	MeshKit.tube(wst, whip_base, whip_base + Vector3(0, 1.6, 0), 0.006, Transform3D.IDENTITY, c, 5)
-	rig._add_mesh(MeshKit.commit(wst, chassis_mat))
-	var fm := ArrayMesh.new()
-	var fa := []
-	fa.resize(Mesh.ARRAY_MAX)
-	fa[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3.ZERO, Vector3(0, -0.32, 0), Vector3(0, -0.12, 0.48)])
-	fa[Mesh.ARRAY_NORMAL] = PackedVector3Array([Vector3.RIGHT, Vector3.RIGHT, Vector3.RIGHT])
-	fm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, fa)
-	var flag_mat := StandardMaterial3D.new()
-	flag_mat.albedo_color = Color(0.95, 0.42, 0.08)
-	flag_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	flag_mat.roughness = 0.8
-	fm.surface_set_material(0, flag_mat)
-	rig._flag = rig._add_mesh(fm)
-	rig._flag.position = whip_base + Vector3(0, 1.58, 0)
 
 
 ## A flat body side at `x` from z0 to z1, from `bottom` up to `top_y`, with

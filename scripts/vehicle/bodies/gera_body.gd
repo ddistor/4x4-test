@@ -168,21 +168,3 @@ static func build(rig: Rig) -> void:
 		MeshKit.rounded_box(tst, Vector3(0.09, 0.13, 0.03), 0.012, at.call(Vector3(sx * 0.6, 0.98, 1.61)), c, 2)
 	rig._add_mesh(MeshKit.commit(tst, tail))
 
-	# whip with an orange flag, like every rig at the trailhead
-	var whip_base := Vector3(0.64, 1.17, 1.52)
-	var wst := MeshKit.begin()
-	MeshKit.tube(wst, whip_base, whip_base + Vector3(0, 1.9, 0), 0.006, Transform3D.IDENTITY, c, 5)
-	rig._add_mesh(MeshKit.commit(wst, chassis_mat))
-	var fm := ArrayMesh.new()
-	var fa := []
-	fa.resize(Mesh.ARRAY_MAX)
-	fa[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3.ZERO, Vector3(0, -0.32, 0), Vector3(0, -0.12, 0.48)])
-	fa[Mesh.ARRAY_NORMAL] = PackedVector3Array([Vector3.RIGHT, Vector3.RIGHT, Vector3.RIGHT])
-	fm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, fa)
-	var flag_mat := StandardMaterial3D.new()
-	flag_mat.albedo_color = Color(0.95, 0.42, 0.08)
-	flag_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	flag_mat.roughness = 0.8
-	fm.surface_set_material(0, flag_mat)
-	rig._flag = rig._add_mesh(fm)
-	rig._flag.position = whip_base + Vector3(0, 1.88, 0)
