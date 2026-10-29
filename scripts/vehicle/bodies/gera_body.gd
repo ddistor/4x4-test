@@ -39,9 +39,11 @@ static func build(rig: Rig) -> void:
 
 	# tub: floor, sides cut for the rear wheels, flat rear fenders, back panel
 	BodyKit.floor_panel(paint, rig.spec, -0.32, 1.56, 0.69, 0.56, c)
+	var arch := BodyKit.well_radius(rig.spec)
 	for sx: float in [-1.0, 1.0]:
-		rb.call(paint, Vector3(0.045, 0.44, 0.93), 0.02, at.call(Vector3(sx * 0.705, 0.78, 0.13)))
-		rb.call(paint, Vector3(0.05, 0.21, 1.93), 0.025, at.call(Vector3(sx * 0.705, 1.07, 0.62)))
+		# one tub side, cowl to tail, the rear wheel arch cut out of it
+		KuwarentaBody._side_panel(paint, sx * 0.705, -0.33, 1.58, 0.56, 1.17, [[rig.spec.rear_z, arch]], 0.04, c)
+		MeshKit.tube(paint, Vector3(sx * 0.705, 1.17, -0.33), Vector3(sx * 0.705, 1.17, 1.58), 0.025, Transform3D.IDENTITY, c, 8)
 		# the flat fender lip over the tire
 		rb.call(paint, Vector3(0.27, 0.035, 1.02), 0.012, at.call(Vector3(sx * 0.8, 0.975, 1.1)))
 	rb.call(paint, Vector3(1.45, 0.62, 0.05), 0.025, at.call(Vector3(0, 0.865, 1.58)))
@@ -62,6 +64,9 @@ static func build(rig: Rig) -> void:
 		var nose := Transform3D(Basis(Vector3.RIGHT, -0.5), Vector3(sx * 0.68, 0.915, -1.6))
 		rb.call(paint, Vector3(0.34, 0.035, 0.24), 0.012, nose)
 		rb.call(paint, Vector3(0.34, 0.42, 0.035), 0.012, at.call(Vector3(sx * 0.68, 0.77, -0.37)))
+		# inner fender apron under it, nose to cowl, cut round the front tire:
+		# open under the fender like the real thing, but no seeing into the engine bay
+		KuwarentaBody._side_panel(paint, sx * 0.52, -1.6, -0.37, 0.56, 0.97, [[rig.spec.front_z, arch]], 0.03, c)
 
 	# grille: body-colour plate, slotted, round headlights set into it
 	rb.call(paint, Vector3(1.0, 0.64, 0.05), 0.025, at.call(Vector3(0, 0.88, -1.6)))
