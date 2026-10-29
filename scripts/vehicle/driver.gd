@@ -173,11 +173,22 @@ func _build_helmet() -> void:
 	# bar sweeps forward and down to a point, a wide eye port is set into it
 	# for the goggles, a brow ridge over that, and a long pointed peak.
 	var st := MeshKit.begin()
+	_face(st)
 	_helmet_shell(st)
 	_goggles(st)
 	_helmet_peak(st)
 	var helmet := _part(st, _head, "Helmet")
 	helmet.layers = 2  # hidden from the driver's-seat camera, which sits inside it
+
+
+## His face, inside the helmet: what shows through the eye port round the
+## goggles. Cheeks, a nose, a bit of chin above the chin bar.
+func _face(st: SurfaceTool) -> void:
+	MeshKit.sphere(st, 1.0, Transform3D(Basis.IDENTITY.scaled(Vector3(0.1, 0.125, 0.128)), Vector3(0, 0.1, -0.012)), SKIN, 18)
+	for sx: float in [-1.0, 1.0]:
+		MeshKit.sphere(st, 0.034, Transform3D(Basis.IDENTITY, Vector3(sx * 0.045, 0.085, -0.115)), SKIN, 10)  # cheeks
+	MeshKit.sweep(st, PackedVector3Array([Vector3(0, 0.125, -0.128), Vector3(0, 0.098, -0.148)]), PackedFloat32Array([0.012, 0.017]), Transform3D.IDENTITY, SKIN, 8)  # nose
+	MeshKit.rounded_box(st, Vector3(0.05, 0.008, 0.02), 0.004, Transform3D(Basis.IDENTITY, Vector3(0, 0.072, -0.128)), SKIN_DK, 2)  # mouth line
 
 
 func _helmet_shell(st: SurfaceTool) -> void:
@@ -186,6 +197,7 @@ func _helmet_shell(st: SurfaceTool) -> void:
 	var centre := Vector3(0, 0.11, 0)
 	var grid: Array[Vector3] = []
 	var cols: Array[Color] = []
+	var open: Array[bool] = []   # inside the eye port: no shell there
 	for ri in range(rings + 1):
 		var lat := lerpf(deg_to_rad(-60.0), PI * 0.5, float(ri) / rings)
 		for si in range(segs):
@@ -194,17 +206,19 @@ func _helmet_shell(st: SurfaceTool) -> void:
 			var d := Vector3(cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon))
 			var p := d * Vector3(0.135, 0.15, 0.168)
 			var front := smoothstep(0.2, 0.95, -d.z)
-			var below := 1.0 - smoothstep(-0.12, 0.1, d.y)
+			var below := 1.0 - smoothstep(-0.42, -0.2, d.y)
 			var jaw := front * below
 			# chin bar: a wide jaw that drops down and forward, the further down the
 			# further out (an angled front, not a bill), pinched only at the very tip
-			var down := smoothstep(0.08, -0.7, d.y)
-			p.z -= 0.095 * front * down * (0.6 + 0.4 * down)
+			var down := smoothstep(-0.18, -0.8, d.y)
+			p.z -= 0.13 * front * down * (0.6 + 0.4 * down)
 			p.y -= 0.05 * front * down
 			p.x *= 1.0 - 0.18 * jaw * smoothstep(0.8, 1.0, -d.z)
 			# eye port: a wide opening set back into the shell
-			var port := smoothstep(0.5, 0.7, -d.z) * smoothstep(-0.06, 0.02, d.y) * (1.0 - smoothstep(0.3, 0.38, d.y))
-			p -= d * 0.04 * port
+			# eye port: a big opening onto his face, rounded off at the corners
+			var port := smoothstep(0.45, 0.62, -d.z) * smoothstep(-0.48, -0.38, d.y) * (1.0 - smoothstep(0.3, 0.38, d.y))
+			p -= d * 0.012 * port
+			open.append(port > 0.55)
 			# brow ridge over the port
 			p += d * 0.012 * smoothstep(0.45, 0.75, -d.z) * smoothstep(0.32, 0.4, d.y) * (1.0 - smoothstep(0.45, 0.6, d.y))
 			# the lower back flares out a little over the neck
@@ -218,10 +232,10 @@ func _helmet_shell(st: SurfaceTool) -> void:
 					c = STRIPE_B
 			if jaw > 0.5:
 				c = STRIPE_B
-			if front > 0.85 and d.y < -0.25 and d.y > -0.55 and absf(d.x) < 0.12:
+			if front > 0.85 and d.y < -0.55 and d.y > -0.8 and absf(d.x) < 0.12:
 				c = VISOR  # mouth vent on the front of the chin bar
-			if port > 0.5:
-				c = VISOR  # inside the eye port
+			if port > 0.25:
+				c = VISOR  # rubber trim round the opening
 			cols.append(c)
 	var normals: Array[Vector3] = []
 	for ri in range(rings + 1):
@@ -244,6 +258,8 @@ func _helmet_shell(st: SurfaceTool) -> void:
 			for i in ids:
 				q.append(grid[i])
 				qn.append(normals[i])
+			if open[ids[0]] and open[ids[1]] and open[ids[2]] and open[ids[3]]:
+				continue
 			MeshKit._quad(st, Transform3D.IDENTITY, q, qn, cols[ids[0]])
 
 
