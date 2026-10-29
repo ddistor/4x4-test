@@ -8,9 +8,9 @@ uniform float creek_level = 0.0;
 
 uniform vec3 clay_dry = vec3(0.62, 0.33, 0.14);     // Morong laterite, sun-baked
 uniform vec3 clay_wet = vec3(0.36, 0.17, 0.07);     // same clay after rain
-uniform vec3 grass    = vec3(0.30, 0.42, 0.16);
-uniform vec3 paddy    = vec3(0.38, 0.52, 0.20);
-uniform vec3 gravel   = vec3(0.52, 0.47, 0.40);
+uniform vec3 grass    = vec3(0.22, 0.36, 0.12);
+uniform vec3 paddy    = vec3(0.28, 0.46, 0.14);
+uniform vec3 gravel   = vec3(0.42, 0.36, 0.28);
 
 varying vec3 world_pos;
 varying float v_rut;
