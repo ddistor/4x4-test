@@ -134,6 +134,34 @@ static func tube(st: SurfaceTool, a: Vector3, b: Vector3, radius: float, xf: Tra
 	cylinder(st, radius, axis.length(), xf * local, col, sides)
 
 
+## Tapered tube along a polyline (trunks, branches, culms). Frames are carried
+## along the path so it doesn't twist; ends are left open.
+static func sweep(st: SurfaceTool, pts: PackedVector3Array, radii: PackedFloat32Array, xf: Transform3D, col: Color, sides := 8) -> void:
+	var n := pts.size()
+	var rings: Array[PackedVector3Array] = []
+	var norms: Array[PackedVector3Array] = []
+	var t0 := (pts[1] - pts[0]).normalized()
+	var side := t0.cross(Vector3.FORWARD if absf(t0.z) < 0.9 else Vector3.RIGHT).normalized()
+	for i in range(n):
+		var t := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		side = (side - t * side.dot(t)).normalized()
+		var up := t.cross(side)
+		var ring := PackedVector3Array()
+		var nr := PackedVector3Array()
+		for k in range(sides):
+			var a := TAU * k / sides
+			var d := side * cos(a) + up * sin(a)
+			ring.append(pts[i] + d * radii[i])
+			nr.append(d)
+		rings.append(ring)
+		norms.append(nr)
+	for i in range(n - 1):
+		for k in range(sides):
+			var k1 := (k + 1) % sides
+			_quad(st, xf, [rings[i][k], rings[i + 1][k], rings[i + 1][k1], rings[i][k1]],
+				[norms[i][k], norms[i + 1][k], norms[i + 1][k1], norms[i][k1]], col)
+
+
 static func sphere(st: SurfaceTool, radius: float, xf: Transform3D, col: Color, sides := 14) -> void:
 	var prof: Array[Vector2] = []
 	var rings := sides / 2

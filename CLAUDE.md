@@ -18,6 +18,10 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 - `scripts/world/terrain.gd` — procedural Morong trail: paddies → first clay climb →
   creek → upper switchbacks. Heightmap mesh + `HeightMapShape3D` collider of the
   *firm floor* (heights minus mud thickness). Trees (MultiMesh) double as winch anchors.
+- `scripts/world/vegetation.gd` — everything green, modelled in code: broadleaf
+  trees (sweep trunks + procedural leaf-card canopies), bamboo, saging, niyog,
+  grass/ferns, rice in rows. Small stuff is chunked with a visibility range.
+- `scripts/world/backdrop.gd` — far hills past the map edge and Laguna de Bay.
 - `scripts/world/mud_field.gd` — per-cell soft-ground data: thickness, wetness, rut.
   Baked into an RGB float texture the terrain shader reads (ruts displace vertices).
 - `scripts/vehicle/rig.gd` — the rig (RigidBody3D), a lifted black Willys-style
@@ -29,7 +33,10 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   rut carving against the mud field, spray/splash particles.
 - `shaders/` — terrain (rut displacement, laterite colouring, pooling), muddy water,
   body paint that cakes with clay where the tires throw it, tire/wheel mud;
-  shared clay look in `mud_common.gdshaderinc`.
+  shared clay look in `mud_common.gdshaderinc`; `foliage`/`bark` for plants,
+  `sky` (procedural clouds), `backdrop` for the far hills. Vertex colours are
+  authored as sRGB and linearised in the shader (clamp before `pow`: MSAA on
+  thin blades otherwise makes NaNs that glow turns into white blobs).
 - `tests/drive_test.tscn` — headless smoke test that drives the trail with a simple
   line-follower and prints position/sink/slip each second:
   `godot --headless --path . res://tests/drive_test.tscn --quit-after 20000`

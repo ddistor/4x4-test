@@ -2,33 +2,36 @@
 
 ## M1 mud playground (branch `m1-mud-playground`)
 
-Built blind in a headless session — the physics runs and the headless drive test
-gets from the paddies through the creek, but nobody has *seen* it yet. In order:
+The physics runs and the headless drive test gets from the paddies through the
+creek. Visuals are checked with `--snap` screenshots, not yet by a human
+driving it. In order:
 
 0. **Snapshot mode works on Windows.** Run `Godot.exe --path . -- --snap` from the
    repo folder; it should open a window for ~10 s and leave 7 PNGs in `snaps/`.
-   If `snaps/` is empty, check the console for the `saved ...` lines.
-1. **Open in Godot 4.7+ and press F5.** First run showed white ground: terrain
-   triangles were wound backwards and culled. Fixed, along with washed-out
-   colours (`source_color`), clay smeared over the whole lower map (creek check
-   had no z limit), paddy water covering the road, heavy fog, and the paint
-   looking muddy at 0%. Paddies now have pilapil dikes and darker water.
-   Re-check by eye: gravel road → red clay into the trees, green hills, brown
-   creek at z≈112. Trees are still lollipops; graphics pass is the next job.
+   Each `saved ...` line prints where the rig was (placement used to stick at
+   the first spot; fixed by setting the transform on the physics server too).
+1. **Look around (F5, mouse drag).** Realism pass: cloud sky, AgX tonemap, soft
+   shadows, light haze, far hills and Laguna de Bay past the map edge; ground is
+   layered per pixel (grass, leaf litter under the trees, laterite on cut banks,
+   gravel road, glossy wet clay with puddles in the ruts); vegetation is modelled
+   in code (broadleaf trees, bamboo, saging, niyog, grass, ferns, rice in rows).
+   Things to judge by eye: forest trunks may read too grey/pole-like; puddles
+   may be too few or too many (`pool` in `terrain.gdshader`); performance with
+   grass density (`step` in `vegetation.gd::_place_ground_cover`) on your GPU.
 2. **Drive the road** (W). Should reach ~35 km/h on the gravel. Steering (A/D)
-   should feel heavy but not sloppy. The rig is now a lifted black flatfender on
-   35s with a shorter wheelbase (2.35 m) and less mass (1950 kg), so it may pitch
-   and wander more than the old one. Drag with either mouse button to orbit,
-   scroll to zoom; C is a driver's-seat cam you can look around in.
+   should feel heavy but not sloppy. The rig is a lifted black flatfender on
+   35s with a 2.35 m wheelbase and 1950 kg, so it may pitch and wander. Drag
+   with either mouse button to orbit, scroll to zoom; C is a driver's-seat cam.
 3. **Hit the first clay at z≈50 in 4H / open diff.** Intended: it bogs within a
    few metres and one wheel per axle spins. Press **G** (4L) and **L** (diff lock)
    and it should crawl out at 5–7 km/h. If it crawls out too easily in 4H, raise
    `wetness` on the lower climb in `terrain.gd::_author_mud`.
-4. **Creek crossing at z≈112.** Sinks ~0.4 m, splashes, engine chokes if the front
-   wheels go past ~0.75 m of water. Should be passable in 4L.
-5. **Upper switchbacks past z≈139.** The old rig jammed here; the new one (more
-   clearance, shorter overhangs) gets the headless test to the top at z≈249.
-   Worth a drive to confirm it isn't just luck.
+4. **Creek crossing at z≈112.** Sinks ~0.4 m, splashes (droplets + mist), engine
+   chokes if the front wheels go past ~0.75 m of water. Passable in 4L.
+5. **Upper switchbacks past z≈139.** Marginal: one headless run with the new rig
+   reached the top, the latest one jammed at z≈142 against the bank, and the
+   `--snap` drop at z=150 can tip it over. Needs a human drive. If the banks
+   are the problem, soften `smoothstep(2.8, 7.0, dx)` in `terrain.gd::_base_height`.
 6. **Winch (F).** Point the nose roughly at a trunk within 18 m and press F. A line
    should draw and the rig should get pulled at ~0.9 m/s. F again releases.
    Trees right at the bank edge (12% of them) are the intended anchors.
@@ -45,7 +48,14 @@ gets from the paddies through the creek, but nobody has *seen* it yet. In order:
 Known guesses to validate: spring/damper numbers in `wheel.gd`, mud drag
 coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
+## Queued (asked for, not started)
+
+- **River crossing** like the reference photos: wide, shallow, clear water over
+  river stones, white water piling against the bumper, rooster-tail spray, a
+  glassy pool with reflections.
+- **Flung mud lands**: clay thrown by the tires piles into berms beside and
+  behind the ruts instead of vanishing.
+
 ## Not done in M1
 
-No audio, no AI buddy rig, no missions, one vehicle. Terrain and forest are still
-flat-shaded primitives (next up: making the surroundings and ground mud look real).
+No audio, no AI buddy rig, no missions, one vehicle.

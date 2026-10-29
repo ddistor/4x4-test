@@ -33,6 +33,7 @@ var mesh: MeshInstance3D
 var tire_mat: ShaderMaterial
 var spray: GPUParticles3D
 var splash: GPUParticles3D
+var mist: GPUParticles3D
 
 const NOMINAL_LOAD := 5500.0
 
@@ -111,56 +112,123 @@ static func build_wheel_mesh(r: float, w: float, mirror: bool) -> SurfaceTool:
 
 
 func _build_particles() -> void:
+	# Mud: lots of small wet clods that shrink as they fly (they break up).
 	spray = GPUParticles3D.new()
 	var pm := ParticleProcessMaterial.new()
 	pm.direction = Vector3(0, 0.8, 1)
-	pm.spread = 28.0
+	pm.spread = 24.0
 	pm.initial_velocity_min = 3.0
 	pm.initial_velocity_max = 9.0
 	pm.gravity = Vector3(0, -9.8, 0)
-	pm.scale_min = 0.03
-	pm.scale_max = 0.14
+	pm.scale_min = 0.025
+	pm.scale_max = 0.09
+	pm.scale_curve = _shrink_curve()
 	pm.angular_velocity_min = -400.0
 	pm.angular_velocity_max = 400.0
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	pm.emission_box_extents = Vector3(width * 0.5, 0.05, 0.1)
 	spray.process_material = pm
-	spray.amount = 140
-	spray.lifetime = 1.3
+	spray.amount = 260
+	spray.lifetime = 1.2
 	spray.emitting = false
 	spray.local_coords = false
-	# squashed lumps of wet clay rather than balls
-	var sm := SphereMesh.new()
+	var sm := SphereMesh.new()  # unit size: scale is the clod diameter
 	sm.radius = 0.5
-	sm.height = 0.6
-	sm.radial_segments = 7
-	sm.rings = 4
+	sm.height = 0.7
+	sm.radial_segments = 6
+	sm.rings = 3
 	var smat := StandardMaterial3D.new()
-	smat.albedo_color = Color(0.27, 0.11, 0.045)
-	smat.roughness = 0.3
-	smat.metallic_specular = 0.6
+	smat.albedo_color = Color(0.4, 0.17, 0.07)
+	smat.roughness = 0.45
+	smat.metallic_specular = 0.35
 	sm.material = smat
 	spray.draw_pass_1 = sm
 	add_child(spray)
 
+	# Water: fine droplets plus a soft mist that hangs and spreads.
 	splash = GPUParticles3D.new()
 	var wm := pm.duplicate() as ParticleProcessMaterial
 	wm.direction = Vector3(0, 1, 0.6)
-	wm.initial_velocity_min = 4.0
-	wm.initial_velocity_max = 9.0
-	wm.spread = 55.0
+	wm.initial_velocity_min = 3.0
+	wm.initial_velocity_max = 8.0
+	wm.spread = 50.0
+	wm.scale_min = 0.01
+	wm.scale_max = 0.035
 	splash.process_material = wm
-	splash.amount = 90
-	splash.lifetime = 0.8
+	splash.amount = 220
+	splash.lifetime = 0.9
 	splash.emitting = false
 	splash.local_coords = false
-	var wmesh := sm.duplicate() as SphereMesh
+	var wmesh := SphereMesh.new()
+	wmesh.radius = 0.5
+	wmesh.height = 1.0
+	wmesh.radial_segments = 6
+	wmesh.rings = 3
 	var wmat := StandardMaterial3D.new()
-	wmat.albedo_color = Color(0.7, 0.6, 0.45)
-	wmat.roughness = 0.3
+	wmat.albedo_color = Color(0.62, 0.58, 0.48, 0.6)
+	wmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wmat.roughness = 0.05
+	wmat.metallic_specular = 0.8
 	wmesh.material = wmat
 	splash.draw_pass_1 = wmesh
 	add_child(splash)
+
+	mist = GPUParticles3D.new()
+	var mm := ParticleProcessMaterial.new()
+	mm.direction = Vector3(0, 1, 0.4)
+	mm.spread = 60.0
+	mm.initial_velocity_min = 0.8
+	mm.initial_velocity_max = 2.5
+	mm.gravity = Vector3(0, -0.6, 0)
+	mm.damping_min = 1.0
+	mm.damping_max = 2.0
+	mm.scale_min = 0.5
+	mm.scale_max = 1.1
+	var grow := Curve.new()
+	grow.add_point(Vector2(0, 0.4))
+	grow.add_point(Vector2(1, 1.6))
+	var gt := CurveTexture.new()
+	gt.curve = grow
+	mm.scale_curve = gt
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 0.5))
+	fade.set_color(1, Color(1, 1, 1, 0.0))
+	var ft := GradientTexture1D.new()
+	ft.gradient = fade
+	mm.color_ramp = ft
+	mist.process_material = mm
+	mist.amount = 40
+	mist.lifetime = 1.4
+	mist.emitting = false
+	mist.local_coords = false
+	var quad := QuadMesh.new()
+	var qmat := StandardMaterial3D.new()
+	qmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qmat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qmat.vertex_color_use_as_albedo = true
+	qmat.albedo_color = Color(0.85, 0.85, 0.8)
+	var puff := GradientTexture2D.new()
+	puff.fill = GradientTexture2D.FILL_RADIAL
+	puff.fill_from = Vector2(0.5, 0.5)
+	puff.fill_to = Vector2(1.0, 0.5)
+	var pg := Gradient.new()
+	pg.set_color(0, Color(1, 1, 1, 1))
+	pg.set_color(1, Color(1, 1, 1, 0))
+	puff.gradient = pg
+	qmat.albedo_texture = puff
+	quad.material = qmat
+	mist.draw_pass_1 = quad
+	add_child(mist)
+
+
+static func _shrink_curve() -> CurveTexture:
+	var c := Curve.new()
+	c.add_point(Vector2(0, 1))
+	c.add_point(Vector2(1, 0.35))
+	var t := CurveTexture.new()
+	t.curve = c
+	return t
 
 
 ## Called from the rig every physics tick. `drive_force` is the longitudinal
@@ -186,6 +254,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		_update_mesh(rest_length + max_travel, delta)
 		spray.emitting = false
 		splash.emitting = false
+		mist.emitting = false
 		return result
 
 	# --- where the tire actually sits -------------------------------------
@@ -225,6 +294,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		_update_mesh(contact_dist, delta)
 		spray.emitting = false
 		splash.emitting = false
+		mist.emitting = false
 		return result
 
 	# --- tire frame ------------------------------------------------------
@@ -306,6 +376,8 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	spray.emitting = soft > 0.3 and (slip > 0.2 or surf_speed > 2.5)
 	splash.global_position = contact_point
 	splash.emitting = water > 0.1 and planar.length() > 1.5
+	mist.global_position = contact_point + Vector3.UP * 0.3
+	mist.emitting = splash.emitting and planar.length() > 2.5
 
 	# tread packs fast in the slop, flings clean slowly on firm ground
 	if soft > 0.3:

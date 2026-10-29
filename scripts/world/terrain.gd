@@ -227,6 +227,7 @@ func _build_mesh() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/terrain.gdshader")
 	mat.set_shader_parameter("mud_tex", mud.texture)
+	mat.set_shader_parameter("cover_tex", _cover_texture())
 	mat.set_shader_parameter("world_size", SIZE_M)
 	mat.set_shader_parameter("creek_level", creek_water_level())
 	mesh.surface_set_material(0, mat)
@@ -235,6 +236,23 @@ func _build_mesh() -> void:
 	_mesh_instance.mesh = mesh
 	_mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	add_child(_mesh_instance)
+
+
+## 1 m ground-cover map for the shader: R = distance to trail centre / 32 m,
+## G = forest cover (leaf litter instead of grass), which follows where
+## _build_trees plants its trunks.
+func _cover_texture() -> ImageTexture:
+	var n := int(SIZE_M)
+	var img := Image.create(n, n, false, Image.FORMAT_RGF)
+	for z in range(n):
+		var tx := trail_x_at(z + 0.5)
+		var woods := smoothstep(42.0, 55.0, z + 0.5)
+		for x in range(n):
+			var dx := absf(x + 0.5 - tx)
+			var edge := 4.5 + 2.5 * _detail.get_noise_2d(x * 0.7, z * 0.7)
+			var forest := woods * smoothstep(edge, edge + 4.0, dx) * (1.0 - smoothstep(26.0, 40.0, dx) * 0.6)
+			img.set_pixel(x, z, Color(minf(dx / 32.0, 1.0), forest, 0.0))
+	return ImageTexture.create_from_image(img)
 
 
 func _build_collision() -> void:
@@ -297,29 +315,9 @@ func _build_water() -> void:
 func _build_trees() -> void:
 	# Secondary forest: dense off the trail, a few right at the bank edge so
 	# there's always a winch anchor in reach. Trunks are solid; canopies are not.
+	# The look (trees, bamboo, palms, grass, rice) is all in Vegetation.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	var trunk_mesh := CylinderMesh.new()
-	trunk_mesh.top_radius = 0.18
-	trunk_mesh.bottom_radius = 0.28
-	trunk_mesh.height = 7.0
-	var trunk_mat := StandardMaterial3D.new()
-	trunk_mat.albedo_color = Color(0.32, 0.24, 0.16)
-	trunk_mesh.material = trunk_mat
-	var canopy_mesh := SphereMesh.new()
-	canopy_mesh.radius = 2.6
-	canopy_mesh.height = 4.2
-	var canopy_mat := StandardMaterial3D.new()
-	canopy_mat.albedo_color = Color(0.16, 0.34, 0.14)
-	canopy_mesh.material = canopy_mat
-
-	var trunks := MultiMesh.new()
-	trunks.transform_format = MultiMesh.TRANSFORM_3D
-	trunks.mesh = trunk_mesh
-	var canopies := MultiMesh.new()
-	canopies.transform_format = MultiMesh.TRANSFORM_3D
-	canopies.mesh = canopy_mesh
-
 	var placements: Array[Transform3D] = []
 	var anchors_body := StaticBody3D.new()
 	anchors_body.name = "Trees"
@@ -336,8 +334,8 @@ func _build_trees() -> void:
 		if x < 2.0 or x > SIZE_M - 2.0:
 			continue
 		var y := get_height(x, z)
-		var scale := rng.randf_range(0.8, 1.5)
-		var t := Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3(scale, scale, scale)), Vector3(x, y + 3.5 * scale, z))
+		var scale := rng.randf_range(0.75, 1.15)
+		var t := Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3(scale, scale, scale)), Vector3(x, y - 0.15, z))
 		placements.append(t)
 		if off < 7.0:
 			tree_anchors.append(Vector3(x, y + 0.8, z))
@@ -348,22 +346,11 @@ func _build_trees() -> void:
 			cs.shape = cap
 			cs.position = Vector3(x, y + 3.5 * scale, z)
 			anchors_body.add_child(cs)
-	trunks.instance_count = placements.size()
-	canopies.instance_count = placements.size()
-	for k in range(placements.size()):
-		trunks.set_instance_transform(k, placements[k])
-		var ct := placements[k]
-		ct.origin.y += 4.6 * ct.basis.get_scale().y
-		canopies.set_instance_transform(k, ct)
-	var tmi := MultiMeshInstance3D.new()
-	tmi.multimesh = trunks
-	tmi.name = "Trunks"
-	add_child(tmi)
-	var cmi := MultiMeshInstance3D.new()
-	cmi.multimesh = canopies
-	cmi.name = "Canopies"
-	add_child(cmi)
 	add_child(anchors_body)
+	var veg := Vegetation.new()
+	veg.name = "Vegetation"
+	add_child(veg)
+	veg.build(self, placements)
 
 
 # --- Queries used by the vehicle -------------------------------------------

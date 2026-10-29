@@ -40,7 +40,7 @@ func _run() -> void:
 		var img := get_viewport().get_texture().get_image()
 		var path := "res://snaps/%s.png" % spot[0]
 		img.save_png(path)
-		print("saved ", ProjectSettings.globalize_path(path))
+		print("saved ", ProjectSettings.globalize_path(path), "  rig at ", _rig.global_position.snapped(Vector3.ONE * 0.1))
 	# one driving shot: 3 s of throttle on the first clay so spray/caking show
 	_rig.place_on_trail(55.0)
 	_rig.low_range = true

@@ -362,6 +362,9 @@ func place_on_trail(z: float) -> void:
 	var x := terrain.trail_x_at(z)
 	var t := Transform3D(Basis.looking_at(Vector3(0, 0, 1), Vector3.UP), Vector3(x, terrain.get_height(x, z) + 1.2, z))
 	global_transform = t
+	# also straight to the server: from inside a physics-frame callback the
+	# node-side set alone gets overwritten by the next step
+	PhysicsServer3D.body_set_state(get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM, t)
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	winch_active = false
