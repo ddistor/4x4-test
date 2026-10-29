@@ -4,8 +4,12 @@ extends RefCounted
 ## one-shots (no audio files, like everything else here). Loops are a whole
 ## number of cycles long so they wrap without a click; the rig pitches and
 ## mixes them at runtime.
+##
+## Built from filtered noise rather than pure tones: an engine is pressure
+## pulses ringing in an exhaust, a frog is a rasp, a cicada is a buzz. Pure
+## sines and square waves are what made the first version sound like a chiptune.
 
-const RATE := 22050
+const RATE := 32000
 
 
 static func _to_wav(buf: PackedFloat32Array, loop: bool) -> AudioStreamWAV:
@@ -29,14 +33,23 @@ static func _to_wav(buf: PackedFloat32Array, loop: bool) -> AudioStreamWAV:
 	return w
 
 
-## In-place 2-pole low-pass (RBJ biquad). Run twice for a steeper slope.
-static func _lowpass(buf: PackedFloat32Array, cutoff: float, q := 0.707) -> void:
-	var w0 := TAU * cutoff / RATE
+## RBJ biquad, in place. kind: 0 low-pass, 1 band-pass (0 dB peak).
+static func _biquad(buf: PackedFloat32Array, kind: int, freq: float, q: float) -> void:
+	var w0 := TAU * freq / RATE
 	var alpha := sin(w0) / (2.0 * q)
 	var c := cos(w0)
 	var a0 := 1.0 + alpha
-	var b0 := (1.0 - c) * 0.5 / a0
-	var b1 := (1.0 - c) / a0
+	var b0: float
+	var b1: float
+	var b2: float
+	if kind == 0:
+		b0 = (1.0 - c) * 0.5 / a0
+		b1 = (1.0 - c) / a0
+		b2 = b0
+	else:
+		b0 = alpha / a0
+		b1 = 0.0
+		b2 = -alpha / a0
 	var a1 := -2.0 * c / a0
 	var a2 := (1.0 - alpha) / a0
 	var x1 := 0.0
@@ -45,12 +58,20 @@ static func _lowpass(buf: PackedFloat32Array, cutoff: float, q := 0.707) -> void
 	var y2 := 0.0
 	for i in range(buf.size()):
 		var x := buf[i]
-		var y := b0 * x + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2
+		var y := b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
 		x2 = x1
 		x1 = x
 		y2 = y1
 		y1 = y
 		buf[i] = y
+
+
+static func _lowpass(buf: PackedFloat32Array, freq: float, q := 0.707) -> void:
+	_biquad(buf, 0, freq, q)
+
+
+static func _bandpass(buf: PackedFloat32Array, freq: float, q: float) -> void:
+	_biquad(buf, 1, freq, q)
 
 
 static func _highpass(buf: PackedFloat32Array, cutoff: float) -> void:
@@ -72,86 +93,83 @@ static func _noise(n: int, rng: RandomNumberGenerator) -> PackedFloat32Array:
 	return b
 
 
-## Add a decaying, downward-sweeping tone at sample `at` (wraps round the loop).
-static func _blip(buf: PackedFloat32Array, at: int, f0: float, f1: float, dur: float, amp: float) -> void:
-	var len := int(dur * RATE)
-	var ph := 0.0
-	for i in range(len):
-		var t := float(i) / len
-		ph += TAU * lerpf(f0, f1, t) / RATE
-		var env := (1.0 - t) * (1.0 - t) * minf(1.0, i / 60.0)
-		var j := (at + i) % buf.size()
-		buf[j] += sin(ph) * env * amp
+static func _zeros(n: int) -> PackedFloat32Array:
+	var b := PackedFloat32Array()
+	b.resize(n)
+	return b
 
 
-# --- engine --------------------------------------------------------------------
+static func _mix(into: PackedFloat32Array, src: PackedFloat32Array, gain: float, at := 0) -> void:
+	for i in range(src.size()):
+		var j := (at + i) % into.size()
+		into[j] += src[i] * gain
 
-## A lumpy V8 at a fixed rpm: firing harmonics, the cross-plane burble below
-## them, a firing pulse per cylinder with a little misfire jitter, exhaust hiss.
-## `bright` opens the filter up for the high-rpm layer.
+
+## A burst of band-limited noise with a fast attack and exponential tail,
+## mixed in at `at` (wrapping round the loop). The basic grain of squelches,
+## croaks, slaps and knocks.
+static func _burst(into: PackedFloat32Array, at: int, dur: float, freq: float, q: float, amp: float, rng: RandomNumberGenerator, decay := 4.0) -> void:
+	var b := _noise(int(dur * RATE), rng)
+	_bandpass(b, freq, q)
+	var n := b.size()
+	for i in range(n):
+		var t := float(i) / n
+		b[i] *= minf(1.0, i / (RATE * 0.003)) * exp(-t * decay)
+	_mix(into, b, amp, at)
+
+
+# --- engine ---------------------------------------------------------------------
+
+## A lumpy V8 at a fixed rpm: each firing is a pressure pulse (a thump plus
+## a burst of noise) that rings through the exhaust's resonances. Cross-plane
+## firing makes the pulses uneven in a repeating 8-pulse pattern, which is
+## the burble. `bright` adds the rasp of the high-rpm layer.
 static func engine(rpm: float, bright: float, seed_v: int) -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v
-	var fire := rpm / 60.0 * 4.0  # 8 cylinders, 4-stroke
-	var n := RATE  # 1 s: a whole number of quarter-firing cycles at the rpms we use
-	var freqs: Array[float] = []
-	var amps: Array[float] = []
-	var phases: Array[float] = []
-	for h in range(1, 13):
-		freqs.append(fire * h)
-		amps.append(1.0 / pow(h, 0.85) * rng.randf_range(0.7, 1.3))
-		phases.append(rng.randf() * TAU)
-	for sub: float in [0.25, 0.5, 0.75]:
-		freqs.append(fire * sub)
-		amps.append(0.45 if sub == 0.5 else 0.3)
-		phases.append(rng.randf() * TAU)
-	var pulses := PackedFloat32Array()
-	for k in range(int(fire) + 2):
-		pulses.append(1.0 + rng.randfn() * 0.12)
-	var buf := PackedFloat32Array()
-	buf.resize(n)
-	var hiss := 0.0
+	var fire := rpm / 60.0 * 4.0
+	var n := RATE  # 1 s holds a whole number of 8-pulse engine cycles at 1200/3000 rpm
+	var pattern := [1.0, 0.78, 1.1, 0.72, 0.95, 0.85, 1.06, 0.68]
+	var exc := _zeros(n)
+	var count := int(round(fire))
+	for k in range(count):
+		var at := int(k * RATE / fire + rng.randf_range(-0.0002, 0.0002) * RATE)
+		var amp: float = pattern[k % 8] * (1.0 + rng.randfn() * 0.08)
+		var len := int(RATE * 0.014)
+		for i in range(len):
+			var t := float(i) / RATE
+			exc[(at + i + n) % n] += amp * (exp(-t / 0.0035) * 0.9 + rng.randf_range(-1.0, 1.0) * exp(-t / 0.0025) * 0.7)
+	var body := exc.duplicate()
+	_bandpass(body, lerpf(95.0, 140.0, bright), 1.8)
+	var pipe := exc.duplicate()
+	_bandpass(pipe, lerpf(320.0, 520.0, bright), 2.5)
+	var rasp := exc.duplicate()
+	_bandpass(rasp, lerpf(1100.0, 1900.0, bright), 1.2)
+	var buf := _zeros(n)
 	for i in range(n):
-		var t := float(i) / RATE
-		var s := 0.0
-		for h in range(freqs.size()):
-			s += amps[h] * sin(TAU * freqs[h] * t + phases[h])
-		var cyc := t * fire
-		var pos := cyc - floorf(cyc)
-		var pulse := exp(-pos * 9.0) * pulses[int(cyc)]
-		hiss += (rng.randf_range(-1.0, 1.0) - hiss) * 0.3
-		s = s * 0.35 + pulse * 1.2 + hiss * (0.25 + 0.6 * pulse) * (0.4 + bright)
-		buf[i] = tanh(s * 0.9)
-	_lowpass(buf, lerpf(700.0, 2400.0, bright), 0.9)
-	_lowpass(buf, lerpf(1400.0, 4000.0, bright))
-	_highpass(buf, 25.0)
+		var s := body[i] * 1.0 + pipe[i] * 0.55 + rasp[i] * (0.12 + 0.4 * bright) + exc[i] * 0.06
+		buf[i] = tanh(s * 2.2)
+	_lowpass(buf, lerpf(2200.0, 6000.0, bright))
+	_highpass(buf, 30.0)
 	return _to_wav(buf, true)
 
 
-# --- ground and water ---------------------------------------------------------
+# --- ground and water -------------------------------------------------------------
 
-## Tires churning clay: a wet low rumble with sucking squelches popping out of it.
+## Tires churning clay: a wet low churn with squelches and sucking pops.
 static func mud(seed_v: int) -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v
 	var n := RATE * 2
 	var buf := _noise(n, rng)
-	_lowpass(buf, 260.0)
-	_lowpass(buf, 260.0)
+	_lowpass(buf, 220.0)
+	_lowpass(buf, 220.0)
 	for i in range(n):
-		buf[i] *= 2.5
-	for k in range(26):
-		var f0 := rng.randf_range(160.0, 320.0)
-		_blip(buf, rng.randi() % n, f0, f0 * 0.4, rng.randf_range(0.06, 0.16), rng.randf_range(0.3, 0.8))
-	# slap of clods
-	var slap := _noise(n, rng)
-	_lowpass(slap, 1200.0)
-	var env := 0.0
-	for i in range(n):
-		if rng.randf() < 0.0009:
-			env = rng.randf_range(0.3, 0.7)
-		env *= 0.996
-		buf[i] += slap[i] * env
+		buf[i] *= 3.0
+	for k in range(34):
+		_burst(buf, rng.randi() % n, rng.randf_range(0.05, 0.16), rng.randf_range(160.0, 480.0), rng.randf_range(2.0, 5.0), rng.randf_range(0.5, 1.4), rng, 5.0)
+	for k in range(10):  # sucking pops as a lug pulls free
+		_burst(buf, rng.randi() % n, 0.04, rng.randf_range(700.0, 1100.0), 6.0, 0.5, rng, 8.0)
 	return _to_wav(buf, true)
 
 
@@ -161,19 +179,18 @@ static func gravel(seed_v: int) -> AudioStreamWAV:
 	rng.seed = seed_v
 	var n := RATE * 2
 	var rumble := _noise(n, rng)
-	_lowpass(rumble, 180.0)
-	var clicks := PackedFloat32Array()
-	clicks.resize(n)
-	for k in range(900):
+	_lowpass(rumble, 160.0)
+	var clicks := _zeros(n)
+	for k in range(1100):
 		var at := rng.randi() % n
 		var amp := rng.randf_range(0.2, 1.0)
-		for i in range(rng.randi_range(20, 70)):
-			clicks[(at + i) % n] += rng.randf_range(-1.0, 1.0) * amp * exp(-i / 12.0)
-	_highpass(clicks, 1200.0)
-	var buf := PackedFloat32Array()
-	buf.resize(n)
+		for i in range(rng.randi_range(20, 80)):
+			clicks[(at + i) % n] += rng.randf_range(-1.0, 1.0) * amp * exp(-i / 14.0)
+	_highpass(clicks, 1500.0)
+	_lowpass(clicks, 7000.0)
+	var buf := _zeros(n)
 	for i in range(n):
-		buf[i] = rumble[i] * 1.6 + clicks[i] * 0.5
+		buf[i] = rumble[i] * 1.8 + clicks[i] * 0.45
 	return _to_wav(buf, true)
 
 
@@ -183,126 +200,117 @@ static func water(seed_v: int) -> AudioStreamWAV:
 	rng.seed = seed_v
 	var n := RATE * 3
 	var hi := _noise(n, rng)
-	_highpass(hi, 350.0)
-	_lowpass(hi, 3500.0)
+	_highpass(hi, 400.0)
+	_lowpass(hi, 4500.0)
 	var lo := _noise(n, rng)
 	_lowpass(lo, 140.0)
-	var buf := PackedFloat32Array()
-	buf.resize(n)
+	var buf := _zeros(n)
 	for i in range(n):
 		var t := float(i) / n
 		# swells that complete a whole number of cycles per loop
 		var swell := 0.55 + 0.25 * sin(TAU * 3.0 * t) + 0.2 * sin(TAU * 7.0 * t + 1.3)
 		buf[i] = hi[i] * swell + lo[i] * 3.0
-	for k in range(10):
-		_blip(buf, rng.randi() % n, rng.randf_range(90.0, 140.0), 50.0, 0.25, 0.6)
+	for k in range(12):
+		_burst(buf, rng.randi() % n, 0.2, rng.randf_range(90.0, 220.0), 1.5, 1.2, rng, 6.0)
 	return _to_wav(buf, true)
 
 
-## Winch motor under load: a sawtooth whine with gear mesh on top.
+## Winch motor under load: a motor whine (that one really is tonal) with
+## brush and gear noise on it.
 static func winch() -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
 	var n := RATE
-	var buf := PackedFloat32Array()
-	buf.resize(n)
+	var buf := _noise(n, rng)
+	_bandpass(buf, 1800.0, 1.0)
 	for i in range(n):
 		var t := float(i) / RATE
 		var s := 0.0
-		for h in range(1, 9):
-			s += sin(TAU * 140.0 * h * t) / h
-		s += 0.35 * sin(TAU * 560.0 * t) * (0.5 + 0.5 * sin(TAU * 20.0 * t))
-		buf[i] = s + rng.randf_range(-1.0, 1.0) * 0.15
-	_lowpass(buf, 2500.0)
+		for h in range(1, 6):
+			s += sin(TAU * 140.0 * h * t) / (h * h)
+		buf[i] = buf[i] * 0.8 + s * 0.5 + 0.2 * sin(TAU * 560.0 * t) * (0.5 + 0.5 * sin(TAU * 20.0 * t))
+	_lowpass(buf, 3000.0)
 	return _to_wav(buf, true)
 
 
-# --- ambience -----------------------------------------------------------------
+# --- ambience ---------------------------------------------------------------------
 
-## Paddies by the lake: frogs (palaka) croaking in groups, crickets, a breeze.
+## Paddies by the lake: a chorus of palaka knocking and rasping, distant
+## crickets, breeze over the rice.
 static func paddy_ambience() -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 501
 	var n := RATE * 10
 	var buf := _noise(n, rng)
-	_lowpass(buf, 400.0)
+	_lowpass(buf, 500.0)
 	for i in range(n):
-		buf[i] *= 0.35 * (0.7 + 0.3 * sin(TAU * 2.0 * i / n))
-	# frogs: buzzy pulse trains at a few pitches
-	for frog in range(5):
-		var pitch := rng.randf_range(220.0, 520.0)
+		buf[i] *= 0.5 * (0.7 + 0.3 * sin(TAU * 2.0 * i / n))
+	for frog in range(9):
+		var pitch := rng.randf_range(450.0, 1100.0)
 		var at := rng.randi() % n
-		for call in range(rng.randi_range(3, 7)):
-			var start := at + call * int(rng.randf_range(0.55, 1.2) * RATE)
-			var len := int(rng.randf_range(0.12, 0.22) * RATE)
-			var amp := rng.randf_range(0.2, 0.45)
-			for i in range(len):
-				var t := float(i) / RATE
-				var env := sin(PI * float(i) / len)
-				var buzz := signf(sin(TAU * pitch * t)) * (0.5 + 0.5 * sin(TAU * 28.0 * t))
-				buf[(start + i) % n] += buzz * env * amp
-	# crickets: high chirps in pairs
-	for c in range(40):
+		var amp := rng.randf_range(0.25, 0.7)
+		for call in range(rng.randi_range(3, 9)):
+			var start := at + call * int(rng.randf_range(0.09, 0.16) * RATE)
+			_burst(buf, start, rng.randf_range(0.025, 0.05), pitch * rng.randf_range(0.97, 1.03), 7.0, amp, rng, 5.0)
+	var crickets := _zeros(n)
+	for c in range(30):
 		var at := rng.randi() % n
-		var f := rng.randf_range(4200.0, 5200.0)
-		for rep in range(2):
-			for i in range(int(0.04 * RATE)):
-				var t := float(i) / RATE
-				buf[(at + rep * int(0.09 * RATE) + i) % n] += sin(TAU * f * t) * sin(PI * t / 0.04) * 0.08
+		for pulse in range(rng.randi_range(4, 10)):
+			_burst(crickets, at + pulse * int(0.032 * RATE), 0.018, rng.randf_range(4300.0, 5000.0), 14.0, 0.25, rng, 3.0)
+	_mix(buf, crickets, 0.4)
 	return _to_wav(buf, true)
 
 
-## Secondary forest: cicada (kuliglig) choruses swelling in and out, birdsong,
-## wind in the canopy.
+## Secondary forest: kuliglig (cicada) choruses swelling in and out, a few
+## birds, wind in the canopy.
 static func forest_ambience() -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 502
 	var n := RATE * 10
 	var buf := _noise(n, rng)
-	_lowpass(buf, 700.0)
-	_highpass(buf, 80.0)
+	_lowpass(buf, 600.0)
+	_highpass(buf, 60.0)
 	for i in range(n):
-		buf[i] *= 0.3 * (0.6 + 0.4 * sin(TAU * 3.0 * i / n + 0.4))
-	# cicadas: a tight cluster of high tones, buzzing at ~70 Hz, swelling
-	var tones := [4300.0, 4420.0, 4610.0, 4900.0]
+		buf[i] *= 0.6 * (0.55 + 0.45 * sin(TAU * 3.0 * i / n + 0.4))
+	# cicadas: a hiss band round 4.5 kHz, chopped into a fast buzz, swelling
+	var cic := _noise(n, rng)
+	_bandpass(cic, 4600.0, 3.0)
 	for i in range(n):
 		var t := float(i) / RATE
-		var swell := pow(maxf(0.0, sin(TAU * 2.0 * i / n)), 2.0)
-		var buzz := 0.5 + 0.5 * sin(TAU * 70.0 * t)
-		var s := 0.0
-		for f: float in tones:
-			s += sin(TAU * f * t)
-		buf[i] += s * 0.035 * swell * buzz
-	# birds: rising whistles in short phrases
-	for bird in range(9):
+		var swell := pow(maxf(0.0, sin(TAU * 2.0 * i / n)), 1.5)
+		var buzz := pow(0.5 + 0.5 * sin(TAU * 95.0 * t), 3.0)
+		buf[i] += cic[i] * 0.9 * swell * buzz
+	# birds: short whistled phrases with a natural wobble, kept sparse and soft
+	for bird in range(7):
 		var at := rng.randi() % n
-		var base := rng.randf_range(2000.0, 3200.0)
-		for note in range(rng.randi_range(2, 5)):
-			var start := at + note * int(rng.randf_range(0.12, 0.2) * RATE)
-			var dur := rng.randf_range(0.06, 0.12)
-			var len := int(dur * RATE)
+		var base := rng.randf_range(1900.0, 3000.0)
+		for note in range(rng.randi_range(2, 4)):
+			var start := at + note * int(rng.randf_range(0.14, 0.24) * RATE)
+			var len := int(rng.randf_range(0.07, 0.14) * RATE)
 			var ph := 0.0
-			var f0 := base * rng.randf_range(0.9, 1.1)
-			var f1 := f0 * rng.randf_range(1.15, 1.5)
+			var f0 := base * rng.randf_range(0.92, 1.08)
+			var f1 := f0 * rng.randf_range(1.1, 1.4)
 			for i in range(len):
 				var u := float(i) / len
-				ph += TAU * lerpf(f0, f1, u) / RATE
-				buf[(start + i) % n] += sin(ph) * sin(PI * u) * 0.22
+				var vib := 1.0 + 0.03 * sin(TAU * 32.0 * float(i) / RATE)
+				ph += TAU * lerpf(f0, f1, u) * vib / RATE
+				var env := sin(PI * u) * sin(PI * u)
+				buf[(start + i) % n] += (sin(ph) + 0.2 * sin(2.0 * ph)) * env * 0.12
 	return _to_wav(buf, true)
 
 
-# --- one-shots ------------------------------------------------------------------
+# --- one-shots ----------------------------------------------------------------------
 
-## Driveline clunk: diff lock, transfer case, winch clutch.
+## Driveline clunk: diff lock, transfer case, winch clutch. A dull knock with
+## a short metallic ring.
 static func clunk() -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9
 	var n := int(RATE * 0.35)
-	var buf := PackedFloat32Array()
-	buf.resize(n)
-	for i in range(n):
-		var t := float(i) / RATE
-		buf[i] = sin(TAU * 85.0 * t) * exp(-t * 18.0) + sin(TAU * 1150.0 * t) * exp(-t * 40.0) * 0.4 + rng.randf_range(-1.0, 1.0) * exp(-t * 60.0) * 0.5
+	var buf := _zeros(n)
+	_burst(buf, 0, 0.3, 110.0, 1.2, 1.6, rng, 9.0)
+	_burst(buf, 0, 0.12, 950.0, 12.0, 0.6, rng, 12.0)
+	_burst(buf, 0, 0.08, 2600.0, 10.0, 0.25, rng, 14.0)
 	return _to_wav(buf, false)
 
 
@@ -312,9 +320,9 @@ static func splash() -> AudioStreamWAV:
 	rng.seed = 10
 	var n := int(RATE * 1.4)
 	var buf := _noise(n, rng)
-	_lowpass(buf, 3000.0)
+	_lowpass(buf, 3500.0)
 	for i in range(n):
 		var t := float(i) / RATE
 		buf[i] *= exp(-t * 2.8) * (0.4 + 0.6 * exp(-t * 12.0))
-		buf[i] += sin(TAU * 70.0 * t) * exp(-t * 10.0) * 1.2
+	_burst(buf, 0, 0.3, 90.0, 1.0, 2.0, rng, 8.0)
 	return _to_wav(buf, false)
