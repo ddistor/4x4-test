@@ -48,6 +48,8 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   forest beds plus a bank of separate animal calls (kept sparse on purpose),
   clunk and splash one-shots. No audio files.
 - `scripts/audio/rig_audio.gd` — pitches and mixes those from the rig's state.
+- `scripts/vehicle/winch_aim.gd` — choosing a winch anchor: rings on everything in
+  reach, mouse hover or Tab to pick, F to hook.
 - `scripts/vehicle/driver.gd` — the driver (motocross helmet, sleeveless tee, jorts,
   tsinelas) and the turning steering wheel. Torso and head are damped springs
   driven by the acceleration the rig feels; arms reach the wheel by two-bone IK.

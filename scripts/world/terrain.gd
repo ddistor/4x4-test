@@ -738,8 +738,8 @@ func _build_trees() -> void:
 				continue  # not in the river
 			var scale := rng.randf_range(0.75, 1.15)
 			placements.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * scale), Vector3(x, y - 0.15, z)))
-			if off < 7.0:
-				solid.call(x, y, z, scale)
+			if off < 22.0:
+				solid.call(x, y, z, scale)  # winch anchor, and a trunk you can't drive through
 		if kind == "niyog":
 			# a coconut plantation: palms in loose rows either side of the road
 			var gz := z0 + 4.0
@@ -752,7 +752,7 @@ func _build_trees() -> void:
 					if dx > 4.8 and dx < 60.0 and rng.randf() < 0.85:
 						var y := get_height(x, z)
 						palm_spots.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.85, 1.15)), Vector3(x, y - 0.1, z)))
-						if dx < 9.0:
+						if dx < 22.0:
 							solid.call(x, y, z, 0.8)
 					gx += 8.5
 				gz += 8.5

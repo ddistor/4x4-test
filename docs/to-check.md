@@ -1,5 +1,17 @@
 # To check in Claude Code / by hand
 
+## Winch: pick your anchor
+
+F starts aiming: every tree, palm or big boulder the cable reaches (18 m,
+ahead of or up to 80 deg beside the bumper) gets a white ring where the strap
+would go; the best one (close and ahead) starts picked in yellow with a dashed
+line showing the cable run. Hover the mouse over another ring or Tab through
+them, F to hook up, Esc to cancel. F while pulling releases. Every tree
+within 22 m of the trail is now an anchor (was: only bank-edge trees) and is
+solid, so you can't drive through trunks off the trail any more. Lahar
+washes have few anchors on purpose: boulders only. To check: the rings show
+through terrain so you can find them; too cluttered?
+
 ## The driver (first sketch)
 
 In the seat: white full-face helmet with a black visor (his face hidden),
@@ -89,7 +101,7 @@ dry river cobbles on the banks read a little pale in full sun.
 
 ## Earlier milestone (rig, mud, sound), still to drive by hand
 
-- **Winch (F)**: point the nose at a trunk or a big boulder within 18 m; F again releases.
+- **Winch (F)**: see "Winch: pick your anchor" above.
 - **Mud caking**: wheelspin throws clay round the arches, a long bog buries the
   corner; fresh mud is dark and glossy, bakes pale and cracked, rivers rinse it.
 - **Ruts**: drive the same stretch twice; the second pass sits lower.
@@ -102,8 +114,6 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
-- **Pick the winch anchor**: choose which tree (or boulder) to winch to instead of
-  the game picking the nearest one in front. Too limiting as it is.
 - **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
      low range.

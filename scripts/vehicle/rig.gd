@@ -52,6 +52,7 @@ var _cable: MeshInstance3D
 var _cable_mesh: ImmediateMesh
 var _spawn: Transform3D
 var driver: Driver
+var winch_aim: WinchAim
 
 
 func _ready() -> void:
@@ -68,6 +69,10 @@ func _ready() -> void:
 	driver.name = "Driver"
 	add_child(driver)
 	driver.build(self)
+	winch_aim = WinchAim.new()
+	winch_aim.name = "WinchAim"
+	add_child(winch_aim)
+	winch_aim.setup(self)
 	_build_wheels()
 	_build_axles()
 	_build_cable()
@@ -519,24 +524,24 @@ func _physics_process(delta: float) -> void:
 
 
 func _toggle_winch() -> void:
+	# F: release a running winch; otherwise aim, and F again hooks the pick
 	if winch_active:
 		winch_active = false
-		return
-	var bumper := _bumper_pos()
-	var fwd := -global_transform.basis.z
-	var best := Vector3.INF
-	var best_d := winch_reach
-	for a in terrain.tree_anchors:
-		var to := a - bumper
-		var d := to.length()
-		if d < best_d and to.normalized().dot(fwd) > 0.15:
-			best_d = d
-			best = a
-	if best == Vector3.INF:
-		return
-	winch_anchor = best
-	winch_target_len = best_d
+	elif winch_aim.active:
+		winch_aim.confirm()
+	else:
+		winch_aim.begin()
+
+
+## Run the cable out to `anchor` and start pulling.
+func hook_winch(anchor: Vector3) -> void:
+	winch_anchor = anchor
+	winch_target_len = fairlead().distance_to(anchor)
 	winch_active = true
+
+
+func fairlead() -> Vector3:
+	return _bumper_pos()
 
 
 func _bumper_pos() -> Vector3:
