@@ -6,10 +6,12 @@ extends Node3D
 ## The node sits at the top of the suspension travel in rig space. The wheel
 ## mesh is a child that gets moved down to wherever the tire actually sits.
 
+const RAY_LIFT := 0.4
+
 @export var radius := 0.445         # 35" mud terrain
 @export var width := 0.32
 @export var rest_length := 0.36     # suspension travel at rest
-@export var max_travel := 0.30      # extra droop below rest
+@export var max_travel := 0.15      # extra droop below rest (~0.28 m below ride height)
 @export var stiffness := 38000.0
 @export var damping := 3600.0       # bump
 @export var rebound_ratio := 2.6    # rebound damping = damping * this
@@ -255,12 +257,20 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var down := -rig.global_transform.basis.y
 	var r := effective_radius()
 	var ray_len := rest_length + max_travel + r + 0.9  # 0.9: deepest mud we allow
-	var query := PhysicsRayQueryParameters3D.create(top, top + down * ray_len)
+	# cast from inside the body, so a wheel mount pushed into the dirt (rig on
+	# its side, landing hard) still finds the ground instead of starting under it
+	var query := PhysicsRayQueryParameters3D.create(top - down * RAY_LIFT, top + down * ray_len)
 	query.exclude = [rig.get_rid()]
 	var hit := space.intersect_ray(query)
+	# A tire only stands on ground that's under it. On its side or roof the
+	# ray runs sideways into the dirt; a spring firing there would kick the
+	# rig about, so the wheel lets go as the rig tips past ~45-70 deg.
+	var upright := 0.0
+	if not hit.is_empty():
+		upright = smoothstep(0.35, 0.7, (hit.normal as Vector3).dot(-down))
 
 	var result := {"slip": 0.0, "in_mud": 0.0, "wet": 0.0, "in_water": 0.0, "cap": 0.0}
-	if hit.is_empty():
+	if hit.is_empty() or upright <= 0.0:
 		contact = false
 		load = 0.0
 		sink = lerpf(sink, 0.0, delta * 4.0)
@@ -285,7 +295,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var wet: float = ground["wetness"]
 	var water: float = ground["water_depth"]
 	# Soft surface the tire would rest on if it didn't sink: firm + room.
-	var surface_dist: float = (hit.position - top).length() - room
+	var surface_dist: float = (hit.position - top).dot(down) - room
 	# How far it wants to sink: wetter + heavier + spinning = deeper, capped by room.
 	# aired down = longer footprint = lower ground pressure = floats more
 	var load_k := clampf(load / NOMINAL_LOAD, 0.4, 1.6) / (1.0 + 0.6 * aired())
@@ -311,6 +321,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		if compression > rest_length * 0.95:
 			spring += stiffness * 4.0 * (compression - rest_length * 0.95)
 	_last_compression = compression
+	spring *= upright
 	load = spring
 	var hub := top + down * (contact_dist - r)
 	rig.apply_force(-down * spring, hub - rig.global_position)
@@ -487,6 +498,8 @@ var hub_offset := Vector3.ZERO  # where the hub sits below this node (for axles)
 
 
 func _update_mesh(contact_dist: float, delta: float) -> void:
+	# in the air the wheel hangs at full droop; it never follows the ground further
+	contact_dist = minf(contact_dist, rest_length + max_travel + effective_radius())
 	_spin -= omega * delta
 	# cylinder axis is Y: rotate it onto X (the axle), spin about X, then yaw for steering
 	var b := Basis.from_euler(Vector3(0, steer_angle, 0)) * Basis(Vector3.RIGHT, _spin) * Basis(Vector3.BACK, PI / 2.0)

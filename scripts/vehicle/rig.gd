@@ -340,6 +340,15 @@ func _build_wheels() -> void:
 		w.left_side = entry[2]
 		add_child(w)
 		wheels.append(w)
+		# the tire as a solid, a little inside the tread: it carries the rig
+		# when it's on its side and is the bump stop when the springs bottom
+		var tire := CollisionShape3D.new()
+		var drum := CylinderShape3D.new()
+		drum.radius = 0.3
+		drum.height = 0.2
+		tire.shape = drum
+		tire.transform = Transform3D(Basis(Vector3.BACK, PI * 0.5), w.position + Vector3(0, -0.1, 0))  # axle along X
+		add_child(tire)
 
 
 func _build_cable() -> void:
@@ -501,7 +510,9 @@ func _physics_process(delta: float) -> void:
 			corner_mud[i] = maxf(0.0, corner_mud[i] - delta * 0.12 * water * (1.0 + absf(v_fwd)))
 			rinse = maxf(rinse, water)
 		thrown += fling
-		var hub := w.position + w.hub_offset
+		# where the clay was thrown from: the wheel at ride height, fixed to the
+		# body, so the splatter stays put instead of sliding with the suspension
+		var hub := w.position + Vector3(0, -0.21, 0)
 		corners.append(Vector4(hub.x, hub.y, hub.z, corner_mud[i]))
 	if rinse > 0.0:
 		cake = maxf(0.0, cake - delta * 0.1 * rinse * (1.0 + absf(v_fwd)))

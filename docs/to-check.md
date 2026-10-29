@@ -1,5 +1,20 @@
 # To check in Claude Code / by hand
 
+## Rollover, jumps, mud that moved
+
+- **On its side or roof** it now lies still instead of thrashing and sinking:
+  wheel springs let go as the rig tips (`upright` in `wheel.gd`), each tire
+  has a small solid core to rest on, and the wheel rays start inside the
+  body so a mount pushed into the dirt still finds the ground. Backspace
+  recovers. Flat-slab test: on its side, spin 10 -> 0.16 rad/s, no hopping.
+- **Jumps**: wheels hang at the end of their travel in the air instead of
+  following the ground down (that was the "stretch"), and droop is now
+  ~0.28 m below ride height (`max_travel` 0.30 -> 0.15). Kanal ruts got a
+  little harder for the test bot (3 -> 6 recoveries on seed 31337): less
+  droop lifts wheels out of the V-ruts. Judge by driving.
+- **Mud on the body** is anchored to the body now; it used to slide with each
+  wheel's suspension.
+
 ## Winch: pick your anchor
 
 F starts aiming: every tree, palm or big boulder the cable reaches (18 m,
