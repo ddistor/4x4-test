@@ -129,6 +129,12 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
+- **Driver should be physics-based** (reported: he sways left/right on his own).
+  Cause: torso/head are springs chasing the rig's measured acceleration, which
+  is noisy frame to frame, and the springs are under-damped (z 0.28-0.32).
+  Plan: torso and head as real physics bodies on springy joints to the seat,
+  thrown about only by the rig's actual motion (rollovers included). Quick
+  fallback: filter the acceleration and damp to z ~0.7.
 - **More rigs, common on PH trails** (ideas, not started): Jimny/Samurai-style
   mini (light, narrow, floats, small tires), Land Cruiser 70-style heavy wagon
   (lockers, snorkel, sinks in bogs), Hilux/Strada-style IFS pickup (stable,
