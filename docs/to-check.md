@@ -27,6 +27,14 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Rig picker (one rig so far)
+
+`rig.gd` is now the shared machine; each vehicle is a `RigSpec` kind
+(`rig_spec.gd`) plus a body builder in `scripts/vehicle/bodies/`. The start menu
+has a *Rig* button (only *Flatfender* for now), saved with the colours. Drive
+test on seed 7 matches the old behaviour. To check: the flatfender drives as
+before; the menu button is there.
+
 ## Colours: rig paint, shirt, jorts
 
 Start menu has *Rig paint*, *Shirt* and *Jorts* buttons that cycle presets

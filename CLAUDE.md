@@ -40,9 +40,13 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 - `scripts/world/backdrop.gd` — far hills in rings round the strip, Laguna de Bay.
 - `scripts/world/mud_field.gd` — per-cell soft-ground data: thickness, wetness, rut.
   Baked into an RGB float texture the terrain shader reads (ruts displace vertices).
-- `scripts/vehicle/rig.gd` — the rig (RigidBody3D), a lifted black Willys-style
-  flatfender: drivetrain, open/locked diff model, low range, winch, per-tire mud
-  throw onto the body, HUD text. Body is modelled in code with `mesh_kit.gd`.
+- `scripts/vehicle/rig.gd` — the rig (RigidBody3D) every vehicle shares:
+  drivetrain, open/locked diff model, low range, winch, per-tire mud throw onto
+  the body, HUD text. What differs per vehicle lives in `rig_spec.gd` (`RigSpec`:
+  mass, wheel layout, tire size, gearing, seat, fairlead, body builder; picked in
+  the start menu, `--rig ID` on the command line). Bodies are modelled in code
+  with `mesh_kit.gd`, one file each in `scripts/vehicle/bodies/`
+  (`flatfender_body.gd`: the lifted black Willys-style flatfender).
 - `scripts/audio/sound_synth.gd` — every sound, synthesised at startup (~0.4 s):
   V8 engine loops at two rpms, mud/gravel/water/winch loops, quiet paddy and
   forest beds plus a bank of separate animal calls (kept sparse on purpose),
@@ -81,8 +85,8 @@ Add `--snap-driver` for just the driver close-ups (`snaps/98_driver*.png`).
 ## Conventions
 
 - Forward is -Z (Godot). The stage runs along world +Z; the rig spawns facing up it.
-- Units are metres, newtons, seconds. Tune in the `@export` vars at the top of
-  `rig.gd` and `wheel.gd` before touching the formulas.
+- Units are metres, newtons, seconds. Tune a vehicle in its `RigSpec` kind
+  (`rig_spec.gd`) and the `@export` vars in `wheel.gd` before touching the formulas.
 - Setting: Morong, Rizal. Red laterite clay, secondary forest, rice paddies by
   Laguna de Bay, and the stage sections named after real Philippine trail country.
   Keep names and vibe local; avoid making it generic "jungle".

@@ -76,6 +76,10 @@ func _ready() -> void:
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
 	left.add_child(trail)
+	var rigs := []
+	for k in RigSpec.kinds():
+		rigs.append([k.name, Color(0, 0, 0, 0)])
+	left.add_child(_look_button("Rig", rigs, "rig_kind"))
 	left.add_child(_look_button("Rig paint", Game.PAINTS, "paint"))
 	left.add_child(_look_button("Shirt", Game.SHIRTS, "shirt"))
 	left.add_child(_look_button("Jorts", Game.SHORTS, "shorts"))

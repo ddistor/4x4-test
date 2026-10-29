@@ -31,8 +31,9 @@ const SOLE := Color(0.92, 0.92, 0.9)
 const CLUB_PRINT := "res://assets/driver/tropang_saligawsaw.png"   # club logo on the chest
 const PRINT_SIZE := 0.24                     # m across
 
-const HIP := Vector3(-0.33, 0.8, 0.27)       # pivot on the driver's seat
-const WHEEL_AT := Vector3(-0.33, 1.2, -0.1)
+# where he sits and where the wheel is: from the rig's RigSpec at build time
+var HIP := Vector3(-0.33, 0.8, 0.27)         # pivot on the driver's seat
+var WHEEL_AT := Vector3(-0.33, 1.2, -0.1)
 const WHEEL_TILT := 1.15
 const WHEEL_R := 0.19
 const STEER_RATIO := 3.0                     # steering wheel turns per road wheel turn (visual)
@@ -61,6 +62,8 @@ const SEAT_C := 1000.0
 
 func build(r: RigidBody3D) -> void:
 	rig = r
+	HIP = (r as Rig).spec.seat
+	WHEEL_AT = (r as Rig).spec.wheel_at
 	SHIRT = Game.shirt_color()
 	SHIRT_EDGE = SHIRT.lerp(Color(0.85, 0.8, 0.74), 0.22)
 	COLLAR = SHIRT.darkened(0.16)

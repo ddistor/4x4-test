@@ -1,8 +1,8 @@
 extends Node
 ## Autoload "Game": which stage is being driven, and moving between the start
 ## menu and a stage. `--seed N` (and `--weather dry|rain`, `--level 0|1|2`) after `--` on the command line pick the
-## stage; otherwise every launch starts with a fresh random one. `--look P,S,J`
-## picks the rig paint, shirt and jorts colours by index.
+## stage; otherwise every launch starts with a fresh random one. `--rig ID` picks
+## the rig (RigSpec ids), `--look P,S,J` the paint, shirt and jorts colours by index.
 
 const MENU := "res://scenes/menu.tscn"
 const STAGE := "res://scenes/main.tscn"
@@ -29,6 +29,7 @@ const SHORTS := [
 	["Blue denim", Color(0.27, 0.36, 0.52)], ["Faded denim", Color(0.45, 0.55, 0.68)],
 	["Black denim", Color(0.12, 0.12, 0.14)], ["Khaki", Color(0.55, 0.48, 0.34)]]
 const LOOK_FILE := "user://look.cfg"
+var rig_kind := 0   # index into RigSpec.kinds()
 var paint := 0
 var shirt := 0
 var shorts := 0
@@ -50,9 +51,15 @@ func _ready() -> void:
 		level = clampi(int(args[li + 1]), 0, 2)
 	var cfg := ConfigFile.new()
 	if cfg.load(LOOK_FILE) == OK:
+		rig_kind = clampi(cfg.get_value("look", "rig", 0), 0, RigSpec.kinds().size() - 1)
 		paint = clampi(cfg.get_value("look", "paint", 0), 0, PAINTS.size() - 1)
 		shirt = clampi(cfg.get_value("look", "shirt", 0), 0, SHIRTS.size() - 1)
 		shorts = clampi(cfg.get_value("look", "shorts", 0), 0, SHORTS.size() - 1)
+	var ri := args.find("--rig")
+	if ri >= 0 and ri + 1 < args.size():
+		for k in RigSpec.kinds().size():
+			if RigSpec.kinds()[k].id == args[ri + 1]:
+				rig_kind = k
 	# --look P,S,J picks paint, shirt and jorts by index for this run (snapshots)
 	var ki := args.find("--look")
 	if ki >= 0 and ki + 1 < args.size():
@@ -65,6 +72,7 @@ func _ready() -> void:
 
 func save_look() -> void:
 	var cfg := ConfigFile.new()
+	cfg.set_value("look", "rig", rig_kind)
 	cfg.set_value("look", "paint", paint)
 	cfg.set_value("look", "shirt", shirt)
 	cfg.set_value("look", "shorts", shorts)
