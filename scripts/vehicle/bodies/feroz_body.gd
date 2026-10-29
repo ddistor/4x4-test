@@ -1,6 +1,6 @@
-class_name KahonBody
+class_name FerozBody
 extends RefCounted
-## The Kahon: a boxy little 90s two-door. Flat sides in the paint picked in
+## The Feroz: a boxy little 90s two-door. Flat sides in the paint picked in
 ## the menu over black lower cladding, a pinstripe along the flanks, chunky
 ## black plastic flares round squared-off arches, rectangular lamps in a
 ## slatted grille, a raked windshield and the stepped-up rear roof over the

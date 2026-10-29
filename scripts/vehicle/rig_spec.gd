@@ -41,7 +41,7 @@ static func kinds() -> Array[RigSpec]:
 	var out: Array[RigSpec] = []
 	out.append(_flatfender())
 	out.append(_kuwarenta())
-	out.append(_kahon())
+	out.append(_feroz())
 	return out
 
 
@@ -93,13 +93,13 @@ static func _kuwarenta() -> RigSpec:
 	return s
 
 
-## A boxy little 90s two-door with the stepped roof and big plastic flares:
+## Feroz ("fierce"): a boxy little 90s two-door with the stepped roof and big plastic flares:
 ## light, short and narrow on 31s, less power but it goes where the big rigs
 ## can't turn. Floats a bit over soft clay, runs out of clearance on rocks.
-static func _kahon() -> RigSpec:
+static func _feroz() -> RigSpec:
 	var s := RigSpec.new()
-	s.id = "kahon"
-	s.name = "Kahon"
+	s.id = "feroz"
+	s.name = "Feroz"
 	s.blurb = "Boxy little 90s two-door on 31s: stepped roof, big flares. Light, short, nimble."
 	s.mass = 1350.0
 	s.center_of_mass = Vector3(0, 0.5, -0.08)
@@ -119,5 +119,5 @@ static func _kahon() -> RigSpec:
 	s.fairlead = Vector3(0, 0.66, -1.88)
 	s.seat = Vector3(-0.34, 0.78, 0.2)
 	s.wheel_at = Vector3(-0.34, 1.16, -0.17)
-	s.build_body = KahonBody.build
+	s.build_body = FerozBody.build
 	return s
