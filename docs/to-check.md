@@ -27,6 +27,17 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Kahon (boxy 90s two-door, the Feroza)
+
+Third rig: `bodies/kahon_body.gd`, spec `rig_spec.gd::_kahon`. Paint over black
+lower cladding, a pale pinstripe, square-cut black flares round big arches,
+rectangular lamps in a slatted grille, raked windshield, the stepped-up rear
+roof over big quarter windows, spare on the back door, winch bumper. Light
+(1350 kg), short (2.18 m wheelbase), narrow, on 31s, softer springs, less
+power, more steering lock. Headless bot gets it through the paddies and into
+the lahar (spins more in 4H, then crawls in 4L). To check by driving: tight
+turns, floats on soft clay, high-centres sooner on the rock steps and kanal crown.
+
 ## Garage page
 
 *Pick your rig and drive* on the start menu now opens the garage
@@ -211,8 +222,8 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
   the start menu, `rig.gd` split into shared drivetrain + per-rig specs and body; the
   real gearbox first so gearing can differ.
   From the user:
-  1. Land Cruiser 40-series style: short, upright, leaf springs, a classic.
-  2. Feroza style: small boxy 90s 4x4, light, short wheelbase.
+  1. Land Cruiser 40-series style: short, upright, leaf springs, a classic. **Built: Kuwarenta.**
+  2. Feroza style: small boxy 90s 4x4, light, short wheelbase. **Built: Kahon.**
   3. Vitara style: small 90s SUV, nimble, modest clearance.
   4. Patrol style: big heavy wagon, solid axles, long travel, sinks in bogs.
   5. Defender style (Land Rover): boxy, flat panels, coil-sprung solid axles.

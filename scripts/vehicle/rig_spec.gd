@@ -41,6 +41,7 @@ static func kinds() -> Array[RigSpec]:
 	var out: Array[RigSpec] = []
 	out.append(_flatfender())
 	out.append(_kuwarenta())
+	out.append(_kahon())
 	return out
 
 
@@ -89,4 +90,34 @@ static func _kuwarenta() -> RigSpec:
 	s.seat = Vector3(-0.36, 0.82, 0.3)
 	s.wheel_at = Vector3(-0.36, 1.22, -0.07)
 	s.build_body = KuwarentaBody.build
+	return s
+
+
+## A boxy little 90s two-door with the stepped roof and big plastic flares:
+## light, short and narrow on 31s, less power but it goes where the big rigs
+## can't turn. Floats a bit over soft clay, runs out of clearance on rocks.
+static func _kahon() -> RigSpec:
+	var s := RigSpec.new()
+	s.id = "kahon"
+	s.name = "Kahon"
+	s.blurb = "Boxy little 90s two-door on 31s: stepped roof, big flares. Light, short, nimble."
+	s.mass = 1350.0
+	s.center_of_mass = Vector3(0, 0.5, -0.08)
+	s.track = 0.68
+	s.front_z = -1.08
+	s.rear_z = 1.095
+	s.tire_radius = 0.395
+	s.tire_width = 0.27
+	s.spring_stiffness = 30000.0
+	s.droop = 0.14
+	s.drive_force_high = 9500.0
+	s.speed_high = 27.0
+	s.drive_force_low = 19000.0
+	s.speed_low = 11.0
+	s.max_steer = deg_to_rad(34.0)
+	s.axle_roll_stiffness = 14000.0
+	s.fairlead = Vector3(0, 0.66, -1.88)
+	s.seat = Vector3(-0.34, 0.78, 0.2)
+	s.wheel_at = Vector3(-0.34, 1.16, -0.17)
+	s.build_body = KahonBody.build
 	return s
