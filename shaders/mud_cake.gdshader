@@ -23,6 +23,9 @@ vec4 corner(int i) {
 }
 uniform float cake : hint_range(0.0, 1.0) = 0.0;   // belly line from sinking
 uniform float dryness : hint_range(0.0, 1.0) = 0.3;
+uniform float flaked : hint_range(0.0, 1.0) = 0.0;   // dry crust chipped off by knocks
+uniform float wash_y = -10.0;                        // rig-space height the last wade reached
+uniform float washed : hint_range(0.0, 1.0) = 0.0;   // how clean the wade got everything under it
 uniform float body_bottom = -0.1;
 uniform float body_top = 1.3;
 // mesh space -> rig space, for parts that move on their own (axles)
@@ -87,6 +90,24 @@ void fragment() {
 	float speck = step(1.0 - 0.22 * min(spk, 1.6), dots) * step(0.02, spk);
 	mud = max(mud, speck);
 
+	// a wade washes only what was under the water, from the waterline down,
+	// patchily: it goes from the thin edges first, the thick middles hold on
+	float below = 1.0 - smoothstep(wash_y - 0.06, wash_y + 0.04, p.y + (n - 0.5) * 0.08);
+	float gone = below * smoothstep(thick * 0.8, thick * 0.8 + 0.25, washed + (n - 0.5) * 0.3);
+	float stain = mud * gone;   // washed mud still leaves the paint dulled with clay
+	mud *= 1.0 - gone;
+	thick *= 1.0 - gone;
+
+	// dry crust chips off in flakes along its cracks, curling up at the edges first
+	vec3 fq = p * 9.0 + vec3(mud_noise(p * 4.0), mud_noise(p * 4.0 + 3.7), 0.0);
+	float cell = mud_hash(floor(fq) + 0.5);
+	float plate = mud_cracks(fq);
+	float brittle = smoothstep(0.55, 0.95, dryness);
+	float chipped = step(cell, flaked * (1.15 - 0.5 * thick)) * brittle;
+	float curl = (1.0 - smoothstep(0.0, 0.12, plate)) * brittle * smoothstep(0.2, 0.6, thick);
+	stain = max(stain, mud * chipped);
+	mud *= 1.0 - chipped;
+
 	vec3 mud_col;
 	float mud_rough;
 	float mud_spec;
@@ -95,11 +116,14 @@ void fragment() {
 	float rim = smoothstep(-0.02, 0.02, edge) - smoothstep(0.02, 0.1, edge);
 	mud_col *= 1.0 - 0.3 * rim * (1.0 - dryness);
 
-	ALBEDO = mix(paint.rgb, mud_col, mud);
-	ROUGHNESS = mix(paint_roughness, mud_rough, mud);
+	// lifting flake edges catch shadow; stained paint is dull and clay-tinted
+	mud_col *= 1.0 - 0.35 * curl;
+	vec3 stained = mix(paint.rgb, vec3(0.5, 0.3, 0.18), 0.35 * stain);
+	ALBEDO = mix(stained, mud_col, mud);
+	ROUGHNESS = mix(mix(paint_roughness, 0.75, stain), mud_rough, mud);
 	METALLIC = mix(paint_metallic, 0.0, mud);
 	SPECULAR = mix(0.35, mud_spec, mud);
-	CLEARCOAT = clearcoat * 0.6 * (1.0 - mud);
+	CLEARCOAT = clearcoat * 0.6 * (1.0 - mud) * (1.0 - 0.8 * stain);
 	CLEARCOAT_ROUGHNESS = 0.08;
 	mat3 to_view = mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX);
 	NORMAL = mud_bump(NORMAL, p, mud * (0.4 + thick), to_view);

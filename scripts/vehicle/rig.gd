@@ -37,6 +37,14 @@ var speed_kmh := 0.0
 var cake := 0.0          # 0..1 belly line from wallowing
 var corner_mud: Array[float] = [0.0, 0.0, 0.0, 0.0]  # 0..2 clay each tire has thrown on the body
 var dryness := 0.4
+var crust := 0.0         # 0..1 how set the old mud is: dried hard, it grips the paint and resists washing
+var flaked := 0.0        # 0..1 how much dried crust has chipped off (leaves pale stains)
+var wash_y := -10.0      # rig-space height the last wade reached; mud below it is washed
+var washed := 0.0        # 0..1 how clean the wade has got the body below wash_y
+var _last_vel := Vector3.ZERO
+var _flake_chips: GPUParticles3D
+var _no_flake := 0.0
+var _knock_cool := 0.0
 var wheel_status: Array[Dictionary] = []
 var psi_target := 35.0
 var airing := 0          # -1 letting air out, +1 compressor running, 0 idle
@@ -92,6 +100,7 @@ func _ready() -> void:
 	_build_wheels()
 	_build_axles()
 	_build_cable()
+	_build_flake_chips()
 	_spawn = global_transform
 	if preview:
 		set_process_unhandled_input(false)
@@ -210,6 +219,39 @@ func _build_wheels() -> void:
 		add_child(tire)
 
 
+## Little chips of dry clay that fall off the body when a knock cracks the crust.
+func _build_flake_chips() -> void:
+	_flake_chips = GPUParticles3D.new()
+	_flake_chips.emitting = false
+	_flake_chips.one_shot = true
+	_flake_chips.amount = 48
+	_flake_chips.lifetime = 1.4
+	_flake_chips.explosiveness = 0.85
+	_flake_chips.position = Vector3(0, 0.75, 0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(spec.track + 0.1, 0.3, absf(spec.front_z) + 0.3)
+	pm.direction = Vector3(0, -1, 0)
+	pm.spread = 60.0
+	pm.initial_velocity_min = 0.2
+	pm.initial_velocity_max = 1.2
+	pm.gravity = Vector3(0, -9.8, 0)
+	pm.angular_velocity_min = -400.0
+	pm.angular_velocity_max = 400.0
+	pm.scale_min = 0.5
+	pm.scale_max = 1.6
+	_flake_chips.process_material = pm
+	var chip := BoxMesh.new()
+	chip.size = Vector3(0.025, 0.006, 0.02)
+	var cm := StandardMaterial3D.new()
+	cm.albedo_color = Color(0.55, 0.3, 0.16)
+	cm.roughness = 0.95
+	chip.material = cm
+	_flake_chips.draw_pass_1 = chip
+	_flake_chips.local_coords = false
+	add_child(_flake_chips)
+
+
 func _build_cable() -> void:
 	_cable_mesh = ImmediateMesh.new()
 	_cable = MeshInstance3D.new()
@@ -259,6 +301,8 @@ func place_on_trail(z: float) -> void:
 	PhysicsServer3D.body_set_state(get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM, t)
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	_last_vel = Vector3.ZERO
+	_no_flake = 1.5   # the drop back onto the trail isn't a knock on the crust
 	winch_active = false
 	if driver:
 		driver.snap()
@@ -362,39 +406,90 @@ func _physics_process(delta: float) -> void:
 	_air_step(delta)
 
 	# --- mud on the rig -------------------------------------------------------
-	# Each tire throws what it churns onto the bodywork around and behind it:
-	# a second of wheelspin shows, a minute in the bog buries the corner.
-	# Wallowing deep smears the belly; the creek rinses it all back off.
+	# Each tire throws what it churns onto the bodywork around and behind it.
+	# It builds slowly: rolling through clay flecks the arches, it's wheelspin
+	# in deep wet mud that plasters a corner, and it piles on from the bottom
+	# up. Left alone it dries and sets into a crust that grips the paint; hard
+	# knocks chip the dry crust off. A wade only washes what's under the water,
+	# and only slowly: fresh mud softens and goes in a few seconds, set crust
+	# barely shifts.
 	var thrown := 0.0
 	var rinse := 0.0
 	var corners: Array[Vector4] = []
+	# how high the water came up the body, in rig space
+	var water_top := -10.0
+	for w in wheels:
+		var depth: float = w.ground.get("water_depth", 0.0)
+		if w.contact and depth > 0.05:
+			water_top = maxf(water_top, to_local(w.contact_point + global_basis.y * depth).y)
+	var ground_speed := absf(v_fwd)
 	for i in range(wheel_status.size()):
 		var s := wheel_status[i]
 		var w := wheels[i]
-		var fling: float = s["in_mud"] * (0.9 * s["slip"] + 0.05 * absf(w.omega) * w.radius) * (0.5 + s["wet"])
-		corner_mud[i] = minf(2.0, corner_mud[i] + fling * delta * 0.35 * (1.0 - corner_mud[i] / 2.2))
-		cake = minf(1.0, cake + s["in_mud"] * maxf(0.0, w.sink - 0.15) * delta * 0.04)
-		var water: float = s["in_water"]
-		if water > 0.15:
-			corner_mud[i] = maxf(0.0, corner_mud[i] - delta * 0.12 * water * (1.0 + absf(v_fwd)))
-			rinse = maxf(rinse, water)
+		var spin: float = s["slip"] * s["slip"]
+		var fling: float = s["in_mud"] * (1.1 * spin + 0.012 * absf(w.omega) * w.radius) * (0.3 + 0.9 * s["wet"])
+		# slow at first, slower again as the corner fills
+		corner_mud[i] = minf(2.0, corner_mud[i] + fling * delta * 0.09 * (1.0 - corner_mud[i] / 2.3))
+		cake = minf(1.0, cake + s["in_mud"] * maxf(0.0, w.sink - 0.18) * delta * 0.025)
+		# a corner only washes once the water is up over the wheel's patch
+		var hub := w.position + Vector3(0, -0.21, 0)
+		var under := clampf((water_top - hub.y + 0.15) / 0.8, 0.0, 1.0)
+		if under > 0.0:
+			var soft := lerpf(1.0, 0.12, crust)
+			corner_mud[i] = maxf(0.0, corner_mud[i] - delta * 0.035 * under * soft * (0.4 + 0.25 * minf(ground_speed, 4.0)))
+			rinse = maxf(rinse, under)
 		thrown += fling
 		# where the clay was thrown from: the wheel at ride height, fixed to the
 		# body, so the splatter stays put instead of sliding with the suspension
-		var hub := w.position + Vector3(0, -0.21, 0)
 		corners.append(Vector4(hub.x, hub.y, hub.z, corner_mud[i]))
-	if rinse > 0.0:
-		cake = maxf(0.0, cake - delta * 0.1 * rinse * (1.0 + absf(v_fwd)))
-	# fresh mud goes on wet and glossy; it takes a good minute to bake pale
+	var belly_under := clampf((water_top - 0.45) / 0.6, 0.0, 1.0)
+	if belly_under > 0.0:
+		cake = maxf(0.0, cake - delta * 0.03 * belly_under * lerpf(1.0, 0.12, crust))
+	# the wash line: everything below the water gets cleaner the longer it sits in it
+	if water_top > -5.0:
+		if water_top > wash_y or washed < 0.05:
+			wash_y = maxf(wash_y, water_top)
+		washed = minf(1.0, washed + delta * 0.06 * lerpf(1.0, 0.15, crust) * (0.5 + 0.2 * minf(ground_speed, 4.0)))
+	# fresh mud thrown over the washed part dirties it again
+	washed = maxf(0.0, washed - thrown * delta * 0.15)
+	if washed <= 0.0:
+		wash_y = -10.0
+	# fresh mud goes on wet and glossy; it takes a good few minutes to bake pale
 	if thrown > 0.05 or rinse > 0.0:
-		dryness = move_toward(dryness, 0.0, delta * (0.6 * thrown + rinse))
+		dryness = move_toward(dryness, 0.0, delta * (0.25 * thrown + 0.4 * rinse))
 	else:
-		dryness = move_toward(dryness, 1.0, delta * 0.012)
+		dryness = move_toward(dryness, 1.0, delta * 0.006)
+	# drying sets it; water softens it; a fresh coat goes on soft over the old
+	if rinse > 0.0:
+		crust = move_toward(crust, 0.0, delta * 0.02 * rinse)
+	elif dryness > 0.7:
+		crust = move_toward(crust, 1.0, delta * 0.004)
+	crust = maxf(0.0, crust - thrown * delta * 0.05)
+	# knocks crack the dry crust off in chips
+	var jolt := (linear_velocity - _last_vel).length() / maxf(delta, 1e-4)
+	_last_vel = linear_velocity
+	var brittle := smoothstep(0.55, 0.95, dryness)
+	_no_flake = maxf(0.0, _no_flake - delta)
+	var hit := maxf(0.0, jolt - 7.0) if _no_flake <= 0.0 else 0.0
+	# one knock, one shower of chips: a landing is many frames of jolt
+	_knock_cool = maxf(0.0, _knock_cool - delta)
+	if brittle > 0.0 and hit > 0.0 and _knock_cool <= 0.0 and flaked < 0.7:
+		var chip := minf(hit * 0.004, 0.09) * brittle * minf(crust + 0.3, 1.0)
+		flaked = minf(0.7, flaked + chip)
+		_knock_cool = 0.4
+		if chip > 0.01 and _flake_chips:
+			_flake_chips.amount_ratio = clampf(chip * 10.0, 0.2, 1.0)
+			_flake_chips.restart()
+	# fresh mud covers the flaked spots again
+	flaked = maxf(0.0, flaked - thrown * delta * 0.2)
 	for m in _body_mats:
 		for i in range(corners.size()):
 			m.set_shader_parameter(CORNER_PARAMS[i], corners[i])
 		m.set_shader_parameter("cake", cake)
 		m.set_shader_parameter("dryness", dryness)
+		m.set_shader_parameter("flaked", flaked)
+		m.set_shader_parameter("wash_y", wash_y)
+		m.set_shader_parameter("washed", washed)
 	for w in wheels:
 		w.tire_mat.set_shader_parameter("dryness", dryness)
 	if spare_mat:

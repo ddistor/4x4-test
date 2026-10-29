@@ -74,6 +74,6 @@ func _physics_process(delta: float) -> void:
 		for w in rig.wheels:
 			sinks.append("%.2f" % w.sink)
 			slips.append("%.1f" % w.slip)
-		print("t=%2.0f  pos=(%.1f, %.2f, %.1f)  %.0f km/h  sink=%s slip=%s cake=%.2f  %s  %s" % [
-			t, p.x, p.y, p.z, rig.speed_kmh, sinks, slips, rig.cake, "4L" if rig.low_range else "4H",
+		print("t=%2.0f  pos=(%.1f, %.2f, %.1f)  %.0f km/h  sink=%s slip=%s cake=%.2f mud=%.0f%%  %s  %s" % [
+			t, p.x, p.y, p.z, rig.speed_kmh, sinks, slips, rig.cake, rig.mud_amount() * 100.0, "4L" if rig.low_range else "4H",
 			terrain.plan.section_at(p.z)["kind"]])
