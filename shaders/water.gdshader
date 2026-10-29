@@ -21,7 +21,7 @@ uniform sampler2D soil_tex : filter_linear, repeat_disable;
 uniform sampler2D bed_tex : filter_linear, repeat_disable;   // ground height (m)
 uniform vec2 world_size = vec2(160.0, 1000.0);
 uniform vec3 sky_col : source_color = vec3(0.62, 0.7, 0.76);  // what the surface mirrors
-uniform vec3 deep_col : source_color = vec3(0.05, 0.16, 0.13);
+uniform vec3 deep_col : source_color = vec3(0.08, 0.22, 0.17);
 // the rig: each wheel's world position and how fast it's moving through the water
 uniform vec4 wheels[4];
 uniform vec3 rig_vel = vec3(0.0);
