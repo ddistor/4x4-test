@@ -2,16 +2,34 @@ class_name GeraBody
 extends RefCounted
 ## The Gera ("war", for its army roots): a lifted Willys-style tub in the paint picked in the menu,
 ## on 35s, roll cage, winch bumper, flat fenders, spare on the back panel.
+## The Gerilya is the same tub built harder for the trail (`build_trail`):
+## a full cage with a flat steel plate for a roof and a light bar, the
+## windshield folded down on the hood, an army-green bumper with D-rings and
+## driving lights, wire guards on the headlights, rock sliders, bucket seats
+## and a jerry can. On 37s.
 ## Rig space: forward -Z, left -X, wheel hubs at y~0.13.
+
+const DRAB := Color(0.2, 0.23, 0.13)     # army green: bumpers, jerry can
+const RUST := Color(0.3, 0.17, 0.1)      # the roof plate
+const TAN := Color(0.5, 0.41, 0.29)      # bucket seats
 
 
 static func build(rig: Rig) -> void:
-	# Collision: tub, hood/front clip, bumper and the cage top.
+	_build(rig, false)
+
+
+static func build_trail(rig: Rig) -> void:
+	_build(rig, true)
+
+
+static func _build(rig: Rig, trail: bool) -> void:
+	# Collision: tub, hood/front clip, bumper and the cage top (the trail
+	# cage runs forward to the cowl, so its box does too).
 	BodyKit.collide(rig, -0.34, 1.58, 0.55, 1.17, 0.725)   # tub, split round the rear wheels
 	for c: Array in [
 		[Vector3(1.05, 0.6, 1.3), Vector3(0, 0.88, -0.98)],
 		[Vector3(1.75, 0.16, 0.16), Vector3(0, 0.6, -1.74)],
-		[Vector3(1.3, 0.78, 1.0), Vector3(0, 1.56, 0.16)],
+		[Vector3(1.3, 0.8, 1.2), Vector3(0, 1.57, 0.06)] if trail else [Vector3(1.3, 0.78, 1.0), Vector3(0, 1.56, 0.16)],
 	]:
 		var col := CollisionShape3D.new()
 		var box := BoxShape3D.new()
@@ -26,6 +44,7 @@ static func build(rig: Rig) -> void:
 	var steel := MeshKit.begin()     # satin black: bumpers, cage, bezels
 	var chassis := MeshKit.begin()   # frame, winch, grille slots
 	var trim := MeshKit.begin()      # seats, steering wheel
+	var drab := MeshKit.begin()      # army green (trail build)
 	var c := Color.WHITE
 	var at := func(p: Vector3) -> Transform3D: return Transform3D(Basis.IDENTITY, p)
 	var rb := func(st: SurfaceTool, size: Vector3, r: float, xf: Transform3D) -> void:
@@ -79,8 +98,11 @@ static func build(rig: Rig) -> void:
 		var sig := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * 0.37, 0.68, -1.64))
 		MeshKit.cylinder(steel, 0.035, 0.03, sig, c, 12)
 
-	# windshield frame, hinged at the cowl and raked back a little
+	# windshield frame, hinged at the cowl and raked back a little; on the
+	# trail build it's folded forward flat on the hood
 	var ws := Transform3D(Basis(Vector3.RIGHT, 0.2), Vector3(0, 1.2, -0.42))
+	if trail:
+		ws = Transform3D(Basis(Vector3.RIGHT, -1.5), Vector3(0, 1.245, -0.42))
 	rb.call(paint, Vector3(1.4, 0.05, 0.05), 0.015, ws * at.call(Vector3(0, 0.025, 0)))
 	rb.call(paint, Vector3(1.4, 0.05, 0.05), 0.015, ws * at.call(Vector3(0, 0.56, 0)))
 	for sx: float in [-1.0, 1.0]:
@@ -88,10 +110,21 @@ static func build(rig: Rig) -> void:
 	rb.call(paint, Vector3(0.03, 0.52, 0.035), 0.01, ws * at.call(Vector3(0, 0.29, 0)))
 
 	# seats, steering wheel, shifters
+	var bucket := MeshKit.begin()
 	for sx: float in [-1.0, 1.0]:
-		rb.call(trim, Vector3(0.46, 0.13, 0.46), 0.05, at.call(Vector3(sx * 0.33, 0.68, 0.2)))
-		var back := Transform3D(Basis(Vector3.RIGHT, 0.18), Vector3(sx * 0.33, 1.0, 0.47))
-		rb.call(trim, Vector3(0.44, 0.55, 0.1), 0.045, back)
+		if trail:
+			# bucket seats: tall backs with a headrest slot and side bolsters
+			rb.call(bucket, Vector3(0.46, 0.13, 0.46), 0.05, at.call(Vector3(sx * 0.33, 0.68, 0.2)))
+			var bb := Transform3D(Basis(Vector3.RIGHT, 0.14), Vector3(sx * 0.33, 1.1, 0.47))
+			rb.call(bucket, Vector3(0.44, 0.78, 0.1), 0.045, bb)
+			for side: float in [-1.0, 1.0]:
+				rb.call(bucket, Vector3(0.07, 0.5, 0.16), 0.03, bb * at.call(Vector3(side * 0.2, -0.08, -0.05)))
+				rb.call(bucket, Vector3(0.07, 0.1, 0.36), 0.03, at.call(Vector3(sx * 0.33 + side * 0.2, 0.76, 0.2)))
+			rb.call(trim, Vector3(0.12, 0.06, 0.106), 0.02, bb * at.call(Vector3(0, 0.27, 0)))   # harness slot
+		else:
+			rb.call(trim, Vector3(0.46, 0.13, 0.46), 0.05, at.call(Vector3(sx * 0.33, 0.68, 0.2)))
+			var back := Transform3D(Basis(Vector3.RIGHT, 0.18), Vector3(sx * 0.33, 1.0, 0.47))
+			rb.call(trim, Vector3(0.44, 0.55, 0.1), 0.045, back)
 	rb.call(trim, Vector3(0.82, 0.13, 0.4), 0.05, at.call(Vector3(0, 0.68, 1.2)))
 	rb.call(trim, Vector3(0.82, 0.4, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.95, 1.46)))
 	# the steering wheel itself turns, so the driver builds it (driver.gd)
@@ -104,23 +137,76 @@ static func build(rig: Rig) -> void:
 	var top_r := Vector3(0.62, 1.95, 0.62)
 	var cage: Array = [
 		[Vector3(-0.66, 1.17, 0.62), top_l], [Vector3(0.66, 1.17, 0.62), top_r], [top_l, top_r],
-		[top_l, Vector3(-0.66, 1.74, -0.3)], [top_r, Vector3(0.66, 1.74, -0.3)],
 		[top_l, Vector3(-0.64, 1.17, 1.54)], [top_r, Vector3(0.64, 1.17, 1.54)],
 		[Vector3(-0.645, 1.45, 0.62), Vector3(0.645, 1.45, 0.62)],
 	]
+	var corners: Array[Vector3] = [top_l, top_r]
+	if trail:
+		# the windshield is down, so the cage carries its own front hoop
+		# down to the cowl, a cross bar and the roof bars to it
+		var fl := Vector3(-0.62, 1.93, -0.3)
+		var fr := Vector3(0.62, 1.93, -0.3)
+		cage.append_array([
+			[Vector3(-0.66, 1.17, -0.36), fl], [Vector3(0.66, 1.17, -0.36), fr], [fl, fr],
+			[top_l, fl], [top_r, fr],
+			[Vector3(-0.62, 1.93, 0.16), Vector3(0.62, 1.93, 0.16)],
+		])
+		corners.append_array([fl, fr])
+	else:
+		cage.append_array([[top_l, Vector3(-0.66, 1.74, -0.3)], [top_r, Vector3(0.66, 1.74, -0.3)]])
 	for bar: Array in cage:
 		MeshKit.tube(steel, bar[0], bar[1], 0.027, Transform3D.IDENTITY, c, 10)
-	for corner: Vector3 in [top_l, top_r]:
+	for corner: Vector3 in corners:
 		MeshKit.sphere(steel, 0.034, at.call(corner), c, 10)
 
-	# bumpers and winch
-	rb.call(steel, Vector3(1.75, 0.14, 0.13), 0.025, at.call(Vector3(0, 0.6, -1.74)))
-	rb.call(steel, Vector3(1.5, 0.12, 0.11), 0.025, at.call(Vector3(0, 0.58, 1.68)))
+	# bumpers and winch: plain black, or army green with D-rings on the trail build
+	var bumper := drab if trail else steel
+	rb.call(bumper, Vector3(1.75, 0.14, 0.13), 0.025, at.call(Vector3(0, 0.6, -1.74)))
+	rb.call(bumper, Vector3(1.5, 0.12, 0.11), 0.025, at.call(Vector3(0, 0.58, 1.68)))
 	MeshKit.cylinder(chassis, 0.085, 0.46, Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(0, 0.75, -1.74)), c, 16)
 	for sx: float in [-1.0, 1.0]:
 		MeshKit.cylinder(chassis, 0.1, 0.06, Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(sx * 0.26, 0.75, -1.74)), c, 16)
 		rb.call(steel, Vector3(0.04, 0.12, 0.04), 0.01, at.call(Vector3(sx * 0.62, 0.6, -1.83)))
 	rb.call(steel, Vector3(0.22, 0.08, 0.05), 0.015, at.call(Vector3(0, 0.75, -1.84)))
+
+	# the trail build's extras
+	var lenses: Array[Transform3D] = []   # driving lights and the light bar, lit below
+	var roof := MeshKit.begin()
+	if trail:
+		for sx: float in [-1.0, 1.0]:
+			# D-ring shackles on tabs at the bumper ends
+			rb.call(drab, Vector3(0.03, 0.12, 0.1), 0.01, at.call(Vector3(sx * 0.42, 0.52, -1.82)))
+			MeshKit.torus(steel, 0.045, 0.012, Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(sx * 0.42, 0.46, -1.86)), c, 14, 6)
+			# a pair of round driving lights on the bumper each side of the winch
+			for lx: float in [0.47, 0.7]:
+				var dl := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * lx, 0.77, -1.78))
+				MeshKit.lathe(steel, [Vector2(0.0, 0.05), Vector2(0.06, 0.05), Vector2(0.075, 0.0),
+					Vector2(0.08, -0.03), Vector2(0.065, -0.035)], dl, c, 18)
+				rb.call(steel, Vector3(0.02, 0.06, 0.02), 0.005, at.call(Vector3(sx * lx, 0.69, -1.76)))
+				lenses.append(dl * Transform3D(Basis.IDENTITY, Vector3(0, -0.032, 0)).scaled_local(Vector3(0.95, 1, 0.95)))
+			# wire guards over the headlights: a ring and two bars across
+			var hl := Vector3(sx * 0.37, 1.0, -1.72)
+			MeshKit.torus(steel, 0.1, 0.007, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), hl), c, 20, 5)
+			MeshKit.tube(steel, hl + Vector3(-0.07, 0.07, 0), hl + Vector3(0.07, -0.07, 0), 0.006, Transform3D.IDENTITY, c, 5)
+			MeshKit.tube(steel, hl + Vector3(0, 0.1, 0.04), hl + Vector3(0, -0.1, 0.04), 0.006, Transform3D.IDENTITY, c, 5)
+			# rock sliders along the sills, braced to the frame
+			MeshKit.tube(steel, Vector3(sx * 0.78, 0.5, -0.56), Vector3(sx * 0.78, 0.5, 0.32), 0.03, Transform3D.IDENTITY, c, 10)
+			for z: float in [-0.45, 0.2]:
+				MeshKit.tube(steel, Vector3(sx * 0.78, 0.5, z), Vector3(sx * 0.46, 0.45, z), 0.022, Transform3D.IDENTITY, c, 8)
+			for z: float in [-0.56, 0.32]:
+				MeshKit.tube(steel, Vector3(sx * 0.78, 0.5, z), Vector3(sx * 0.705, 0.6, z + signf(z) * 0.06), 0.03, Transform3D.IDENTITY, c, 10)
+		# flat steel plate bolted on the cage for a roof, and a light bar under its front edge
+		rb.call(roof, Vector3(1.38, 0.02, 1.06), 0.008, at.call(Vector3(0, 1.975, 0.15)))
+		rb.call(roof, Vector3(1.38, 0.05, 0.02), 0.006, at.call(Vector3(0, 1.96, -0.38)))
+		rb.call(steel, Vector3(1.0, 0.08, 0.08), 0.015, at.call(Vector3(0, 1.88, -0.33)))
+		for k in range(8):
+			lenses.append(Transform3D(Basis(Vector3.RIGHT, PI * 0.5).scaled(Vector3.ONE * 0.45), Vector3((k - 3.5) * 0.12, 1.88, -0.37)))
+		# jerry can behind the passenger seat
+		var can: Transform3D = at.call(Vector3(0.4, 0.8, 0.88))
+		rb.call(drab, Vector3(0.16, 0.46, 0.34), 0.02, can)
+		rb.call(drab, Vector3(0.05, 0.05, 0.12), 0.01, can * at.call(Vector3(0, 0.25, -0.06)))
+		for d: float in [-1.0, 1.0]:
+			rb.call(drab, Vector3(0.012, 0.36, 0.03), 0.005, Transform3D(Basis(Vector3.RIGHT, d * 0.62), Vector3(0.48, 0.8, 0.88)))
 
 	# spare on the back panel
 	var spare := MeshInstance3D.new()
@@ -136,6 +222,10 @@ static func build(rig: Rig) -> void:
 	rig._add_mesh(MeshKit.commit(steel, rig._body_mat(Color(0.03, 0.03, 0.032), 0.55, 0.3, 0.0)))
 	rig._add_mesh(MeshKit.commit(chassis, chassis_mat))
 	rig._add_mesh(MeshKit.commit(trim, rig._body_mat(Color(0.06, 0.055, 0.05), 0.6, 0.0, 0.0)))
+	if trail:
+		rig._add_mesh(MeshKit.commit(drab, rig._body_mat(DRAB, 0.75, 0.0, 0.0)))
+		rig._add_mesh(MeshKit.commit(roof, rig._body_mat(RUST, 0.85, 0.3, 0.0)))
+		rig._add_mesh(MeshKit.commit(bucket, rig._body_mat(TAN, 0.7, 0.0, 0.0)))
 
 	# glass, lamps
 	var glass := StandardMaterial3D.new()
@@ -157,6 +247,8 @@ static func build(rig: Rig) -> void:
 	for sx: float in [-1.0, 1.0]:
 		var lens := Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * 0.37, 1.0, -1.655))
 		MeshKit.lathe(lst, [Vector2(0.0, -0.02), Vector2(0.075, -0.02), Vector2(0.06, 0.0), Vector2(0.0, 0.01)], lens, c, 20)
+	for lens: Transform3D in lenses:
+		MeshKit.lathe(lst, [Vector2(0.0, -0.02), Vector2(0.075, -0.02), Vector2(0.06, 0.0), Vector2(0.0, 0.01)], lens, c, 18)
 	rig._add_mesh(MeshKit.commit(lst, lamp))
 	var tail := StandardMaterial3D.new()
 	tail.albedo_color = Color(0.5, 0.03, 0.02)

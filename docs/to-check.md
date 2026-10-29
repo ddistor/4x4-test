@@ -160,6 +160,20 @@ paper (`assets/driver/saligawsaw_4x4.png`); its black shadow lettering
 disappears on the club black shirt and shows on light ones. Rendered here on the
 black tee. `--logo N` picks one for a run.
 
+## Gerilya (the Gera built for the trail)
+
+Last rig in the *Rig* picker (appended so saved picks keep their rig):
+`GeraBody.build_trail`, spec in `rig_spec.gd::_gerilya`. From trailhead photos:
+a full cage with its own front hoop, a flat rust-brown steel plate for a roof
+and a light bar under its front edge, the windshield folded flat on the hood,
+an army-green bumper with D-rings and four driving lights round the winch,
+wire guards over the headlights, rock sliders, tan bucket seats, a jerry can.
+On 37s, 2000 kg, a bit more droop and low-range pull than the Gera. Rendered
+with `--snap --snap-rig --rig gerilya --look 0,0,0`; the headless bot drives
+it through the cogon fine. To check by driving: does the taller rig tip
+sooner off-camber than the Gera; the seat camera with the roof plate and
+light bar overhead; the folded windshield doesn't get in the way of the view.
+
 ## Kuwarenta (forty-series-style, top off)
 
 Second rig in the *Rig* picker: `bodies/kuwarenta_body.gd`, spec in

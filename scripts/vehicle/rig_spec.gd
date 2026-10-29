@@ -59,6 +59,7 @@ static func kinds() -> Array[RigSpec]:
 	out.append(_ronda())
 	out.append(_owner())
 	out.append(_rubikon())
+	out.append(_gerilya())   # at the end so saved picks keep their rig
 	return out
 
 
@@ -78,6 +79,26 @@ static func _gera() -> RigSpec:
 	# so it rolls on an off-camber before it slides (tilt-table ~40 deg)
 	s.center_of_mass = Vector3(0, 0.5, -0.1)
 	s.build_body = GeraBody.build
+	return s
+
+
+## Gerilya ("guerrilla"): the Gera built harder for the trail, the kind you
+## see lined up at a Rizal trailhead: full cage with a steel plate for a
+## roof, windshield folded down, army-green winch bumper, rock sliders, on
+## 37s. A bit heavier and taller than the Gera; the bigger tires climb
+## ledges better but it sits higher, so it tips sooner on an off-camber.
+static func _gerilya() -> RigSpec:
+	var s := RigSpec.new()
+	s.id = "gerilya"
+	s.name = "Gerilya"
+	s.blurb = "The Gera built for the trail: full cage, roof plate, windshield down, sliders. On 37s."
+	s.mass = 2000.0
+	s.center_of_mass = Vector3(0, 0.55, -0.1)
+	s.tire_radius = 0.47
+	s.tire_width = 0.33
+	s.droop = 0.18
+	s.drive_force_low = 28000.0
+	s.build_body = GeraBody.build_trail
 	return s
 
 
