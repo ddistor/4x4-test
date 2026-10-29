@@ -60,9 +60,14 @@ static func _build(rig: Rig, trail: bool) -> void:
 	BodyKit.floor_panel(paint, rig.spec, -0.32, 1.56, 0.69, 0.56, c)
 	var arch := BodyKit.well_radius(rig.spec)
 	for sx: float in [-1.0, 1.0]:
-		# one tub side, cowl to tail, the rear wheel arch cut out of it
-		KuwarentaBody._side_panel(paint, sx * 0.705, -0.33, 1.58, 0.56, 1.17, [[rig.spec.rear_z, arch]], 0.04, c)
-		MeshKit.tube(paint, Vector3(sx * 0.705, 1.17, -0.33), Vector3(sx * 0.705, 1.17, 1.58), 0.025, Transform3D.IDENTITY, c, 8)
+		# one tub side, cowl to tail, the rear wheel arch cut out of it; the
+		# trail build has the Willys door cutout, a deep curved scoop
+		if trail:
+			_scooped_side(paint, sx * 0.705, rig.spec.rear_z, arch, c)
+			MeshKit.cylinder(paint, 0.045, 0.6, at.call(Vector3(sx * 0.68, 0.87, 1.555)), c, 12)   # rounded back corner
+		else:
+			KuwarentaBody._side_panel(paint, sx * 0.705, -0.33, 1.58, 0.56, 1.17, [[rig.spec.rear_z, arch]], 0.04, c)
+			MeshKit.tube(paint, Vector3(sx * 0.705, 1.17, -0.33), Vector3(sx * 0.705, 1.17, 1.58), 0.025, Transform3D.IDENTITY, c, 8)
 		# the flat fender lip over the tire
 		rb.call(paint, Vector3(0.27, 0.035, 1.02), 0.012, at.call(Vector3(sx * 0.8, 0.975, 1.1)))
 	rb.call(paint, Vector3(1.45, 0.62, 0.05), 0.025, at.call(Vector3(0, 0.865, 1.58)))
@@ -199,8 +204,6 @@ static func _build(rig: Rig, trail: bool) -> void:
 		rb.call(roof, Vector3(1.38, 0.02, 1.06), 0.008, at.call(Vector3(0, 1.975, 0.15)))
 		rb.call(roof, Vector3(1.38, 0.05, 0.02), 0.006, at.call(Vector3(0, 1.96, -0.38)))
 		rb.call(steel, Vector3(1.0, 0.08, 0.08), 0.015, at.call(Vector3(0, 1.88, -0.33)))
-		for k in range(8):
-			lenses.append(Transform3D(Basis(Vector3.RIGHT, PI * 0.5).scaled(Vector3.ONE * 0.45), Vector3((k - 3.5) * 0.12, 1.88, -0.37)))
 		# jerry can behind the passenger seat
 		var can: Transform3D = at.call(Vector3(0.4, 0.8, 0.88))
 		rb.call(drab, Vector3(0.16, 0.46, 0.34), 0.02, can)
@@ -249,6 +252,9 @@ static func _build(rig: Rig, trail: bool) -> void:
 		MeshKit.lathe(lst, [Vector2(0.0, -0.02), Vector2(0.075, -0.02), Vector2(0.06, 0.0), Vector2(0.0, 0.01)], lens, c, 20)
 	for lens: Transform3D in lenses:
 		MeshKit.lathe(lst, [Vector2(0.0, -0.02), Vector2(0.075, -0.02), Vector2(0.06, 0.0), Vector2(0.0, 0.01)], lens, c, 18)
+	if trail:
+		# the light bar: one long LED strip
+		MeshKit.rounded_box(lst, Vector3(0.94, 0.05, 0.012), 0.006, at.call(Vector3(0, 1.88, -0.372)), c, 2)
 	rig._add_mesh(MeshKit.commit(lst, lamp))
 	var tail := StandardMaterial3D.new()
 	tail.albedo_color = Color(0.5, 0.03, 0.02)
@@ -259,4 +265,47 @@ static func _build(rig: Rig, trail: bool) -> void:
 	for sx: float in [-1.0, 1.0]:
 		MeshKit.rounded_box(tst, Vector3(0.09, 0.13, 0.03), 0.012, at.call(Vector3(sx * 0.6, 0.98, 1.61)), c, 2)
 	rig._add_mesh(MeshKit.commit(tst, tail))
+
+
+## Top edge of the trail tub's side at `z`: full height at the cowl and the
+## back, dipping in a smooth curve to seat height in the door opening.
+static func _scoop_top(z: float) -> float:
+	var w := smoothstep(-0.31, -0.06, z) * (1.0 - smoothstep(0.32, 0.6, z))
+	return 1.17 - 0.36 * w
+
+
+## A Willys tub side at `x`, cowl to tail: the door cutout scooped out of
+## its top edge, the rear arch out of its bottom, a rolled edge along the top.
+static func _scooped_side(st: SurfaceTool, x: float, rz: float, arch: float, col: Color) -> void:
+	var z0 := -0.33
+	var z1 := 1.58
+	var bottom := 0.56
+	var thick := 0.04
+	var n := 64
+	var out := Vector3(signf(x), 0, 0)
+	var xi := x - out.x * thick
+	var rail := PackedVector3Array()
+	var radii := PackedFloat32Array()
+	var prev: Array[Vector3] = []
+	for i in range(n + 1):
+		var z := lerpf(z0, z1, float(i) / n)
+		var top := _scoop_top(z)
+		var yb := bottom
+		var dz := z - rz
+		if absf(dz) < arch:
+			yb = maxf(yb, KuwarentaBody.HUB_Y + sqrt(arch * arch - dz * dz))
+		yb = minf(yb, top - 0.02)
+		# outer bottom, outer top, inner top, inner bottom
+		var cur: Array[Vector3] = [Vector3(x, yb, z), Vector3(x, top, z), Vector3(xi, top, z), Vector3(xi, yb, z)]
+		if i > 0:
+			MeshKit._quad(st, Transform3D.IDENTITY, [prev[0], cur[0], cur[1], prev[1]], [out, out, out, out], col)
+			MeshKit._quad(st, Transform3D.IDENTITY, [prev[3], cur[3], cur[2], prev[2]], [-out, -out, -out, -out], col)
+			var down := (cur[0] - prev[0]).cross(out).normalized()
+			if down.y > 0.0:
+				down = -down
+			MeshKit._quad(st, Transform3D.IDENTITY, [prev[0], cur[0], cur[3], prev[3]], [down, down, down, down], col)
+		prev = cur
+		rail.append(Vector3(x - out.x * thick * 0.5, top, z))
+		radii.append(0.026)
+	MeshKit.sweep(st, rail, radii, Transform3D.IDENTITY, col, 8)
 
