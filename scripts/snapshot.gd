@@ -6,6 +6,7 @@ extends Node
 ##
 ##   Godot.exe --path . -- --snap [--seed N]
 ##   Godot.exe --path . -- --snap --snap-driver   (only the driver close-ups)
+##   Godot.exe --path . -- --snap --snap-rig [--rig ID]   (the rig from outside)
 ##
 ## Needs a window (not --headless) so there is a GPU to render with. Output
 ## lands in snaps/ next to project.godot (gitignored).
@@ -26,6 +27,10 @@ func _ready() -> void:
 
 func _run() -> void:
 	await get_tree().process_frame
+	if "--snap-rig" in OS.get_cmdline_user_args():
+		await _rig_shots()
+		get_tree().quit()
+		return
 	if "--snap-driver" in OS.get_cmdline_user_args():
 		await _driver_shot()
 		get_tree().quit()
@@ -89,6 +94,29 @@ func _driver_shot() -> void:
 		for i in range(3):
 			await RenderingServer.frame_post_draw
 		var path := "res://snaps/%s.png" % v[0]
+		get_viewport().get_texture().get_image().save_png(path)
+		print("saved ", ProjectSettings.globalize_path(path))
+
+
+## The rig from outside: front three-quarters, side on, rear three-quarters.
+func _rig_shots() -> void:
+	_rig.place_on_trail(_trail_start())
+	for i in range(SETTLE_FRAMES):
+		await get_tree().physics_frame
+	(get_parent().get_node("HUD") as CanvasLayer).visible = false
+	var cam := Camera3D.new()
+	cam.fov = 40.0
+	get_parent().add_child(cam)
+	var r := _rig.global_transform
+	var views := [["97_rig_front", Vector3(-3.6, 1.9, -5.0)], ["97_rig_side", Vector3(-6.5, 1.5, 0.0)],
+		["97_rig_rear", Vector3(3.8, 2.1, 5.2)]]
+	for v: Array in views:
+		cam.global_position = r * (v[1] as Vector3)
+		cam.look_at(r * Vector3(0, 0.95, 0), r.basis.y)
+		cam.make_current()
+		for i in range(3):
+			await RenderingServer.frame_post_draw
+		var path := "res://snaps/%s_%s.png" % [v[0], _rig.spec.id]
 		get_viewport().get_texture().get_image().save_png(path)
 		print("saved ", ProjectSettings.globalize_path(path))
 

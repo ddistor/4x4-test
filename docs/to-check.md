@@ -27,7 +27,20 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
-## Rig picker (one rig so far)
+## Kuwarenta (forty-series-style hardtop)
+
+Second rig in the *Rig* picker: `bodies/kuwarenta_body.gd`, spec in
+`rig_spec.gd::_kuwarenta`. Two-tone (menu paint + white top), round headlights in
+the fender fronts, slotted grille, upright windshield, side and rear-door
+windows, arches cut round 33s, spare on a rear carrier, winch bumper. Heavier
+(2050 kg), longer wheelbase (2.29 m), stiffer leaf-spring rate and less droop
+than the flatfender. Rendered from outside with `--snap --snap-rig --rig
+kuwarenta`; the headless bot drives it through the paddies and lahar fine. To
+check by driving: feels heavier and flatter than the flatfender, lifts a wheel
+sooner on the kanal ruts; seat camera (C) sits right behind the windshield;
+the winch line leaves the bumper.
+
+## Rig picker
 
 `rig.gd` is now the shared machine; each vehicle is a `RigSpec` kind
 (`rig_spec.gd`) plus a body builder in `scripts/vehicle/bodies/`. The start menu

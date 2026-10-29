@@ -172,6 +172,8 @@ func _build_wheels() -> void:
 		var w := RigWheel.new()
 		w.radius = spec.tire_radius
 		w.width = spec.tire_width
+		w.stiffness = spec.spring_stiffness
+		w.max_travel = spec.droop
 		w.position = entry[0]
 		w.steerable = entry[1]
 		w.left_side = entry[2]
