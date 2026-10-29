@@ -78,9 +78,11 @@ func _driver_shot() -> void:
 	var views := [["98_driver", Vector3(-0.33, 1.72, -1.6), Vector3(-0.33, 1.15, 0.2)],
 		["98_driver_34", Vector3(-1.0, 1.72, -1.2), Vector3(-0.33, 1.15, 0.12)],
 		["98_driver_side", Vector3(-1.5, 1.45, -0.1), Vector3(-0.33, 1.1, 0.15)],
-		["98_driver_close", Vector3(-0.12, 1.5, -0.36), Vector3(-0.33, 1.18, 0.25)]]
+		["98_driver_close", Vector3(-0.12, 1.5, -0.36), Vector3(-0.33, 1.18, 0.25)],
+		["98_driver_hand", Vector3(-0.8, 1.5, -0.45), Vector3(-0.5, 1.29, -0.14)],
+		["98_driver_hand_top", Vector3(-0.42, 1.62, 0.02), Vector3(-0.5, 1.29, -0.14)]]
 	for v: Array in views:
-		cam.fov = 70.0 if v[0] == "98_driver_close" else 40.0
+		cam.fov = 70.0 if v[0] == "98_driver_close" else (35.0 if v[0].begins_with("98_driver_hand") else 40.0)
 		cam.global_position = r * (v[1] as Vector3)
 		cam.look_at(r * (v[2] as Vector3), r.basis.y)
 		cam.make_current()

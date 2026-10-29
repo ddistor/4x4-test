@@ -1,7 +1,8 @@
 extends Node
 ## Autoload "Game": which stage is being driven, and moving between the start
 ## menu and a stage. `--seed N` (and `--weather dry|rain`, `--level 0|1|2`) after `--` on the command line pick the
-## stage; otherwise every launch starts with a fresh random one.
+## stage; otherwise every launch starts with a fresh random one. `--look P,S,J`
+## picks the rig paint, shirt and jorts colours by index.
 
 const MENU := "res://scenes/menu.tscn"
 const STAGE := "res://scenes/main.tscn"
@@ -11,6 +12,26 @@ var stage_seed := 0
 var weather := -1
 ## key into StagePlan.DIFFICULTY: 0 moderate, 1 hard, 2 extreme
 var level := 1
+
+## Colours you pick in the start menu, kept between launches in user://look.cfg.
+## Each list is [name, colour as authored (sRGB)].
+const PAINTS := [
+	["Gloss black", Color(0.012, 0.012, 0.014)], ["Army green", Color(0.15, 0.19, 0.11)],
+	["Jeepney red", Color(0.46, 0.04, 0.03)], ["Laterite orange", Color(0.62, 0.24, 0.08)],
+	["Bay blue", Color(0.08, 0.2, 0.42)], ["Kalabaw grey", Color(0.36, 0.36, 0.35)],
+	["Cream", Color(0.82, 0.78, 0.66)], ["Mango yellow", Color(0.85, 0.62, 0.06)]]
+const SHIRTS := [
+	["Maroon", Color(0.52, 0.13, 0.12)], ["Club black", Color(0.06, 0.06, 0.065)],
+	["White", Color(0.86, 0.86, 0.84)], ["Navy", Color(0.1, 0.14, 0.3)],
+	["Olive", Color(0.3, 0.33, 0.17)], ["Mustard", Color(0.72, 0.53, 0.12)],
+	["Heather grey", Color(0.48, 0.48, 0.5)]]
+const SHORTS := [
+	["Blue denim", Color(0.27, 0.36, 0.52)], ["Faded denim", Color(0.45, 0.55, 0.68)],
+	["Black denim", Color(0.12, 0.12, 0.14)], ["Khaki", Color(0.55, 0.48, 0.34)]]
+const LOOK_FILE := "user://look.cfg"
+var paint := 0
+var shirt := 0
+var shorts := 0
 
 
 func _ready() -> void:
@@ -27,6 +48,39 @@ func _ready() -> void:
 	var li := args.find("--level")
 	if li >= 0 and li + 1 < args.size():
 		level = clampi(int(args[li + 1]), 0, 2)
+	var cfg := ConfigFile.new()
+	if cfg.load(LOOK_FILE) == OK:
+		paint = clampi(cfg.get_value("look", "paint", 0), 0, PAINTS.size() - 1)
+		shirt = clampi(cfg.get_value("look", "shirt", 0), 0, SHIRTS.size() - 1)
+		shorts = clampi(cfg.get_value("look", "shorts", 0), 0, SHORTS.size() - 1)
+	# --look P,S,J picks paint, shirt and jorts by index for this run (snapshots)
+	var ki := args.find("--look")
+	if ki >= 0 and ki + 1 < args.size():
+		var v := args[ki + 1].split(",")
+		if v.size() == 3:
+			paint = clampi(int(v[0]), 0, PAINTS.size() - 1)
+			shirt = clampi(int(v[1]), 0, SHIRTS.size() - 1)
+			shorts = clampi(int(v[2]), 0, SHORTS.size() - 1)
+
+
+func save_look() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("look", "paint", paint)
+	cfg.set_value("look", "shirt", shirt)
+	cfg.set_value("look", "shorts", shorts)
+	cfg.save(LOOK_FILE)
+
+
+func paint_color() -> Color:
+	return PAINTS[paint][1]
+
+
+func shirt_color() -> Color:
+	return SHIRTS[shirt][1]
+
+
+func shorts_color() -> Color:
+	return SHORTS[shorts][1]
 
 
 static func random_seed() -> int:

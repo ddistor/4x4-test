@@ -76,6 +76,9 @@ func _ready() -> void:
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
 	left.add_child(trail)
+	left.add_child(_look_button("Rig paint", Game.PAINTS, "paint"))
+	left.add_child(_look_button("Shirt", Game.SHIRTS, "shirt"))
+	left.add_child(_look_button("Jorts", Game.SHORTS, "shorts"))
 	var quit := UiKit.button("Quit")
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	left.add_child(quit)
@@ -111,6 +114,27 @@ func _ready() -> void:
 
 	_show_seed(Game.stage_seed)
 	_drive.grab_focus()
+
+
+## A button that cycles one of Game's colour choices, with a swatch beside it.
+func _look_button(what: String, choices: Array, key: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var b := UiKit.button("")
+	var swatch := ColorRect.new()
+	swatch.custom_minimum_size = Vector2(46, 46)
+	var show := func() -> void:
+		var c: Array = choices[Game.get(key)]
+		b.text = "%s: %s" % [what, c[0]]
+		swatch.color = c[1]
+	show.call()
+	b.pressed.connect(func() -> void:
+		Game.set(key, (int(Game.get(key)) + 1) % choices.size())
+		Game.save_look()
+		show.call())
+	row.add_child(b)
+	row.add_child(swatch)
+	return row
 
 
 func _show_seed(s: int) -> void:

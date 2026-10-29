@@ -27,6 +27,15 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Colours: rig paint, shirt, jorts
+
+Start menu has *Rig paint*, *Shirt* and *Jorts* buttons that cycle presets
+(swatch beside each); the choice is saved to `user://look.cfg` and used when the
+stage is built. Lists live in `game.gd` (`PAINTS`, `SHIRTS`, `SHORTS`); add more
+there. `--look P,S,J` picks by index for one run (snapshots). Rendered here:
+red rig + club black shirt + khaki jorts. To check: the buttons look right in the
+menu (not screenshotted yet), and the colours you'd actually want are in the lists.
+
 ## Driver, sculpted instead of blocky
 
 Rendered and checked here with `--snap --snap-driver` (OpenGL, no Vulkan in the
@@ -34,8 +43,9 @@ cloud box, so the Forward+ look on your PC will be a touch richer). The torso is
 now one smooth body from cross-sections (`TORSO_ROWS` in `driver.gd`): chest,
 a bit of belly, traps into a thick neck, the tee painted on with cut-off
 armholes, a frayed edge and a crew collar. Arms are shaped (deltoid, biceps,
-forearm, flat wrist: `UPPER_ARM_PROFILE` / `FOREARM_PROFILE`), the hands close
-round the rim with four fingers and a thumb, and the legs have knees, calves and
+forearm, flat wrist: `UPPER_ARM_PROFILE` / `FOREARM_PROFILE`), the hands are
+one palm loft into four fingers curled round the rim plus a thumb over the top
+(`_hand_mesh`; a faint shading seam at the wrist up close), and the legs have knees, calves and
 baggier jorts. Skin and cloth shade differently (`driver.gdshader`). To check by
 driving: hands stay on the rim through full lock, elbows don't poke through
 the body when he's thrown about, and nothing looks off from the chase cam.
@@ -155,14 +165,24 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
-- **More rigs, common on PH trails** (ideas, not started): Jimny/Samurai-style
-  mini (light, narrow, floats, small tires), Land Cruiser 70-style heavy wagon
-  (lockers, snorkel, sinks in bogs), Hilux/Strada-style IFS pickup (stable,
-  poor flex, long overhangs), owner-type jeep (Filipino-built), Pajero/Patrol-
-  style 90s coil SUV. Modelled in code, local nicknames not brand names. Needs:
-  rig picker in the start menu, `rig.gd` split into shared drivetrain + per-rig
-  specs and body. Real gearbox first, so gearing can differ. Suggested first
-  pair: the mini and the heavy wagon (the two extremes).
+- **More rigs** (ideas, not started; the user picks which come first). Modelled in
+  code with local nicknames, no brand names or badges on them. Needs: a rig picker in
+  the start menu, `rig.gd` split into shared drivetrain + per-rig specs and body; the
+  real gearbox first so gearing can differ.
+  From the user:
+  1. Land Cruiser 40-series style: short, upright, leaf springs, a classic.
+  2. Feroza style: small boxy 90s 4x4, light, short wheelbase.
+  3. Vitara style: small 90s SUV, nimble, modest clearance.
+  4. Patrol style: big heavy wagon, solid axles, long travel, sinks in bogs.
+  5. Defender style (Land Rover): boxy, flat panels, coil-sprung solid axles.
+  6. Rubicon style (modern Wrangler): lockers, disconnecting sway bar, big tires.
+  7. FJ Cruiser style: retro body, independent front suspension, wide and stable.
+  Claude's earlier ideas:
+  8. Jimny/Samurai-style mini: light, narrow, floats, small tires.
+  9. Land Cruiser 70-style heavy wagon: lockers, snorkel, heavy.
+  10. Hilux/Strada-style pickup with independent front suspension: stable, poor flex, long overhangs.
+  11. Owner-type jeep: the Filipino-built kind.
+  12. Pajero-style 90s coil-sprung SUV.
 - **River ford** (proposed, waiting on a yes): the river is equally deep all the
   way across, right at the engine-choke depth on Hard, so there's no better line
   to find. Make it a ford: shallow riffle (~0.35-0.5 m on Hard) where the trail
