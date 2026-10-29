@@ -176,3 +176,42 @@ static func y_to(dir: Vector3) -> Basis:
 	var y := dir.normalized()
 	var x := y.cross(Vector3.UP if absf(y.y) < 0.95 else Vector3.RIGHT).normalized()
 	return Basis(x, y, x.cross(y))
+
+
+## A smooth skin through rows of points (each row a closed loop, all the same
+## size): torsos, limbs, anything with changing cross-sections. Normals come
+## from the grid itself; `cols` gives each quad its colour (row i, point k), so
+## paint follows the grid. Open ends get flat caps when `caps` is set.
+static func grid(st: SurfaceTool, rows: Array[PackedVector3Array], cols: Array[PackedColorArray], xf: Transform3D, caps := true) -> void:
+	var n := rows.size()
+	var m := rows[0].size()
+	var centres: Array[Vector3] = []
+	for r in rows:
+		var c := Vector3.ZERO
+		for p in r:
+			c += p
+		centres.append(c / m)
+	var norms: Array[PackedVector3Array] = []
+	for i in range(n):
+		var nr := PackedVector3Array()
+		for k in range(m):
+			var e := rows[i][(k + 1) % m] - rows[i][(k + m - 1) % m]
+			var u := rows[mini(i + 1, n - 1)][k] - rows[maxi(i - 1, 0)][k]
+			var nn := e.cross(u)
+			var out := rows[i][k] - centres[i]
+			if nn.length_squared() < 1e-14:
+				nn = out
+			nr.append(nn.normalized() * signf(nn.dot(out) + 1e-9))
+		norms.append(nr)
+	for i in range(n - 1):
+		for k in range(m):
+			var k1 := (k + 1) % m
+			_quad(st, xf, [rows[i][k], rows[i + 1][k], rows[i + 1][k1], rows[i][k1]],
+				[norms[i][k], norms[i + 1][k], norms[i + 1][k1], norms[i][k1]], cols[i][k])
+	if not caps:
+		return
+	for end: Array in [[0, 1], [n - 1, n - 2]]:
+		var i: int = end[0]
+		var nn := (centres[i] - centres[end[1]]).normalized()
+		for k in range(m):
+			_tri(st, xf, [centres[i], rows[i][k], rows[i][(k + 1) % m]], [nn, nn, nn], cols[mini(i, n - 2)][k])

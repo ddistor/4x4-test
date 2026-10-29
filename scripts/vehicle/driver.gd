@@ -13,11 +13,13 @@ extends Node3D
 ##
 ## Lives in rig space; the rig adds it and the turning steering wheel.
 
-const SKIN := Color(0.56, 0.37, 0.25)       # morena
-const SKIN_DK := Color(0.46, 0.29, 0.19)
+const SKIN := Color(0.5, 0.355, 0.28)       # morena
+const SKIN_DK := Color(0.405, 0.288, 0.227)
 const SHIRT := Color(0.52, 0.13, 0.12)      # faded maroon band tee, sleeves cut off
+const SHIRT_EDGE := Color(0.62, 0.3, 0.27)  # frayed edge where the sleeves were cut
+const COLLAR := Color(0.44, 0.11, 0.1)      # crew-neck rib
 const DENIM := Color(0.27, 0.36, 0.52)
-const FRAY := Color(0.62, 0.66, 0.72)
+const FRAY := Color(0.42, 0.49, 0.6)        # frayed denim, paler threads
 const HELMET := Color(0.92, 0.92, 0.9)
 const STRIPE_R := Color(0.8, 0.1, 0.1)
 const STRIPE_B := Color(0.1, 0.22, 0.6)
@@ -71,20 +73,18 @@ func build(r: RigidBody3D) -> void:
 	_joint(_torso, _head, HIP + NECK, 0.7, 0.6, 0.0)
 	for side: float in [-1.0, 1.0]:
 		var parts := []
-		for k in range(2):
+		for prof: Array in [UPPER_ARM_PROFILE, FOREARM_PROFILE]:
 			var mi := MeshInstance3D.new()
-			mi.mesh = _limb_mesh(0.052 if k == 0 else 0.042, 0.042 if k == 0 else 0.034, SKIN)
+			mi.mesh = _limb_mesh(prof)
 			add_child(mi)
 			parts.append(mi)
 		var hand := MeshInstance3D.new()
-		var st := MeshKit.begin()
-		MeshKit.rounded_box(st, Vector3(0.08, 0.05, 0.1), 0.022, Transform3D.IDENTITY, SKIN, 2)
-		hand.mesh = MeshKit.commit(st, _mat)
+		hand.mesh = _hand_mesh(side)
 		add_child(hand)
 		parts.append(hand)
 		var elbow := MeshInstance3D.new()
 		var es := MeshKit.begin()
-		MeshKit.sphere(es, 0.045, Transform3D.IDENTITY, SKIN, 10)
+		MeshKit.sphere(es, 0.037, Transform3D(Basis.from_scale(Vector3(1.0, 1.0, 0.9)), Vector3.ZERO), SKIN, 12)
 		elbow.mesh = MeshKit.commit(es, _mat)
 		add_child(elbow)
 		parts.append(elbow)
@@ -93,12 +93,107 @@ func build(r: RigidBody3D) -> void:
 
 # --- modelling ---------------------------------------------------------------------
 
-## A tapered limb one metre long up +Y; stretched to length when placed.
-func _limb_mesh(r0: float, r1: float, col: Color) -> ArrayMesh:
+## Limb cross-sections, shoulder (or elbow) at t = 0 to elbow (or wrist) at
+## t = 1: [t, half-width, half-depth]. Depth is front-back with the arm hanging.
+const UPPER_ARM_PROFILE := [
+	[0.0, 0.056, 0.058], [0.1, 0.057, 0.056], [0.22, 0.05, 0.05],   # deltoid
+	[0.42, 0.044, 0.049], [0.6, 0.042, 0.046],                      # biceps
+	[0.82, 0.037, 0.039], [1.0, 0.034, 0.036]]
+const FOREARM_PROFILE := [
+	[0.0, 0.035, 0.036], [0.12, 0.04, 0.037], [0.3, 0.041, 0.035],  # meaty below the elbow
+	[0.6, 0.033, 0.027], [0.86, 0.027, 0.02], [1.0, 0.026, 0.019]]  # flat wrist
+
+## A limb one metre long up +Y, shaped from a profile; stretched to length when placed.
+func _limb_mesh(prof: Array) -> ArrayMesh:
+	var rows: Array[PackedVector3Array] = []
+	var cols: Array[PackedColorArray] = []
+	var segs := 18
+	var steps := 24
+	for j in range(steps + 1):
+		var t := float(j) / steps
+		var k := 0
+		while k < prof.size() - 2 and t > float(prof[k + 1][0]):
+			k += 1
+		var a: Array = prof[k]
+		var b: Array = prof[k + 1]
+		var f := smoothstep(float(a[0]), float(b[0]), t)
+		var rx := lerpf(a[1], b[1], f)
+		var rz := lerpf(a[2], b[2], f)
+		var ring := PackedVector3Array()
+		var cr := PackedColorArray()
+		for i in range(segs):
+			var ang := TAU * i / segs
+			ring.append(Vector3(cos(ang) * rx, t, sin(ang) * rz))
+			cr.append(SKIN)
+		rows.append(ring)
+		cols.append(cr)
 	var st := MeshKit.begin()
-	MeshKit.sweep(st, PackedVector3Array([Vector3.ZERO, Vector3(0, 0.5, 0), Vector3(0, 1, 0)]),
-		PackedFloat32Array([r0, lerpf(r0, r1, 0.4), r1]), Transform3D.IDENTITY, col, 10)
-	MeshKit.sphere(st, r0 * 1.02, Transform3D.IDENTITY, col, 10)
+	MeshKit.grid(st, rows, cols, Transform3D.IDENTITY, false)   # ends hide in the shoulder, elbow and wrist
+	return MeshKit.commit(st, _mat)
+
+
+## The rim frame at a hand's grip, in steering-wheel space: R out from the
+## hub, A along the column toward the driver, U along the rim toward the top.
+func _grip_frame(sx: float) -> Basis:
+	var r := Vector3(sx * 0.87, 0.0, -0.5)
+	var a := Vector3.UP
+	var u := a.cross(r).normalized()
+	if u.z > 0.0:
+		u = -u
+	return Basis(r, a, u)
+
+
+## Where the wrist sits behind the grip (steering-wheel space, from the rim).
+func _wrist_offset(sx: float) -> Vector3:
+	var g := _grip_frame(sx)
+	return g.x * 0.04 + g.y * 0.065 - g.z * 0.005
+
+
+## A hand closed round the rim: palm on the outside, four fingers wrapping
+## round behind it, the thumb hooked over the front. Built in steering-wheel
+## space about the grip point, so it rides the wheel exactly.
+func _hand_mesh(sx: float) -> ArrayMesh:
+	var g := _grip_frame(sx)
+	var R := g.x
+	var A := g.y
+	var U := g.z
+	var st := MeshKit.begin()
+	var wrist := _wrist_offset(sx)
+	var knuckle := (R + A).normalized() * 0.03
+	# palm: from the wrist to the knuckles, as wide as four fingers
+	var along := knuckle - wrist
+	var ly := along.normalized()
+	var lz := U.cross(ly).normalized()
+	var lx := ly.cross(lz)
+	var palm := Transform3D(Basis(lx, ly, lz).scaled(Vector3(0.039, along.length() * 0.62, 0.017)),
+		(wrist + knuckle) * 0.5 + (R + A).normalized() * 0.003)
+	MeshKit.sphere(st, 1.0, palm, SKIN, 16)
+	# the wrist the forearm ends in
+	MeshKit.sphere(st, 1.0, Transform3D(Basis(lx, ly, lz).scaled(Vector3(0.027, 0.024, 0.02)), wrist), SKIN, 12)
+	# knuckle ridge across the back of the hand
+	MeshKit.sweep(st, PackedVector3Array([knuckle + U * 0.03, knuckle, knuckle - U * 0.03]),
+		PackedFloat32Array([0.009, 0.011, 0.009]), Transform3D.IDENTITY, SKIN, 8)
+	# fingers: each one circles the rim's cross-section (rim r 0.017)
+	var fingers := [[0.024, 0.0078, 2.75], [0.004, 0.0082, 2.95], [-0.015, 0.0078, 2.85], [-0.032, 0.0068, 2.5]]
+	for f: Array in fingers:
+		var pts := PackedVector3Array()
+		var radii := PackedFloat32Array()
+		var r0: float = f[1]
+		var span: float = f[2]
+		var n := 9
+		for i in range(n):
+			var th := deg_to_rad(45.0) - span * 0.72 * i / (n - 1)
+			var rad := 0.017 + r0 * 0.9
+			pts.append(U * float(f[0]) + (R * cos(th) + A * sin(th)) * rad)
+			radii.append(r0 * lerpf(1.0, 0.82, float(i) / (n - 1)))
+		MeshKit.sweep(st, pts, radii, Transform3D.IDENTITY, SKIN, 8)
+		MeshKit.sphere(st, radii[n - 1], Transform3D(Basis.IDENTITY, pts[n - 1]), SKIN, 8)
+		MeshKit.sphere(st, r0 * 1.08, Transform3D(Basis.IDENTITY, pts[0]), SKIN, 8)
+	# thumb: from the heel of the palm, over the driver's side of the rim
+	var thumb := PackedVector3Array([wrist * 0.75 + U * 0.026, R * 0.012 + A * 0.03 + U * 0.036,
+		R * -0.004 + A * 0.027 + U * 0.032, R * -0.016 + A * 0.02 + U * 0.026])
+	MeshKit.sweep(st, thumb, PackedFloat32Array([0.013, 0.01, 0.0085, 0.0076]), Transform3D.IDENTITY, SKIN, 8)
+	MeshKit.sphere(st, 0.0076, Transform3D(Basis.IDENTITY, thumb[3]), SKIN, 8)
 	return MeshKit.commit(st, _mat)
 
 
@@ -136,11 +231,16 @@ func _build_legs() -> void:
 		var ankle := HIP + Vector3(sx * 0.15, -0.1, -0.43)
 		# jorts: denim to just above the knee, frayed cuff
 		var cuff := hip.lerp(knee, 0.82)
-		MeshKit.sweep(st, PackedVector3Array([hip, hip.lerp(cuff, 0.5), cuff]), PackedFloat32Array([0.095, 0.088, 0.083]), Transform3D.IDENTITY, DENIM, 12)
-		MeshKit.tube(st, cuff, cuff + (knee - hip).normalized() * 0.018, 0.086, Transform3D.IDENTITY, FRAY, 12)
-		MeshKit.sweep(st, PackedVector3Array([cuff, knee]), PackedFloat32Array([0.068, 0.06]), Transform3D.IDENTITY, SKIN, 10)
-		MeshKit.sphere(st, 0.058, Transform3D(Basis.IDENTITY, knee), SKIN, 10)
-		MeshKit.sweep(st, PackedVector3Array([knee, knee.lerp(ankle, 0.35), ankle]), PackedFloat32Array([0.056, 0.05, 0.036]), Transform3D.IDENTITY, SKIN, 10)
+		var thigh := (knee - hip).normalized()
+		MeshKit.sweep(st, PackedVector3Array([hip, hip.lerp(cuff, 0.45), cuff]), PackedFloat32Array([0.097, 0.094, 0.09]), Transform3D.IDENTITY, DENIM, 16)
+		MeshKit.tube(st, cuff, cuff + thigh * 0.008, 0.091, Transform3D.IDENTITY, FRAY, 16)
+		MeshKit.sweep(st, PackedVector3Array([cuff - thigh * 0.02, cuff.lerp(knee, 0.5), knee]), PackedFloat32Array([0.07, 0.062, 0.05]), Transform3D.IDENTITY, SKIN, 14)
+		MeshKit.sphere(st, 0.049, Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, 1.0, 0.9)), knee + thigh * 0.004), SKIN, 14)
+		# shin: the calf bulges behind, then tapers to a slim ankle
+		var shin := (ankle - knee).normalized()
+		var back := shin.cross(Vector3(sx, 0, 0)).normalized() * -signf(sx)
+		MeshKit.sweep(st, PackedVector3Array([knee, knee.lerp(ankle, 0.3) + back * 0.008, knee.lerp(ankle, 0.65), ankle]),
+			PackedFloat32Array([0.047, 0.05, 0.04, 0.032]), Transform3D.IDENTITY, SKIN, 14)
 		# bare foot on a tsinelas: thin white-and-blue sole, a Y strap between the toes
 		var foot := Transform3D(Basis(Vector3.RIGHT, -0.15), ankle + Vector3(0, -0.04, -0.07))
 		MeshKit.rounded_box(st, Vector3(0.09, 0.05, 0.22), 0.022, foot, SKIN, 2)
@@ -152,20 +252,83 @@ func _build_legs() -> void:
 	_part(st, self, "Legs")
 
 
+## Torso cross-sections (torso space, before the lean): height, half-width,
+## front depth, back depth, squareness. A trail guy's build: solid shoulders,
+## a bit of a belly, a thick neck.
+const TORSO_ROWS := [
+	[-0.02, 0.165, 0.112, 0.1, 2.5], [0.08, 0.162, 0.12, 0.098, 2.5],    # hips, belly
+	[0.2, 0.152, 0.118, 0.094, 2.5], [0.3, 0.163, 0.116, 0.098, 2.6],    # waist
+	[0.4, 0.18, 0.122, 0.104, 2.8], [0.47, 0.19, 0.116, 0.104, 2.8],     # chest
+	[0.52, 0.192, 0.098, 0.095, 2.6], [0.555, 0.172, 0.08, 0.086, 2.4],  # shoulders, traps
+	[0.585, 0.128, 0.066, 0.074, 2.2], [0.615, 0.082, 0.062, 0.066, 2.0],
+	[0.65, 0.068, 0.06, 0.062, 2.0], [0.72, 0.064, 0.056, 0.058, 2.0]]   # thick neck
+
+
+func _sgnpow(v: float, e: float) -> float:
+	return signf(v) * pow(absf(v), e)
+
+
+## One point on the torso at height y, angle a (0 = his right, PI/2 = his back).
+func _torso_point(y: float, a: float) -> Vector3:
+	var k := 0
+	while k < TORSO_ROWS.size() - 2 and y > float(TORSO_ROWS[k + 1][0]):
+		k += 1
+	var r0: Array = TORSO_ROWS[k]
+	var r1: Array = TORSO_ROWS[k + 1]
+	var f := smoothstep(float(r0[0]), float(r1[0]), y)
+	var w := lerpf(r0[1], r1[1], f)
+	var df := lerpf(r0[2], r1[2], f)
+	var db := lerpf(r0[3], r1[3], f)
+	var e := 2.0 / lerpf(r0[4], r1[4], f)
+	var x := w * _sgnpow(cos(a), e)
+	var zz := _sgnpow(sin(a), e)
+	return Vector3(x, y, 0.02 + zz * (db if zz > 0.0 else df))
+
+
+## What covers the torso at a point: the tee, its collar, the frayed armholes, or skin.
+func _torso_paint(p: Vector3) -> Color:
+	if p.y > 0.6:
+		return SKIN
+	if p.y > 0.582:
+		return COLLAR
+	# the cut armholes: big ovals on each side, a strap of shirt over the shoulder
+	var h := Vector2((p.z - 0.025) / 0.088, (p.y - 0.468) / 0.112)
+	if absf(p.x) > 0.13:
+		var d := h.length()
+		if d < 0.93:
+			return SKIN
+		if d < 1.0:
+			return SHIRT_EDGE
+	return SHIRT
+
+
 func _build_torso() -> void:
 	# torso local: origin at the hips, leaning back into the seat a touch
 	var st := MeshKit.begin()
 	var lean := Basis(Vector3.RIGHT, 0.12)
-	var chest := Transform3D(lean, lean * Vector3(0, 0.36, 0.02))
-	MeshKit.rounded_box(st, Vector3(0.4, 0.46, 0.23), 0.09, chest, SHIRT, 3)
-	MeshKit.rounded_box(st, Vector3(0.34, 0.16, 0.22), 0.07, Transform3D(lean, lean * Vector3(0, 0.1, -0.005)), SHIRT, 3)
-	# the cut armholes: bare shoulders and a strip of side showing
+	var rows: Array[PackedVector3Array] = []
+	var cols: Array[PackedColorArray] = []
+	var segs := 64
+	var steps := 70
+	var y0 := float(TORSO_ROWS[0][0])
+	var y1 := float(TORSO_ROWS[TORSO_ROWS.size() - 1][0])
+	for j in range(steps + 1):
+		var y := lerpf(y0, y1, float(j) / steps)
+		var ring := PackedVector3Array()
+		var cr := PackedColorArray()
+		for i in range(segs):
+			var p := _torso_point(y, TAU * i / segs)
+			ring.append(lean * p)
+			# paint by the middle of the quad this point starts
+			var yc := lerpf(y0, y1, (j + 0.5) / steps)
+			cr.append(_torso_paint(_torso_point(yc, TAU * (i + 0.5) / segs)))
+		rows.append(ring)
+		cols.append(cr)
+	MeshKit.grid(st, rows, cols, Transform3D.IDENTITY)
+	# the bare shoulders: a deltoid cap where each arm leaves the body
 	for sx: float in [-1.0, 1.0]:
-		var sh := lean * Vector3(sx * 0.21, 0.55, 0.03)
-		MeshKit.sphere(st, 0.06, Transform3D(Basis.IDENTITY.scaled(Vector3(1.0, 0.85, 1.0)), sh), SKIN, 12)
-		MeshKit.rounded_box(st, Vector3(0.02, 0.13, 0.11), 0.009, Transform3D(lean, lean * Vector3(sx * 0.201, 0.43, 0.02)), SKIN_DK, 2)
-	# neck
-	MeshKit.cylinder(st, 0.055, 0.14, Transform3D(lean, lean * Vector3(0, 0.63, 0.03)), SKIN, 12)
+		var sh := lean * Vector3(sx * 0.196, 0.53, 0.028)
+		MeshKit.sphere(st, 0.06, Transform3D(Basis.IDENTITY.scaled(Vector3(0.95, 0.8, 1.0)), sh), SKIN, 16)
 	# the club logo, big on the chest (the seat back would hide one on his back).
 	# Seen from the front his left (-X) is the print's right.
 	_shirt_mat = _mat.duplicate()
@@ -419,10 +582,12 @@ func _place_arms() -> void:
 		var sx := sides[i]
 		# from wherever the physics has thrown the torso, into rig space
 		var shoulder: Vector3 = to_local(_torso.global_transform * (Basis(Vector3.RIGHT, 0.12) * Vector3(sx * 0.21, 0.54, 0.03)))
-		# hands at ten and two on the rim, turning with the wheel
+		# hands at ten and two on the rim, turning with the wheel; the arm
+		# reaches for the wrist, just behind the grip
 		var grip := Vector3(sx * WHEEL_R * 0.87, 0.0, -WHEEL_R * 0.5)
 		var hand: Vector3 = steering_wheel.transform * grip
-		var to := hand - shoulder
+		var wrist: Vector3 = steering_wheel.transform * (grip + _wrist_offset(sx))
+		var to := wrist - shoulder
 		var d := clampf(to.length(), 0.05, UPPER_ARM + FOREARM - 0.005)
 		var dir := to.normalized()
 		# elbows hang out and down
@@ -431,14 +596,18 @@ func _place_arms() -> void:
 		var a := (UPPER_ARM * UPPER_ARM - FOREARM * FOREARM + d * d) / (2.0 * d)
 		var h := sqrt(maxf(UPPER_ARM * UPPER_ARM - a * a, 0.0))
 		var elbow := shoulder + dir * a + pole * h
-		var hand_at := shoulder + dir * d
+		var wrist_at := shoulder + dir * d
 		var parts: Array = _arms[i]
-		_limb(parts[0], shoulder, elbow)
-		_limb(parts[1], elbow, hand_at)
+		_limb(parts[0], shoulder, elbow, pole)
+		_limb(parts[1], elbow, wrist_at, pole)
 		(parts[3] as MeshInstance3D).position = elbow
-		(parts[2] as MeshInstance3D).transform = Transform3D(steering_wheel.transform.basis * Basis(Vector3.UP, sx * 0.4), hand_at)
+		(parts[2] as MeshInstance3D).transform = Transform3D(steering_wheel.transform.basis, hand)
 
 
-func _limb(mi: MeshInstance3D, a: Vector3, b: Vector3) -> void:
-	var v := b - a
-	mi.transform = Transform3D(MeshKit.y_to(v.normalized()) * Basis.from_scale(Vector3(1.0, v.length(), 1.0)), a)
+## Stretch a limb mesh from `a` to `b`, its depth axis facing away from the
+## elbow's bend (`pole`) so the biceps sits on the inside of the arm.
+func _limb(mi: MeshInstance3D, a: Vector3, b: Vector3, pole: Vector3) -> void:
+	var y := (b - a).normalized()
+	var z := (pole - y * pole.dot(y)).normalized()
+	var x := y.cross(z)
+	mi.transform = Transform3D(Basis(x, y * (b - a).length(), z), a)

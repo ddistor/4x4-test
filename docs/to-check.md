@@ -27,6 +27,19 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Driver, sculpted instead of blocky
+
+Rendered and checked here with `--snap --snap-driver` (OpenGL, no Vulkan in the
+cloud box, so the Forward+ look on your PC will be a touch richer). The torso is
+now one smooth body from cross-sections (`TORSO_ROWS` in `driver.gd`): chest,
+a bit of belly, traps into a thick neck, the tee painted on with cut-off
+armholes, a frayed edge and a crew collar. Arms are shaped (deltoid, biceps,
+forearm, flat wrist: `UPPER_ARM_PROFILE` / `FOREARM_PROFILE`), the hands close
+round the rim with four fingers and a thumb, and the legs have knees, calves and
+baggier jorts. Skin and cloth shade differently (`driver.gdshader`). To check by
+driving: hands stay on the rim through full lock, elbows don't poke through
+the body when he's thrown about, and nothing looks off from the chase cam.
+
 ## Club logo on the driver's tee
 
 The Tropang Saligawsaw logo (cut out of the shirt photo, 512 px,
@@ -35,8 +48,8 @@ tee, 24 cm across, and gets muddy with the rest of him. It's on the front
 because the seat back covers his back. Not run in the engine yet: check it
 reads the right way round (TROPANG on top, not mirrored), sits flat on the
 chest, and isn't too big for him. Size and height: `PRINT_SIZE` and the
-`0.37` in `_build_torso` (`driver.gd`). `--snap` now also saves a
-head-on close-up of him, `snaps/98_driver.png`. Still looks blurry? It came from a
+`0.37` in `_build_torso` (`driver.gd`). `--snap` now also saves close-ups
+of him, `snaps/98_driver*.png`; `--snap --snap-driver` saves only those. Still looks blurry? It came from a
 phone screenshot; a cleaner copy of the artwork can replace the PNG.
 
 ## The driver (first sketch)

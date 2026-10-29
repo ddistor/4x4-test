@@ -5,6 +5,7 @@ extends Node
 ## plus a driving shot and a close-up of the driver, then quits.
 ##
 ##   Godot.exe --path . -- --snap [--seed N]
+##   Godot.exe --path . -- --snap --snap-driver   (only the driver close-ups)
 ##
 ## Needs a window (not --headless) so there is a GPU to render with. Output
 ## lands in snaps/ next to project.godot (gitignored).
@@ -25,6 +26,10 @@ func _ready() -> void:
 
 func _run() -> void:
 	await get_tree().process_frame
+	if "--snap-driver" in OS.get_cmdline_user_args():
+		await _driver_shot()
+		get_tree().quit()
+		return
 	var terrain: Terrain = get_parent().get_node("Terrain")
 	print("stage ", terrain.plan.seed_value, "\n", terrain.plan.describe())
 	var spots: Array = []
@@ -68,13 +73,22 @@ func _driver_shot() -> void:
 	cam.fov = 40.0
 	get_parent().add_child(cam)
 	var r := _rig.global_transform
-	cam.global_position = r * Vector3(-0.33, 1.35, -1.9)
-	cam.look_at(r * Vector3(-0.33, 1.12, 0.2), r.basis.y)
-	cam.make_current()
-	await RenderingServer.frame_post_draw
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png("res://snaps/98_driver.png")
-	print("saved ", ProjectSettings.globalize_path("res://snaps/98_driver.png"))
+	(get_parent().get_node("HUD") as CanvasLayer).visible = false
+	# head-on over the hood, three-quarters from his side, and side on
+	var views := [["98_driver", Vector3(-0.33, 1.72, -1.6), Vector3(-0.33, 1.15, 0.2)],
+		["98_driver_34", Vector3(-1.0, 1.72, -1.2), Vector3(-0.33, 1.15, 0.12)],
+		["98_driver_side", Vector3(-1.5, 1.45, -0.1), Vector3(-0.33, 1.1, 0.15)],
+		["98_driver_close", Vector3(-0.12, 1.5, -0.36), Vector3(-0.33, 1.18, 0.25)]]
+	for v: Array in views:
+		cam.fov = 70.0 if v[0] == "98_driver_close" else 40.0
+		cam.global_position = r * (v[1] as Vector3)
+		cam.look_at(r * (v[2] as Vector3), r.basis.y)
+		cam.make_current()
+		for i in range(3):
+			await RenderingServer.frame_post_draw
+		var path := "res://snaps/%s.png" % v[0]
+		get_viewport().get_texture().get_image().save_png(path)
+		print("saved ", ProjectSettings.globalize_path(path))
 
 
 func _trail_start() -> float:

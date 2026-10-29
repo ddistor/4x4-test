@@ -50,8 +50,9 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 - `scripts/audio/rig_audio.gd` — pitches and mixes those from the rig's state.
 - `scripts/vehicle/winch_aim.gd` — choosing a winch anchor: rings on everything in
   reach, mouse hover or Tab to pick, F to hook.
-- `scripts/vehicle/driver.gd` — the driver (motocross helmet, sleeveless tee, jorts,
-  tsinelas) and the turning steering wheel. Torso and head are physics bodies
+- `scripts/vehicle/driver.gd` — the driver (motocross helmet, sleeveless tee with the
+  club logo, jorts, tsinelas) and the turning steering wheel. Body is lofted from
+  cross-sections (`MeshKit.grid`), hands wrap the rim. Torso and head are physics bodies
   on joints, held up by damped muscle torques; arms reach the wheel by two-bone IK.
   Helmet is on render layer 2, hidden from the seat camera.
 - `scripts/vehicle/mesh_kit.gd` — procedural modelling helpers (rounded boxes,
@@ -75,6 +76,7 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 `Godot.exe --path . -- --snap --seed N` (needs a window, not `--headless`) skips the
 menu, drops the rig mid-way through every section and at each crossing, plus one
 driving shot, and saves PNGs to `snaps/`. Read them to check visuals and tune.
+Add `--snap-driver` for just the driver close-ups (`snaps/98_driver*.png`).
 
 ## Conventions
 

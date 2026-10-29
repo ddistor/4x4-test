@@ -3,3 +3,4 @@
 export/
 *.tmp
 snaps/
+.claude/settings.local.json
