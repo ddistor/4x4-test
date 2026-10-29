@@ -27,6 +27,17 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Rubikon (modern four-door)
+
+Sixth rig: `bodies/rubikon_body.gd`, spec `rig_spec.gd::_rubikon`. Body colour
+with a black hardtop, round lamps in a nine-slot body-colour grille (not the
+seven-slot one), long vented hood, big black trapezoid flares, exposed door
+hinges, rock sliders, steel winch bumper, spare on the tailgate. 2300 kg on 35s,
+3.0 m wheelbase, the most droop (0.22 m) and the softest roll bar (sway bar
+unhooked), strong low-range pull. Checked flexed in the garage; headless bot
+drives it fine. To check by driving: keeps all four tires down on the kanal
+ruts and rock steps better than the others, leans more in fast turns.
+
 ## Owner (owner-type jeep) and stainless paint
 
 Fifth rig: `bodies/owner_body.gd`, spec `rig_spec.gd::_owner`. A shop-built
@@ -265,7 +276,7 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
   3. Vitara style: small 90s SUV, nimble, modest clearance.
   4. Patrol style: big heavy wagon, solid axles, long travel, sinks in bogs. **Built: Ronda.**
   5. Defender style (Land Rover): boxy, flat panels, coil-sprung solid axles.
-  6. Rubicon style (modern Wrangler): lockers, disconnecting sway bar, big tires.
+  6. Rubicon style (modern Wrangler): lockers, disconnecting sway bar, big tires. **Built: Rubikon.**
   7. FJ Cruiser style: retro body, independent front suspension, wide and stable.
   Claude's earlier ideas:
   8. Jimny/Samurai-style mini: light, narrow, floats, small tires.

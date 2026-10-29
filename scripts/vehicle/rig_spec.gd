@@ -58,6 +58,7 @@ static func kinds() -> Array[RigSpec]:
 	out.append(_feroz())
 	out.append(_ronda())
 	out.append(_owner())
+	out.append(_rubikon())
 	return out
 
 
@@ -199,4 +200,35 @@ static func _owner() -> RigSpec:
 	s.seat = Vector3(-0.34, 0.74, 0.12)
 	s.wheel_at = Vector3(-0.34, 1.13, -0.23)
 	s.build_body = OwnerBody.build
+	return s
+
+
+## Rubikon: the modern four-door trail rig from the factory, lockers front
+## and back and a sway bar that unhooks: on 35s it flexes more than anything
+## else here and the soft roll bar keeps all four tires down, but it's long
+## and heavy, and leans in the turns.
+static func _rubikon() -> RigSpec:
+	var s := RigSpec.new()
+	s.id = "rubikon"
+	s.name = "Rubikon"
+	s.blurb = "Modern four-door on 35s: lockers, the sway bar unhooked. Flexes the most, a long wheelbase."
+	s.mass = 2300.0
+	s.center_of_mass = Vector3(0, 0.58, -0.1)
+	s.track = 0.82
+	s.front_z = -1.5
+	s.rear_z = 1.5
+	s.tire_radius = 0.445
+	s.tire_width = 0.32
+	s.spring_stiffness = 42000.0
+	s.droop = 0.22
+	s.drive_force_high = 15000.0
+	s.speed_high = 30.0
+	s.drive_force_low = 32000.0
+	s.speed_low = 11.0
+	s.max_steer = deg_to_rad(33.0)
+	s.axle_roll_stiffness = 12000.0
+	s.fairlead = Vector3(0, 0.74, -2.48)
+	s.seat = Vector3(-0.4, 0.88, 0.0)
+	s.wheel_at = Vector3(-0.4, 1.28, -0.4)
+	s.build_body = RubikonBody.build
 	return s
