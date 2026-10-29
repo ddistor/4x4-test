@@ -7,7 +7,8 @@ extends RefCounted
 ## Per cell:
 ##   thickness  - metres of soft mud sitting on the firm base (0 = hard ground)
 ##   wetness    - 0 dry clay .. 1 water-saturated soup
-##   rut        - metres already carved out / compacted by tires (<= thickness)
+##   rut        - metres already carved out / compacted by tires (<= thickness);
+##                negative where displaced mud has piled up above the surface
 ##
 ## Lateritic clay in Morong behaves two ways: dry it is firm and grippy, wet it
 ## is slick on the surface and sucks the wheel down. Both axes matter.
@@ -19,7 +20,9 @@ var origin: Vector2  # world XZ of cell (0,0)
 
 var thickness: PackedFloat32Array
 var wetness: PackedFloat32Array
-var rut: PackedFloat32Array
+var rut: PackedFloat32Array  # negative = mud piled above the surface (berms, flung clods)
+
+const MAX_PILE := 0.3
 
 ## RGB float image: R = rut depth (m), G = wetness, B = thickness (m). Sampled by the terrain shader.
 var image: Image
@@ -110,6 +113,31 @@ func carve(world_xz: Vector2, radius: float, amount: float) -> float:
 	if carved > 0.0:
 		_dirty = true
 	return carved
+
+
+## Pile displaced mud on the surface round a point: the berms a tire shoves
+## up beside its rut, and clods a spinning tire throws behind it. Stored as
+## negative rut (mud above the original surface), so the terrain shader
+## raises the ground there and the wheels treat it as more soft clay.
+func deposit(world_xz: Vector2, radius: float, amount: float, wet: float) -> void:
+	if amount <= 0.0:
+		return
+	var centre := world_to_cell(world_xz)
+	var r_cells := maxi(1, int(ceil(radius / cell_size)))
+	for dy in range(-r_cells, r_cells + 1):
+		for dx in range(-r_cells, r_cells + 1):
+			var c := centre + Vector2i(dx, dy)
+			if not in_bounds(c):
+				continue
+			var cell_world := origin + (Vector2(c) + Vector2(0.5, 0.5)) * cell_size
+			var falloff := 1.0 - clampf(cell_world.distance_to(world_xz) / (radius + cell_size * 0.5), 0.0, 1.0)
+			if falloff <= 0.0:
+				continue
+			var i := idx(c.x, c.y)
+			rut[i] = maxf(rut[i] - amount * falloff, -MAX_PILE)
+			wetness[i] = lerpf(wetness[i], maxf(wetness[i], wet), falloff * 0.5)
+			image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i]))
+	_dirty = true
 
 
 ## Push the whole image to the GPU if anything changed. Call once per frame.

@@ -149,6 +149,11 @@ void fragment() {
 		soft = 0.0;
 	}
 
+	// mud piled up by the tires (negative rut) is clay wherever it landed,
+	// grass and gravel road included
+	float pile = smoothstep(0.004, 0.04, -m.r);
+	soft = max(soft, pile);
+
 	// --- trail clay ------------------------------------------------------------
 	vec3 clay = mix(clay_dry, clay_wet, m.g);
 	clay *= 0.8 + 0.28 * fbm(p * 1.4) + 0.2 * (g4 - 0.5) * detail;
@@ -175,5 +180,15 @@ void fragment() {
 	ALBEDO = col;
 	ROUGHNESS = rough;
 	SPECULAR = spec;
+	// Ruts and berms move the surface in the vertex shader; tilt the normal to
+	// match so their walls catch the light (surface = base - rut).
+	vec2 tx = 1.0 / vec2(textureSize(mud_tex, 0));
+	float cell = world_size * tx.x;
+	float rl = texture(mud_tex, UV - vec2(tx.x, 0.0)).r;
+	float rr = texture(mud_tex, UV + vec2(tx.x, 0.0)).r;
+	float rd = texture(mud_tex, UV - vec2(0.0, tx.y)).r;
+	float ru = texture(mud_tex, UV + vec2(0.0, tx.y)).r;
+	vec3 rutted = normalize(wn + vec3(rr - rl, 0.0, ru - rd) / (2.0 * cell));
+	NORMAL = normalize((VIEW_MATRIX * vec4(rutted, 0.0)).xyz);
 	NORMAL = bump(NORMAL, VERTEX, h * mix(0.3, 1.0, detail));
 }

@@ -355,9 +355,25 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	omega = lerpf(rolling_omega, free_omega, slip)
 
 	# Carve: settling into the mud makes a rut; spinning flings it out faster.
-	var carve_amt := maxf(0.0, sink - ground["rut"]) * 0.8 * delta + slip * 0.35 * delta * soft
-	if carve_amt > 0.001:
-		terrain.mud.carve(Vector2(contact_point.x, contact_point.z), width * 0.5, carve_amt)
+	var press := maxf(0.0, sink - ground["rut"]) * 0.8 * delta
+	var dig := slip * 0.35 * delta * soft
+	if press + dig > 0.001:
+		var at := Vector2(contact_point.x, contact_point.z)
+		var carved := terrain.mud.carve(at, width * 0.5, press + dig)
+		# The clay has to go somewhere: the tire shoves it up into a berm on
+		# either side of the rut, and a spinning tire flings clods out behind
+		# it (behind = the way the tread is moving at the bottom).
+		if carved > 0.0:
+			var side := Vector2(right.x, right.z).normalized() * (width * 0.5 + 0.22)
+			var wet_here: float = ground["wetness"]
+			for s: float in [-1.0, 1.0]:
+				terrain.mud.deposit(at + side * s, 0.24, carved * 0.3, wet_here)
+			var flung := carved * dig / (press + dig)
+			if flung > 0.0005:
+				var back := -Vector2(fwd.x, fwd.z).normalized() * signf(omega if absf(omega) > 0.1 else 1.0)
+				var reach := randf_range(0.8, 1.2 + 0.18 * absf(omega) * radius)
+				var scatter := Vector2(back.y, -back.x) * randf_range(-0.6, 0.6)
+				terrain.mud.deposit(at + back * reach + scatter, 0.3, flung * 0.5, wet_here)
 
 	# --- feedback for rig ------------------------------------------------
 	result["slip"] = slip

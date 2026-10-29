@@ -62,8 +62,8 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 - **River crossing** like the reference photos: wide, shallow, clear water over
   river stones, white water piling against the bumper, rooster-tail spray, a
   glassy pool with reflections.
-- **Flung mud lands**: clay thrown by the tires piles into berms beside and
-  behind the ruts instead of vanishing.
+- ~~**Flung mud lands**~~ done: dug clay piles into berms beside the rut and
+  spinning tires throw clods behind (negative rut in `MudField.deposit`).
 - **Procedural stage, different every run**: one long track chained from
   Philippine terrain sections — Rizal laterite clay, Pinatubo lahar/ash
   riverbeds, boulder river crossings, Cordillera rocky switchbacks, Ilocos /
