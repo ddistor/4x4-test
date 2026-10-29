@@ -129,6 +129,14 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
+- **More rigs, common on PH trails** (ideas, not started): Jimny/Samurai-style
+  mini (light, narrow, floats, small tires), Land Cruiser 70-style heavy wagon
+  (lockers, snorkel, sinks in bogs), Hilux/Strada-style IFS pickup (stable,
+  poor flex, long overhangs), owner-type jeep (Filipino-built), Pajero/Patrol-
+  style 90s coil SUV. Modelled in code, local nicknames not brand names. Needs:
+  rig picker in the start menu, `rig.gd` split into shared drivetrain + per-rig
+  specs and body. Real gearbox first, so gearing can differ. Suggested first
+  pair: the mini and the heavy wagon (the two extremes).
 - **River ford** (proposed, waiting on a yes): the river is equally deep all the
   way across, right at the engine-choke depth on Hard, so there's no better line
   to find. Make it a ford: shallow riffle (~0.35-0.5 m on Hard) where the trail
