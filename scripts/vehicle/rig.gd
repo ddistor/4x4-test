@@ -103,6 +103,12 @@ func _build_body() -> void:
 	spec.build_body.call(self)
 
 
+## The body colour picked in the menu: gloss paint, or polished stainless.
+func paint_mat(rough: float, coat: float) -> ShaderMaterial:
+	var metal := Game.paint_metal()
+	return _body_mat(Game.paint_color(), lerpf(rough, 0.24, metal), metal, coat * (1.0 - metal))
+
+
 func _body_mat(col: Color, rough: float, metal: float, coat: float) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = load("res://shaders/mud_cake.gdshader")

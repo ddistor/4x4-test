@@ -57,6 +57,7 @@ static func kinds() -> Array[RigSpec]:
 	out.append(_kuwarenta())
 	out.append(_feroz())
 	out.append(_ronda())
+	out.append(_owner())
 	return out
 
 
@@ -167,4 +168,35 @@ static func _ronda() -> RigSpec:
 	s.seat = Vector3(-0.42, 0.88, 0.02)
 	s.wheel_at = Vector3(-0.42, 1.28, -0.38)
 	s.build_body = RondaBody.build
+	return s
+
+
+## Owner: the owner-type jeep, built in a Philippine shop from surplus parts:
+## a low doorless tub, flat fenders, chrome grille, a flat deck with side
+## benches, usually polished stainless. This one's trail-built on 31s with
+## a Japanese diesel and axles under it. Light and simple, a long-ish deck.
+static func _owner() -> RigSpec:
+	var s := RigSpec.new()
+	s.id = "owner"
+	s.name = "Owner"
+	s.blurb = "Owner-type jeep, shop-built from surplus: doorless tub, flat deck, chrome grille. On 31s."
+	s.mass = 1450.0
+	s.center_of_mass = Vector3(0, 0.48, -0.1)
+	s.track = 0.72
+	s.front_z = -1.18
+	s.rear_z = 1.17
+	s.tire_radius = 0.395
+	s.tire_width = 0.27
+	s.spring_stiffness = 33000.0
+	s.droop = 0.15
+	s.drive_force_high = 10500.0
+	s.speed_high = 25.0
+	s.drive_force_low = 21000.0
+	s.speed_low = 10.0
+	s.max_steer = deg_to_rad(33.0)
+	s.axle_roll_stiffness = 16000.0
+	s.fairlead = Vector3(0, 0.66, -1.98)
+	s.seat = Vector3(-0.34, 0.74, 0.12)
+	s.wheel_at = Vector3(-0.34, 1.13, -0.23)
+	s.build_body = OwnerBody.build
 	return s

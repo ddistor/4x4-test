@@ -16,12 +16,14 @@ var weather := -1
 var level := 1
 
 ## Colours you pick in the start menu, kept between launches in user://look.cfg.
-## Each list is [name, colour as authored (sRGB)].
+## Each list is [name, colour as authored (sRGB)]; a paint may add a
+## metallic amount (stainless).
 const PAINTS := [
 	["Gloss black", Color(0.012, 0.012, 0.014)], ["Army green", Color(0.15, 0.19, 0.11)],
 	["Jeepney red", Color(0.46, 0.04, 0.03)], ["Laterite orange", Color(0.62, 0.24, 0.08)],
 	["Bay blue", Color(0.08, 0.2, 0.42)], ["Kalabaw grey", Color(0.36, 0.36, 0.35)],
-	["Cream", Color(0.82, 0.78, 0.66)], ["Mango yellow", Color(0.85, 0.62, 0.06)]]
+	["Cream", Color(0.82, 0.78, 0.66)], ["Mango yellow", Color(0.85, 0.62, 0.06)],
+	["Stainless steel", Color(0.74, 0.74, 0.72), 0.92]]
 const SHIRTS := [
 	["Maroon", Color(0.52, 0.13, 0.12)], ["Club black", Color(0.06, 0.06, 0.065)],
 	["White", Color(0.86, 0.86, 0.84)], ["Navy", Color(0.1, 0.14, 0.3)],
@@ -94,6 +96,12 @@ func save_look() -> void:
 
 func paint_color() -> Color:
 	return PAINTS[paint][1]
+
+
+## 0 for paint, up to 1 for bare polished metal.
+func paint_metal() -> float:
+	var p: Array = PAINTS[paint]
+	return p[2] if p.size() > 2 else 0.0
 
 
 func shirt_color() -> Color:

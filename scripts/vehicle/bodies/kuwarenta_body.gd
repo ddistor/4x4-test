@@ -163,7 +163,7 @@ static func build(rig: Rig) -> void:
 	rb.call(chassis, Vector3(0.12, 0.12, 0.14), 0.01, at.call(Vector3(-0.38, 1.12, TAIL_Z + 0.05)))
 
 	var chassis_mat := rig._body_mat(Color(0.05, 0.05, 0.05), 0.7, 0.2, 0.0)
-	rig._add_mesh(MeshKit.commit(paint, rig._body_mat(Game.paint_color(), 0.22, 0.0, 0.8)))   # picked in the start menu
+	rig._add_mesh(MeshKit.commit(paint, rig.paint_mat(0.22, 0.8)))   # picked in the start menu
 	rig._add_mesh(MeshKit.commit(top, rig._body_mat(TOP, 0.3, 0.0, 0.6)))
 	rig._add_mesh(MeshKit.commit(steel, rig._body_mat(Color(0.03, 0.03, 0.032), 0.55, 0.3, 0.0)))
 	rig._add_mesh(MeshKit.commit(bright, rig._body_mat(Color(0.62, 0.63, 0.62), 0.32, 0.85, 0.0)))

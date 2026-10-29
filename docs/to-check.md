@@ -27,6 +27,18 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Owner (owner-type jeep) and stainless paint
+
+Fifth rig: `bodies/owner_body.gd`, spec `rig_spec.gd::_owner`. A shop-built
+owner-type jeep: low doorless tub (the sides dip by the front seats), flat
+fenders, chrome grille of vertical bars with the round lamps on it, chrome
+crease and bumpers, upright windshield, flat canopy roof on a chrome roll hoop,
+a flat deck with red vinyl benches down both sides, spare on the tailgate,
+winch. 1450 kg on 31s, 2.35 m wheelbase. New paint for every rig: *Stainless
+steel* (polished metal instead of gloss paint; `Game.PAINTS`, `Rig.paint_mat`).
+Checked flexed in the garage. To check by driving: feels like a light, simple
+rig; the stainless looks right in daylight and in the forest shade.
+
 ## Tires no longer hit the body
 
 The bodies had flat floors and boxy inner tubs running right over the wheels
@@ -259,7 +271,7 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
   8. Jimny/Samurai-style mini: light, narrow, floats, small tires.
   9. Land Cruiser 70-style heavy wagon: lockers, snorkel, heavy.
   10. Hilux/Strada-style pickup with independent front suspension: stable, poor flex, long overhangs.
-  11. Owner-type jeep: the Filipino-built kind.
+  11. Owner-type jeep: the Filipino-built kind. **Built: Owner.**
   12. Pajero-style 90s coil-sprung SUV.
 - **River ford** (proposed, waiting on a yes): the river is equally deep all the
   way across, right at the engine-choke depth on Hard, so there's no better line
