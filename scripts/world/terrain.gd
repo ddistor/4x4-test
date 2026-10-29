@@ -99,6 +99,11 @@ func _base_height(x: float, z: float) -> float:
 	if z < 45.0:
 		# Paddies: flat terraces either side of the road.
 		land = -0.35 + _detail.get_noise_2d(x, z) * 0.05
+		# pilapil: the low earth dikes between paddies, on a rough 14 x 18 m grid
+		var gx := absf(fposmod(x + 3.0, 14.0) - 7.0)
+		var gz := absf(fposmod(z + 5.0, 18.0) - 9.0)
+		var dike := maxf(1.0 - smoothstep(0.3, 0.9, gx), 1.0 - smoothstep(0.3, 0.9, gz))
+		land += dike * 0.45
 		# road shoulder slopes down into the paddy over 1.5 m
 		return lerpf(0.0, land, smoothstep(3.2, 4.7, dx))
 	# Cut two-track: floor 3 m half-width, banks ramping up over the next 4 m.
@@ -269,7 +274,7 @@ func _build_water() -> void:
 		mi.mesh = plane
 		var mat := ShaderMaterial.new()
 		mat.shader = shader
-		mat.set_shader_parameter("tint", Color(0.35, 0.42, 0.28, 0.85))
+		mat.set_shader_parameter("tint", Color(0.22, 0.26, 0.14, 0.55))
 		mi.material_override = mat
 		var cx := SIZE_M * 0.5 + side * (SIZE_M * 0.25 + 2.0)
 		mi.position = Vector3(cx, -0.35 + WATER_PADDY, 22.0)
@@ -283,7 +288,7 @@ func _build_water() -> void:
 	cmi.mesh = creek
 	var cmat := ShaderMaterial.new()
 	cmat.shader = shader
-	cmat.set_shader_parameter("tint", Color(0.48, 0.33, 0.18, 0.8))
+	cmat.set_shader_parameter("tint", Color(0.40, 0.26, 0.12, 0.7))
 	cmi.material_override = cmat
 	cmi.position = Vector3(SIZE_M * 0.5, creek_water_level(), CREEK_Z)
 	cmi.name = "CreekWater"

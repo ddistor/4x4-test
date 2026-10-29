@@ -53,7 +53,8 @@ void fragment() {
 
 	vec3 ground = grass * (0.8 + 0.4 * n);
 	if (world_pos.z < 45.0) {
-		ground = paddy * (0.85 + 0.3 * n2);
+		// paddy floor under the water is dark silt; the dikes above it are grassy
+		ground = mix(vec3(0.16, 0.14, 0.08), paddy * (0.85 + 0.3 * n2), smoothstep(-0.3, -0.05, world_pos.y));
 		float road = 1.0 - smoothstep(2.6, 3.6, abs(world_pos.x - world_size * 0.5 - 14.0 * sin(world_pos.z * 0.035) - 0.0));
 		ground = mix(ground, gravel * (0.9 + 0.2 * n2), road);
 		soft = 0.0;

@@ -14,7 +14,7 @@ void fragment() {
 	NORMAL_MAP = normalize(vec3(w * 0.08, 1.0, w * 0.06)) * 0.5 + 0.5;
 	ALBEDO = tint.rgb * (0.9 + 0.1 * w);
 	ALPHA = tint.a;
-	ROUGHNESS = 0.08;
-	SPECULAR = 0.7;
+	ROUGHNESS = 0.35;
+	SPECULAR = 0.4;
 	METALLIC = 0.0;
 }
