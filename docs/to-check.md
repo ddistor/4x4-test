@@ -129,6 +129,10 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
+- **River ford** (proposed, waiting on a yes): the river is equally deep all the
+  way across, right at the engine-choke depth on Hard, so there's no better line
+  to find. Make it a ford: shallow riffle (~0.35-0.5 m on Hard) where the trail
+  crosses, deep pools up and downstream. In `terrain.gd::_height_at` (crossing bed).
 - **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
      low range.
