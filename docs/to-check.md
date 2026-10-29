@@ -2,8 +2,9 @@
 
 ## The driver (first sketch)
 
-In the seat: white motocross helmet with red/blue stripes, red peak and orange
-goggles, a maroon tee with the sleeves cut off, jorts with frayed cuffs, blue
+In the seat: white motocross helmet (one shaped shell: angular chin bar, eye
+port, brow ridge) with red/blue stripes, blue chin bar, red peak, and motocross
+goggles (foam frame, orange wraparound lens, strap round the back), a maroon tee with the sleeves cut off, jorts with frayed cuffs, blue
 tsinelas. The steering wheel now turns with the steering and his hands stay on it.
 He moves from what the rig does: thrown to the outside in corners, folds
 forward under braking, sinks and floats over bumps, head lagging and trying to
@@ -100,6 +101,8 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
+- **Pick the winch anchor**: choose which tree (or boulder) to winch to instead of
+  the game picking the nearest one in front. Too limiting as it is.
 - **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
      low range.
