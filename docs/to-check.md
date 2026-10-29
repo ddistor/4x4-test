@@ -27,6 +27,17 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Club logo on the driver's tee
+
+The Tropang Saligawsaw logo (cut out of the shirt photo, 512 px,
+`assets/driver/tropang_saligawsaw.png`) is printed on the front of his maroon
+tee, 24 cm across, and gets muddy with the rest of him. It's on the front
+because the seat back covers his back. Not run in the engine yet: check it
+reads the right way round (TROPANG on top, not mirrored), sits flat on the
+chest, and isn't too big for him. Size and height: `PRINT_SIZE` and the
+`0.37` in `_build_torso` (`driver.gd`). Still looks blurry? It came from a
+phone screenshot; a cleaner copy of the artwork can replace the PNG.
+
 ## The driver (first sketch)
 
 In the seat: white full-face helmet with a black visor (his face hidden),

@@ -25,6 +25,8 @@ const VISOR := Color(0.06, 0.06, 0.07)
 const LENS := Color(0.9, 0.45, 0.1)
 const SLIPPER := Color(0.15, 0.3, 0.65)      # rubber tsinelas, blue on white
 const SOLE := Color(0.92, 0.92, 0.9)
+const CLUB_PRINT := "res://assets/driver/tropang_saligawsaw.png"   # club logo on the chest
+const PRINT_SIZE := 0.24                     # m across
 
 const HIP := Vector3(-0.33, 0.8, 0.27)       # pivot on the driver's seat
 const WHEEL_AT := Vector3(-0.33, 1.2, -0.1)
@@ -37,6 +39,7 @@ const FOREARM := 0.29
 var rig: RigidBody3D
 var steering_wheel: Node3D
 var _mat: ShaderMaterial
+var _shirt_mat: ShaderMaterial   # _mat plus the chest print
 var _torso: RigidBody3D
 var _head: RigidBody3D
 var _arms: Array = []   # per side: [upper arm, forearm, hand, elbow] MeshInstance3Ds
@@ -99,10 +102,10 @@ func _limb_mesh(r0: float, r1: float, col: Color) -> ArrayMesh:
 	return MeshKit.commit(st, _mat)
 
 
-func _part(st: SurfaceTool, parent: Node3D, name_: String) -> MeshInstance3D:
+func _part(st: SurfaceTool, parent: Node3D, name_: String, mat: Material = null) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.name = name_
-	mi.mesh = MeshKit.commit(st, _mat)
+	mi.mesh = MeshKit.commit(st, mat if mat else _mat)
 	parent.add_child(mi)
 	return mi
 
@@ -163,7 +166,28 @@ func _build_torso() -> void:
 		MeshKit.rounded_box(st, Vector3(0.02, 0.13, 0.11), 0.009, Transform3D(lean, lean * Vector3(sx * 0.201, 0.43, 0.02)), SKIN_DK, 2)
 	# neck
 	MeshKit.cylinder(st, 0.055, 0.14, Transform3D(lean, lean * Vector3(0, 0.63, 0.03)), SKIN, 12)
-	_part(st, _torso, "Torso")
+	# the club logo, big on the chest (the seat back would hide one on his back).
+	# Seen from the front his left (-X) is the print's right.
+	_shirt_mat = _mat.duplicate()
+	var tex := _club_print()
+	if tex:
+		var at := Transform3D(lean * Basis(Vector3(-PRINT_SIZE, 0, 0), Vector3(0, PRINT_SIZE, 0), Vector3(0, 0, -1)),
+			lean * Vector3(0, 0.37, 0.02 - 0.115))
+		_shirt_mat.set_shader_parameter("has_print", true)
+		_shirt_mat.set_shader_parameter("print_tex", tex)
+		_shirt_mat.set_shader_parameter("print_inv", at.affine_inverse())
+	_part(st, _torso, "Torso", _shirt_mat)
+
+
+## The logo texture: imported when the editor has seen it, else read straight off disk.
+func _club_print() -> Texture2D:
+	if ResourceLoader.exists(CLUB_PRINT):
+		return load(CLUB_PRINT)
+	var img := Image.load_from_file(CLUB_PRINT)
+	if img == null or img.is_empty():
+		return null
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 func _build_helmet() -> void:
@@ -353,8 +377,9 @@ func _physics_process(_delta: float) -> void:
 	_place_steering()
 	_place_arms()
 	# he's in an open tub: what the tires throw at the rig lands on him too
-	_mat.set_shader_parameter("mud", rig.call("mud_amount"))
-	_mat.set_shader_parameter("dryness", rig.get("dryness"))
+	for m: ShaderMaterial in [_mat, _shirt_mat]:
+		m.set_shader_parameter("mud", rig.call("mud_amount"))
+		m.set_shader_parameter("dryness", rig.get("dryness"))
 
 
 ## Torque `body` back toward its rest pose relative to `parent` (equal and
