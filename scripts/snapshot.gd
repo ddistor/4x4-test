@@ -7,6 +7,7 @@ extends Node
 ##   Godot.exe --path . -- --snap [--seed N]
 ##   Godot.exe --path . -- --snap --snap-driver   (only the driver close-ups)
 ##   Godot.exe --path . -- --snap --snap-rig [--rig ID]   (the rig from outside)
+##   Godot.exe --path . -- --snap --snap-only KIND --seed N   (one kind of section)
 ##
 ## Needs a window (not --headless) so there is a GPU to render with. Output
 ## lands in snaps/ next to project.godot (gitignored).
@@ -43,6 +44,15 @@ func _run() -> void:
 		spots.append(["%02d_%s" % [i + 1, s["kind"]], lerpf(s["z0"], s["z1"], 0.5)])
 	for c in terrain.crossings:
 		spots.append(["%02d_crossing" % spots.size(), float(c["zc"]) - float(c["half_w"]) * 0.6])
+	# --snap-only KIND: just that kind of section, from the rig and from ahead
+	var args := OS.get_cmdline_user_args()
+	var only := ""
+	if args.find("--snap-only") >= 0 and args.find("--snap-only") + 1 < args.size():
+		only = args[args.find("--snap-only") + 1]
+	if only != "":
+		await _section_shots(terrain, only)
+		get_tree().quit()
+		return
 	for spot in spots.slice(0, MAX_SPOTS):
 		_rig.place_on_trail(spot[1])
 		for i in range(SETTLE_FRAMES):
@@ -97,6 +107,40 @@ func _driver_shot() -> void:
 		var path := "res://snaps/%s.png" % v[0]
 		get_viewport().get_texture().get_image().save_png(path)
 		print("saved ", ProjectSettings.globalize_path(path))
+
+
+## A few spots through each section of `kind`: the usual chase view, a
+## low look up the trail from in front of the rig, and one from above.
+func _section_shots(terrain: Terrain, kind: String) -> void:
+	(get_parent().get_node("HUD") as CanvasLayer).visible = false
+	var cam := Camera3D.new()
+	cam.fov = 55.0
+	get_parent().add_child(cam)
+	for i in range(terrain.plan.sections.size()):
+		var s := terrain.plan.sections[i]
+		if s["kind"] != kind:
+			continue
+		for t: float in [0.35, 0.7]:
+			var z := lerpf(s["z0"], s["z1"], t)
+			_rig.place_on_trail(z)
+			for f in range(SETTLE_FRAMES):
+				await get_tree().physics_frame
+				_cam.snap_behind()
+			var tag := "%02d_%s_%d" % [i + 1, kind, int(t * 100)]
+			_cam.make_current()
+			for f in range(3):
+				await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png("res://snaps/%s_chase.png" % tag)
+			var r := _rig.global_transform
+			var views := [["ahead", Vector3(0.6, 1.4, -9.0), Vector3(0, 0.6, 0)], ["above", Vector3(5.0, 7.0, 5.0), Vector3(0, 0, -2.0)]]
+			for v: Array in views:
+				cam.global_position = r * (v[1] as Vector3)
+				cam.look_at(r * (v[2] as Vector3), Vector3.UP)
+				cam.make_current()
+				for f in range(3):
+					await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("res://snaps/%s_%s.png" % [tag, v[0]])
+			print("saved ", tag)
 
 
 ## The rig from outside: front three-quarters, side on, rear three-quarters.

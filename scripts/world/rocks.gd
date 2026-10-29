@@ -27,6 +27,7 @@ func build(t: Terrain, spots: Array[Vector4]) -> void:
 	body.collision_layer = 1
 	body.add_to_group("rock")
 	var chunks := {}  # Vector2i(chunk, variant) -> Array[Transform3D]
+	var coats := {}   # same keys -> PackedFloat32Array: how muddy each stone is
 	for s in spots:
 		var v := rng.randi() % VARIANTS
 		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s.w)
@@ -34,7 +35,14 @@ func build(t: Terrain, spots: Array[Vector4]) -> void:
 		var key := Vector2i(int(s.z / CHUNK), v)
 		if not chunks.has(key):
 			chunks[key] = [] as Array[Transform3D]
+			coats[key] = PackedFloat32Array()
 		(chunks[key] as Array[Transform3D]).append(xf)
+		# a stone sitting in deep wet clay is smeared with it most of the way up
+		var g := t.ground_sample(Vector3(s.x, s.y, s.z))
+		var coat := clampf(float(g["thickness"]) * 2.6, 0.0, 1.0) * clampf(float(g["wetness"]) * 1.4, 0.0, 1.0)
+		var cl: PackedFloat32Array = coats[key]
+		cl.append(coat)
+		coats[key] = cl
 		var shape := ConvexPolygonShape3D.new()
 		var pts := PackedVector3Array()
 		for p in _hulls[v]:
@@ -51,12 +59,15 @@ func build(t: Terrain, spots: Array[Vector4]) -> void:
 		var centre := Vector3(Terrain.WIDTH * 0.5, 0.0, (key.x + 0.5) * CHUNK)
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
 		mm.mesh = meshes[key.y]
 		mm.instance_count = list.size()
+		var cl: PackedFloat32Array = coats[key]
 		for k in range(list.size()):
 			var x := list[k]
 			x.origin -= centre
 			mm.set_instance_transform(k, x)
+			mm.set_instance_custom_data(k, Color(cl[k], 0, 0, 0))
 		var mmi := MultiMeshInstance3D.new()
 		mmi.name = "Rocks_%d_%d" % [key.x, key.y]
 		mmi.multimesh = mm

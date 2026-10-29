@@ -14,6 +14,7 @@ uniform vec3 lichen : source_color = vec3(0.45, 0.47, 0.32);
 uniform vec3 stain : source_color = vec3(0.45, 0.24, 0.11);
 
 varying vec3 wp;
+varying float coat;   // how much clay this stone wears (per instance)
 varying vec3 wn;
 varying float base_y;
 
@@ -55,6 +56,7 @@ void vertex() {
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	base_y = (MODEL_MATRIX * vec4(0.0, -0.45, 0.0, 1.0)).y;
+	coat = INSTANCE_CUSTOM.r;
 }
 
 void fragment() {
@@ -67,14 +69,18 @@ void fragment() {
 	float vein = smoothstep(0.03, 0.0, abs(fbm(p * 0.9 + 4.0) - 0.5));
 	col = mix(col, stone_b * 0.6, vein * 0.6);
 	col = mix(col, lichen, smoothstep(0.55, 0.9, wn.y) * smoothstep(0.5, 0.65, fbm(p * 0.7 + 2.0)) * 0.6);
-	// clay splashed up the bottom
-	col = mix(col, stain, (1.0 - smoothstep(base_y, base_y + 0.45, wp.y)) * 0.55);
+	// clay splashed up the bottom; in a muddy gully, smeared most of the way up,
+	// wet and dark, with the stone showing through where tires have scrubbed it
+	float scrub = smoothstep(0.45, 0.75, fbm(p * 2.2 + 7.0));
+	float mud_line = base_y + 0.45 + coat * 0.9 * (0.75 + 0.5 * n);
+	float smear = (1.0 - smoothstep(mud_line - 0.08, mud_line, wp.y)) * mix(0.55, 0.92 * (1.0 - 0.7 * scrub), coat);
+	col = mix(col, mix(stain, stain * 0.55, coat), smear);
 
 	float level = texture(soil_tex, wp.xz / world_size).b;
 	float wet = 1.0 - smoothstep(level - 0.05, level + 0.25, wp.y);
 	col *= mix(1.0, 0.5, wet);
 	ALBEDO = col;
-	ROUGHNESS = mix(0.82, 0.2, wet);
+	ROUGHNESS = mix(mix(0.82, 0.35, smear * coat), 0.2, wet);
 	SPECULAR = mix(0.4, 0.6, wet);
 	NORMAL = bump(NORMAL, VERTEX, (n * 0.04 + fine * 0.008 - vein * 0.01));
 }

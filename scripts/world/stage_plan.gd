@@ -18,6 +18,7 @@ const KINDS := {
 	"river": {"name": "Boulder river", "place": "Daraitan, Tanay", "len": Vector2(110, 130), "rise": Vector2(-3, 2), "wander": 4.0, "freq": 0.02, "pitch": [0, Vector2.ZERO]},
 	"lahar": {"name": "Lahar wash", "place": "Porac, Pampanga", "len": Vector2(130, 160), "rise": Vector2(-9, -5), "wander": 16.0, "freq": 0.022, "pitch": [1, Vector2(0.45, 0.6)]},
 	"rocky": {"name": "Rock steps", "place": "Kayapa, Nueva Vizcaya", "len": Vector2(120, 150), "rise": Vector2(18, 28), "wander": 11.0, "freq": 0.05, "pitch": [2, Vector2(0.5, 0.7)]},
+	"gully": {"name": "Rock gully", "place": "Wawa, Montalban", "len": Vector2(110, 140), "rise": Vector2(6, 11), "wander": 6.0, "freq": 0.04, "pitch": [1, Vector2(0.25, 0.38)], "jitter": 0.25},
 	"bog": {"name": "Logging-road bog", "place": "General Nakar, Quezon", "len": Vector2(100, 130), "rise": Vector2(0, 0), "wander": 5.0, "freq": 0.03, "pitch": [0, Vector2.ZERO]},
 	"cogon": {"name": "Cogon hills", "place": "San Felipe, Zambales", "len": Vector2(120, 150), "rise": Vector2(-6, 9), "wander": 12.0, "freq": 0.03, "pitch": [1, Vector2(0.38, 0.52)]},
 	"niyog": {"name": "Niyogan farm road", "place": "Lucban, Quezon", "len": Vector2(100, 125), "rise": Vector2(-5, 6), "wander": 10.0, "freq": 0.03, "pitch": [1, Vector2(0.3, 0.42)]},
@@ -64,7 +65,7 @@ static func generate(p_seed: int, weather := -1, level := 1) -> StagePlan:
 	elif weather == 1:
 		plan.rain = 0.72 + plan.rain * 0.28
 	var kinds: Array[String] = ["river", "kanal"]
-	var pool: Array[String] = ["clay", "lahar", "rocky", "bog", "cogon", "niyog"]
+	var pool: Array[String] = ["clay", "lahar", "rocky", "gully", "bog", "cogon", "niyog"]
 	for i in range(4):
 		kinds.append(pool.pop_at(rng.randi() % pool.size()))
 	# shuffle, then nudge the river away from the very first slot so the

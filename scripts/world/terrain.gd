@@ -3,7 +3,7 @@ extends Node3D
 ## A procedural stage: a long strip of land with the trail running up it
 ## (+Z), built from a StagePlan of Philippine offroad sections — paddy road,
 ## laterite climbs, kanal ruts, boulder rivers, lahar washes, rock steps,
-## logging-road bogs, cogon hills, coconut farm roads. Each kind shapes the
+## rock gullies, logging-road bogs, cogon hills, coconut farm roads. Each kind shapes the
 ## land, the soft ground, the water and the plants its own way; neighbouring
 ## sections blend into each other over StagePlan.BLEND metres.
 ##
@@ -20,13 +20,13 @@ const NO_WATER := -1000.0
 
 ## How much of each kind of land is forest (leaf litter, ferns, trees).
 const FOREST := {"paddy": 0.0, "clay": 1.0, "kanal": 0.9, "river": 0.7, "lahar": 0.0, "rocky": 0.6,
-	"bog": 1.0, "cogon": 0.05, "niyog": 0.0, "end": 0.3}
+	"gully": 1.0, "bog": 1.0, "cogon": 0.05, "niyog": 0.0, "end": 0.3}
 ## Broadleaf trees per metre of trail.
 const TREES := {"paddy": 0.0, "clay": 4.0, "kanal": 3.5, "river": 2.5, "lahar": 0.6, "rocky": 2.5,
-	"bog": 5.0, "cogon": 0.35, "niyog": 0.2, "end": 1.0}
+	"gully": 4.5, "bog": 5.0, "cogon": 0.35, "niyog": 0.2, "end": 1.0}
 ## How lumpy the trail floor is: humps, wallows and potholes (m).
 const LUMPS := {"paddy": 0.03, "clay": 0.16, "kanal": 0.1, "river": 0.12, "lahar": 0.12, "rocky": 0.0,
-	"bog": 0.2, "cogon": 0.1, "niyog": 0.16, "end": 0.06}
+	"gully": 0.12, "bog": 0.2, "cogon": 0.1, "niyog": 0.16, "end": 0.06}
 
 @export var seed_value: int = 7
 var plan: StagePlan
@@ -103,7 +103,10 @@ func _build_trail() -> void:
 		# integrate the phase so changing how often it bends never jumps
 		phase += lerpf(a["freq"], b["freq"], w)
 		var amp := lerpf(a["wander"], b["wander"], w)
-		trail_center[z] = WIDTH * 0.5 + amp * sin(phase) + 3.0 * _detail.get_noise_1d(zf * 2.0)
+		# plus a shorter, sharper wiggle; a narrow slot (the rock gully) keeps
+		# only a little of it, or its floor would zig-zag faster than a rig turns
+		var jitter := lerpf(a.get("jitter", 1.0), b.get("jitter", 1.0), w)
+		trail_center[z] = WIDTH * 0.5 + amp * sin(phase) + 3.0 * jitter * _detail.get_noise_1d(zf * 2.0)
 		trail_floor[z] = plan.profile(zf)
 	for z in range(n):
 		trail_slope[z] = (trail_center[mini(z + 1, n - 1)] - trail_center[maxi(z - 1, 0)]) * 0.5
@@ -259,6 +262,17 @@ func _kind_height(s: Dictionary, x: float, z: float, sx: float, th: float) -> fl
 			if dx < 2.8:
 				h += 0.06 * cos(dx * 1.4)
 			return h
+		"gully":
+			# a sunken cut through the forest: a rock wall on one side, a steep
+			# earth bank on the other, the floor no wider than a rig and a half
+			var on_wall := sx * _gully_wall(s) > 0.0
+			var up: float
+			if on_wall:
+				up = smoothstep(2.0, 3.6, dx) * (3.2 + hills * 2.5 + detail * 0.8) + smoothstep(3.6, 14.0, dx) * hills * 4.0
+				up += 0.45 * _detail.get_noise_2d(x * 0.7, z * 0.7) * smoothstep(2.2, 3.4, dx)  # bulging rock face
+			else:
+				up = smoothstep(2.3, 5.5, dx) * (2.0 + hills * 2.0 + detail * 0.5) + smoothstep(5.5, 16.0, dx) * hills * 3.0
+			return th + 0.08 * cos(minf(dx, 2.2) * 1.4) + up
 		"bog":
 			# a sunken logging road with a chain of water-filled holes in it
 			var h := lerpf(th, th + 0.9 + hills * 3.0 + detail * 0.5, smoothstep(2.8, 6.0, dx))
@@ -292,6 +306,11 @@ func _kind_height(s: Dictionary, x: float, z: float, sx: float, th: float) -> fl
 	elif k == "rocky":
 		h += 0.14 * _detail.get_noise_2d(x * 2.3, z * 2.3) * (1.0 - smoothstep(2.0, 4.0, dx))
 	return h
+
+
+## Which side of a rock gully the rock wall is on (+1 or -1); the earth bank is the other.
+func _gully_wall(s: Dictionary) -> float:
+	return 1.0 if sin(float(s["phase"]) * 7.0) > 0.0 else -1.0
 
 
 ## Humps, wallows and potholes in the trail floor: nothing on a real trail is flat.
@@ -368,7 +387,7 @@ func get_height(x: float, z: float) -> float:
 ## A churned mud hole at the foot of each steep pitch, where every rig has
 ## stopped, spun and dug before the climb. 0..1 along z.
 func _wallow(s: Dictionary, z: float) -> float:
-	if not s["kind"] in ["clay", "kanal", "cogon", "niyog", "lahar"]:
+	if not s["kind"] in ["clay", "kanal", "gully", "cogon", "niyog", "lahar"]:
 		return 0.0
 	var up: bool = float(s["h1"]) >= float(s["h0"])
 	var best := 0.0
@@ -407,6 +426,11 @@ func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> 
 			return Vector4(floor_k * (0.22 + 0.3 * patchy) * (1.0 - 0.5 * packed), 0.1 + 0.15 * patchy + 0.25 * rain * on, 0.0, 0.8)
 		"rocky":
 			return Vector4(on * 0.06 * patchy, 0.2 + 0.2 * rain, 0.0, 1.05)
+		"gully":
+			# wet clay between the stones, churned in the wheel lines, gritty with
+			# broken rock so the tires find some bite on the climb
+			var thick := on * (0.12 + 0.2 * patchy)
+			return Vector4(thick, 0.38 + 0.2 * patchy + 0.2 * rain, minf(thick, 0.08 * wheel_line), 1.3)
 		"bog":
 			var thick := on * (0.5 + 0.35 * patchy)
 			return Vector4(thick, 0.75 + 0.25 * patchy, minf(thick, 0.18 * wheel_line), 1.0)
@@ -498,6 +522,11 @@ func _build_maps() -> void:
 		var paddy_k := _weight("paddy", ka, kb, w)
 		var ash_k := _weight("lahar", ka, kb, w)
 		var rock_k := _weight("rocky", ka, kb, w)
+		# a rock gully's wall is bare rock from the foot up
+		var gully_k := _weight("gully", ka, kb, w)
+		var wall_side := 0.0
+		if gully_k > 0.0:
+			wall_side = _gully_wall(plan.sections[bl[0]] if ka == "gully" else plan.sections[bl[1]])
 		var level := water_level_at(zf)
 		# paddies and bogs hold water wherever the ground dips; rivers and
 		# creeks only in their own channel (soil A is that mask)
@@ -526,7 +555,10 @@ func _build_maps() -> void:
 				if c["stones"]:
 					cobble = maxf(cobble, smoothstep(0.2, 0.7, k))
 			cover_image.set_pixel(x, z, Color(minf(dx / 32.0, 1.0), forest, paddy_k, ash_k))
-			soil_image.set_pixel(x, z, Color(rock_k * (0.9 * on + 0.3 * (1.0 - on)), cobble, level, wet_mask))
+			var bedrock := rock_k * (0.9 * on + 0.3 * (1.0 - on))
+			if gully_k > 0.0 and (xf - tx) * wall_side > 0.0:
+				bedrock = maxf(bedrock, gully_k * smoothstep(1.3, 2.1, dx) * (1.0 - smoothstep(9.0, 13.0, dx)))
+			soil_image.set_pixel(x, z, Color(bedrock, cobble, level, wet_mask))
 
 
 static func _weight(kind: String, ka: String, kb: String, w: float) -> float:
@@ -652,10 +684,11 @@ func _build_water() -> void:
 func _place_rocks() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value + 9
-	var add := func(x: float, z: float, r: float) -> void:
+	# `sink`: how much of the stone sits below the ground
+	var add := func(x: float, z: float, r: float, sink: float) -> void:
 		if x < 3.0 or x > WIDTH - 3.0 or z < 2.0 or z > length - 2.0:
 			return
-		rock_spots.append(Vector4(x, get_height(x, z) - r * 0.35, z, r))
+		rock_spots.append(Vector4(x, get_height(x, z) - r * sink, z, r))
 		if r > 0.9 and absf(x - trail_x_at(z)) < 14.0:
 			tree_anchors.append(Vector3(x, get_height(x, z) + r * 0.5, z))  # a boulder takes a tree saver too
 	for s in plan.sections:
@@ -673,20 +706,39 @@ func _place_rocks() -> void:
 						var r := 0.25 + pow(rng.randf(), 2.2) * 1.2
 						if absf(x - trail_x_at(z)) < 2.4 and r > 0.45:
 							r = rng.randf_range(0.28, 0.55) * plan.difficulty  # crawlable, if you pick your line
-						add.call(x, z, r)
+						add.call(x, z, r, 0.35)
 				off_trail = 12
 			"rocky":
 				for k in range(int(40 * plan.difficulty)):
 					var z := rng.randf_range(z0 + 8.0, z1 - 8.0)
-					add.call(trail_x_at(z) + rng.randf_range(-1.8, 1.8), z, rng.randf_range(0.28, 0.65) * plan.difficulty)
+					add.call(trail_x_at(z) + rng.randf_range(-1.8, 1.8), z, rng.randf_range(0.28, 0.65) * plan.difficulty, 0.35)
 				off_trail = 40
+			"gully":
+				# stones half-buried in the clay all across the floor: pick a line
+				# over them and crawl it, the mud slick on every one
+				# in rock gardens a few metres long, muddy gaps between them
+				var placed := 0
+				var tries := 0
+				while placed < int(65 * plan.difficulty) and tries < 2000:
+					tries += 1
+					var z := rng.randf_range(z0 + 6.0, z1 - 6.0)
+					if _detail.get_noise_1d(z * 0.25 + float(s["phase"]) * 30.0) < -0.1:
+						continue
+					add.call(trail_x_at(z) + rng.randf_range(-2.0, 2.0), z, rng.randf_range(0.2, 0.52) * plan.difficulty, 0.55)
+					placed += 1
+				# big ones fallen off the wall and the bank, sat at the foot of them
+				for k in range(18):
+					var z := rng.randf_range(z0 + 6.0, z1 - 6.0)
+					var side := 1.0 if rng.randf() < 0.5 else -1.0
+					add.call(trail_x_at(z) + side * rng.randf_range(2.1, 3.2), z, rng.randf_range(0.7, 1.4), 0.4)
+				off_trail = 20
 			"lahar":
 				off_trail = 14
 		for k in range(off_trail):
 			var z := rng.randf_range(z0, z1)
 			var side := 1.0 if rng.randf() < 0.5 else -1.0
 			var big := 1.8 if s["kind"] in ["rocky", "lahar"] else 1.3
-			add.call(trail_x_at(z) + side * rng.randf_range(4.5, 25.0), z, rng.randf_range(0.5, big))
+			add.call(trail_x_at(z) + side * rng.randf_range(4.5, 25.0), z, rng.randf_range(0.5, big), 0.35)
 	var rocks := Rocks.new()
 	rocks.name = "Rocks"
 	add_child(rocks)

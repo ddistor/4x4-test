@@ -27,6 +27,21 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Rock gully (new section kind)
+
+"Rock gully · Wawa, Montalban" (`gully` in `stage_plan.gd::KINDS`, shaped in
+`terrain.gd`): a sunken cut through dense forest, a grey rock wall on one side
+and a steep earth bank on the other, the floor ~4.5 m wide. Wet red clay with
+stones half-buried in it in rock gardens, big ones fallen at the foot of the
+walls, one climb with a muddy wallow at its foot. Stones now wear the clay they
+sit in (`rock.gdshader`, per-stone mud coat), dark and glossy in the gully. The
+trail line wiggles much less here than elsewhere (`jitter`), or the narrow
+floor zig-zags faster than a rig turns. Seed 10 has one right after the paddy
+road; `--snap --snap-only gully --seed 10` shoots it. Headless bot: Moderate,
+all four rigs through with no recoveries. To check by driving: picking a line
+over the stones, how slick the clay feels on the climb, and that the walls
+read as rock.
+
 ## Rubikon (modern four-door)
 
 Sixth rig: `bodies/rubikon_body.gd`, spec `rig_spec.gd::_rubikon`. Body colour

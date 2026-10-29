@@ -323,7 +323,7 @@ func _place_bamboo() -> void:
 		for k in range(14):
 			spots.append(float(c["zc"]) + _rng.randf_range(-1.0, 1.0) * float(c["reach"]))
 	for s in terrain.plan.sections:
-		if s["kind"] in ["clay", "kanal", "river", "rocky", "niyog"]:
+		if s["kind"] in ["clay", "kanal", "river", "rocky", "gully", "niyog"]:
 			for k in range(int((s["z1"] - s["z0"]) / 8.0)):
 				spots.append(_rng.randf_range(s["z0"], s["z1"]))
 	var k := 0
