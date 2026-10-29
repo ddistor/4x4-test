@@ -19,6 +19,7 @@ extends RigidBody3D
 @export var winch_max_force := 32000.0
 @export var winch_pull_speed := 0.9            # m/s cable retract
 @export var winch_reach := 18.0
+@export var axle_roll_stiffness := 18000.0   # N/m side-to-side, per axle
 
 var terrain: Terrain
 var wheels: Array[RigWheel] = []
@@ -437,11 +438,21 @@ func _physics_process(delta: float) -> void:
 	wheel_status.clear()
 	var caps: Array[float] = []
 	for w in wheels:
-		var mu_guess := lerpf(0.95, 0.40, w.ground.get("wetness", 0.3))
+		var mu_guess := lerpf(0.92, 0.3, w.ground.get("wetness", 0.3))
 		caps.append(mu_guess * maxf(w.load, 0.0))
 	for axle in range(2):
 		var a := axle * 2
 		var b := a + 1
+		# Solid axle: the two sides are one beam, so when the body leans the
+		# axle hands load from the inside tire to the outside one instead of
+		# letting the body jack up off the inside wheel.
+		var ca := wheels[a].compression()
+		var cb := wheels[b].compression()
+		var bar := 0.0
+		if ca > -0.5 and cb > -0.5:
+			bar = axle_roll_stiffness * (ca - cb)
+		wheels[a].axle_load = bar
+		wheels[b].axle_load = -bar
 		var cap_override_a := -1.0
 		var cap_override_b := -1.0
 		if not diff_locked:

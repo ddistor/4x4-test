@@ -26,7 +26,7 @@ const TREES := {"paddy": 0.0, "clay": 4.0, "kanal": 3.5, "river": 2.5, "lahar": 
 	"bog": 5.0, "cogon": 0.35, "niyog": 0.2, "end": 1.0}
 ## How lumpy the trail floor is: humps, wallows and potholes (m).
 const LUMPS := {"paddy": 0.03, "clay": 0.16, "kanal": 0.1, "river": 0.12, "lahar": 0.12, "rocky": 0.0,
-	"bog": 0.2, "cogon": 0.1, "niyog": 0.1, "end": 0.06}
+	"bog": 0.2, "cogon": 0.1, "niyog": 0.16, "end": 0.06}
 
 @export var seed_value: int = 7
 var plan: StagePlan
@@ -134,33 +134,36 @@ func _across(z: float) -> float:
 func _plan_features() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value + 5
+	var d := plan.difficulty
 	for s in plan.sections:
 		var z0: float = s["z0"]
 		var z1: float = s["z1"]
+		var zc := lerpf(z0, z1, s["cross_t"])
 		match s["kind"]:
 			"river":
-				# wide, shallow and clear over river stones
-				_add_crossing(lerpf(z0, z1, rng.randf_range(0.42, 0.58)), {
+				# wide and clear over river stones; deep enough in places to
+				# choke the engine, so pick the line
+				_add_crossing(zc, {
 					"half_w": rng.randf_range(10.0, 14.0), "bank": 7.0, "drop": 1.6,
-					"depth": rng.randf_range(0.38, 0.55), "amp": 5.0,
+					"depth": rng.randf_range(0.5, 0.72) * d, "amp": 5.0,
 					"tint": Color(0.16, 0.27, 0.24, 0.85), "clarity": 1.0, "stones": true,
-					"flow": 1.2 * (1.0 if rng.randf() < 0.5 else -1.0)}, rng)
+					"flow": 1.4 * (1.0 if rng.randf() < 0.5 else -1.0)}, rng)
 			"lahar":
 				# a braided channel of milky grey water across the ash
-				_add_crossing(lerpf(z0, z1, rng.randf_range(0.35, 0.65)), {
-					"half_w": 3.5, "bank": 4.0, "drop": 0.5, "depth": 0.26, "amp": 8.0,
+				_add_crossing(zc, {
+					"half_w": 3.5, "bank": 4.0, "drop": 0.6, "depth": 0.32 * d, "amp": 8.0,
 					"tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "stones": false, "flow": 0.8}, rng)
 			"clay":
-				if rng.randf() < 0.6:
-					# the brown creek in a dip, like the old Morong trail
-					_add_crossing(lerpf(z0, z1, rng.randf_range(0.4, 0.7)), {
-						"half_w": 5.0, "bank": 9.0, "drop": 1.4, "depth": 0.65, "amp": 3.0,
+				if s["cross_t"] >= 0.0:
+					# the brown creek at the bottom of the climb
+					_add_crossing(zc, {
+						"half_w": 5.0, "bank": 9.0, "drop": 1.4, "depth": 0.75 * d, "amp": 3.0,
 						"tint": Color(0.4, 0.26, 0.12, 0.75), "clarity": 0.0, "stones": false, "flow": 0.3}, rng)
 			"cogon":
-				for k in range(rng.randi_range(10, 14)):
-					var z := rng.randf_range(z0 + 20.0, z1 - 20.0)
-					pits.append({"x": trail_x_at(z) + rng.randf_range(-2.4, 2.4), "z": z,
-						"r": rng.randf_range(0.9, 1.5), "depth": rng.randf_range(0.4, 0.7)})
+				for k in range(int(rng.randi_range(12, 16) * d)):
+					var z := rng.randf_range(z0 + 15.0, z1 - 15.0)
+					pits.append({"x": trail_x_at(z) + rng.randf_range(-2.2, 2.2), "z": z,
+						"r": rng.randf_range(0.9, 1.5), "depth": rng.randf_range(0.5, 0.85) * d})
 			"bog":
 				water_bodies.append({"z_lo": z0 + 4.0, "z_hi": z1 - 4.0, "level": float(s["h0"]) - 0.1,
 					"tint": Color(0.3, 0.2, 0.1, 0.8), "clarity": 0.0, "flow": 0.0})
@@ -222,9 +225,9 @@ func _lahar_half(z: float) -> float:
 ## wandering a little so they pull you off line. Depth at signed offset `sx`.
 func _kanal(z: float, sx: float, s: Dictionary) -> float:
 	var off := 0.35 * sin(z * 0.05 + float(s["phase"]))
-	var depth := 0.3 + 0.28 * (_detail.get_noise_1d(z * 0.4 + 300.0) * 0.5 + 0.5)
+	var depth := (0.38 + 0.4 * (_detail.get_noise_1d(z * 0.4 + 300.0) * 0.5 + 0.5)) * plan.difficulty
 	var d := minf(absf(sx - off - 0.82), absf(sx - off + 0.82))
-	return depth * 0.5 * (1.0 + cos(PI * minf(d / 0.62, 1.0)))
+	return depth * 0.5 * (1.0 + cos(PI * minf(d / 0.58, 1.0)))
 
 
 ## Ground height for one kind of land. `sx` is the signed distance across the
@@ -259,10 +262,11 @@ func _kind_height(s: Dictionary, x: float, z: float, sx: float, th: float) -> fl
 		"bog":
 			# a sunken logging road with a chain of water-filled holes in it
 			var h := lerpf(th, th + 0.9 + hills * 3.0 + detail * 0.5, smoothstep(2.8, 6.0, dx))
-			var pit := clampf(_detail.get_noise_1d(z * 0.6 + float(s["phase"]) * 40.0) * 1.5, 0.0, 0.55)
+			var deepest := 0.8 * plan.difficulty
+			var pit := clampf(_detail.get_noise_1d(z * 0.6 + float(s["phase"]) * 40.0) * 2.2, 0.0, deepest)
 			h -= pit * (1.0 - smoothstep(1.4, 2.9, dx))
 			if dx < 2.8:
-				h += 0.08 * cos(dx * 1.4) * (1.0 - pit / 0.55)
+				h += 0.08 * cos(dx * 1.4) * (1.0 - pit / deepest)
 			return h
 	# clay, kanal, river, rocky: a two-track cut into the hillside
 	var relief := 6.0
@@ -361,6 +365,20 @@ func get_height(x: float, z: float) -> float:
 
 # --- soft ground ---------------------------------------------------------------------
 
+## A churned mud hole at the foot of each steep pitch, where every rig has
+## stopped, spun and dug before the climb. 0..1 along z.
+func _wallow(s: Dictionary, z: float) -> float:
+	if not s["kind"] in ["clay", "kanal", "cogon", "niyog", "lahar"]:
+		return 0.0
+	var up: bool = float(s["h1"]) >= float(s["h0"])
+	var best := 0.0
+	for p: Array in s["pitches"]:
+		var half: float = float(p[1]) * 0.5
+		var foot: float = float(p[0]) - half - 4.0 if up else float(p[0]) + half + 4.0
+		best = maxf(best, exp(-pow((z - foot) / 5.0, 2.0)))
+	return best
+
+
 ## (thickness, wetness, preset rut, grip) for one kind of land.
 func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> Vector4:
 	var dx := absf(sx)
@@ -373,10 +391,10 @@ func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> 
 			var pk := smoothstep(3.0, 4.5, dx)
 			return Vector4(lerpf(0.04 * on, 0.25, pk), lerpf(0.15, 1.0, pk), 0.0, 1.0)
 		"clay":
-			var thick := on * (0.18 + 0.32 * patchy)
+			var thick := on * (0.24 + 0.4 * patchy)
 			return Vector4(thick, 0.3 + 0.25 * patchy + 0.3 * rain, minf(thick, 0.12 * wheel_line * (0.6 + 0.4 * patchy)), 1.0)
 		"kanal":
-			var tr := _kanal(z, sx, s) / 0.58
+			var tr := clampf(_kanal(z, sx, s) / 0.5, 0.0, 1.0)
 			return Vector4(on * (0.12 + 0.2 * patchy) + 0.12 * tr, 0.45 + 0.25 * patchy + 0.3 * tr, 0.0, 1.0)
 		"river":
 			var thick := on * (0.08 + 0.14 * patchy)
@@ -386,17 +404,19 @@ func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> 
 			var half := _lahar_half(z)
 			var floor_k := 1.0 - smoothstep(half - 3.0, half + 4.0, dx)
 			var packed := 1.0 - smoothstep(1.5, 3.0, dx)
-			return Vector4(floor_k * (0.14 + 0.24 * patchy) * (1.0 - 0.5 * packed), 0.1 + 0.15 * patchy + 0.25 * rain * on, 0.0, 0.8)
+			return Vector4(floor_k * (0.22 + 0.3 * patchy) * (1.0 - 0.5 * packed), 0.1 + 0.15 * patchy + 0.25 * rain * on, 0.0, 0.8)
 		"rocky":
 			return Vector4(on * 0.06 * patchy, 0.2 + 0.2 * rain, 0.0, 1.05)
 		"bog":
-			var thick := on * (0.4 + 0.3 * patchy)
+			var thick := on * (0.5 + 0.35 * patchy)
 			return Vector4(thick, 0.75 + 0.25 * patchy, minf(thick, 0.18 * wheel_line), 1.0)
 		"cogon":
 			return Vector4(on * 0.03, 0.2, 0.0, 1.0)
-	# niyog, end: dry farm road with the odd puddle
-	var pud := on * smoothstep(0.58, 0.75, _detail.get_noise_2d(x * 0.5, z * 0.5) * 0.5 + 0.5)
-	return Vector4(on * (0.05 + 0.08 * patchy) + 0.22 * pud, maxf(0.25 + 0.2 * rain, 0.85 * pud), 0.0, 1.0)
+	# niyog, end: a rutted farm road, carabao-cart deep in the wheel lines,
+	# with standing puddles
+	var pud := on * smoothstep(0.5, 0.68, _detail.get_noise_2d(x * 0.5, z * 0.5) * 0.5 + 0.5)
+	var thick := on * (0.06 + 0.1 * patchy) + 0.32 * pud
+	return Vector4(thick, maxf(0.25 + 0.25 * rain, 0.85 * pud), minf(thick, 0.1 * wheel_line), 1.0)
 
 
 func _author_mud() -> void:
@@ -414,6 +434,7 @@ func _author_mud() -> void:
 		var lumps := lerpf(LUMPS[sa["kind"]], LUMPS[sb["kind"]], w)
 		var rain_k := lerpf(sa["wet"], sb["wet"], w)
 		var paddy_w := _weight("paddy", sa["kind"], sb["kind"], w)
+		var wallow := lerpf(_wallow(sa, z), _wallow(sb, z), w)
 		for cx in range(RES_X):
 			var x := (cx + 0.5) * CELL
 			var sx := (x - tx) * inv
@@ -428,6 +449,10 @@ func _author_mud() -> void:
 			var dry_k := 1.0 - paddy_w
 			wet = lerpf(wet, clampf(wet * lerpf(0.5, 1.3, rain_k), 0.0, 1.0), dry_k)
 			thick *= lerpf(1.0, lerpf(0.75, 1.2, rain_k), dry_k)
+			if wallow > 0.01:
+				var on_w := 1.0 - smoothstep(2.4, 4.0, absf(sx))
+				thick += on_w * wallow * 0.4 * plan.difficulty
+				wet = maxf(wet, on_w * wallow * lerpf(0.6, 1.0, rain_k))
 			# hollows in the lumpy floor hold more mud, and water if it has rained
 			if thick > 0.02 and lumps > 0.0:
 				var hollow := clampf(-_lumps(x, z), 0.0, 1.0)
@@ -647,13 +672,13 @@ func _place_rocks() -> void:
 						var z: float = c["zc"] + c["amp"] * sin(x * c["freq"] + c["phase"]) + rng.randf_range(-1.1, 1.1) * float(c["half_w"])
 						var r := 0.25 + pow(rng.randf(), 2.2) * 1.2
 						if absf(x - trail_x_at(z)) < 2.4 and r > 0.45:
-							r = rng.randf_range(0.22, 0.42)  # the line across is crawlable
+							r = rng.randf_range(0.28, 0.55) * plan.difficulty  # crawlable, if you pick your line
 						add.call(x, z, r)
 				off_trail = 12
 			"rocky":
-				for k in range(26):
+				for k in range(int(40 * plan.difficulty)):
 					var z := rng.randf_range(z0 + 8.0, z1 - 8.0)
-					add.call(trail_x_at(z) + rng.randf_range(-1.8, 1.8), z, rng.randf_range(0.22, 0.5))
+					add.call(trail_x_at(z) + rng.randf_range(-1.8, 1.8), z, rng.randf_range(0.28, 0.65) * plan.difficulty)
 				off_trail = 40
 			"lahar":
 				off_trail = 14
@@ -807,6 +832,16 @@ func _cover(x: float, z: float) -> Color:
 ## Water surface height here, or NO_WATER if water can't stand here.
 func water_at(x: float, z: float) -> float:
 	return water_level_at(z) if water_mask_at(x, z) else NO_WATER
+
+
+## How the water is flowing here (m/s), zero outside a running river or creek.
+func current_at(x: float, z: float) -> Vector3:
+	for c in crossings:
+		if absf(z - float(c["zc"])) < float(c["reach"]):
+			var k := _channel(c, x, z).x
+			if k > 0.0:
+				return Vector3(float(c["flow"]) * k, 0.0, 0.0)
+	return Vector3.ZERO
 
 
 ## Can water stand here (a paddy, a bog hole, inside a river or creek channel)?

@@ -1,5 +1,27 @@
 # To check in Claude Code / by hand
 
+## Hard trails, steep climbs, body roll fix
+
+- **Difficulty** (menu: Trail Moderate / Hard / Extreme, Hard by default)
+  scales how much each section climbs, pitch steepness, kanal and bog depth,
+  river depth, boulder size and how many pits hide in the cogon. The preview
+  shows total climbing and the steepest pitch. Headless bot (no winch, no line
+  choice) needs 3-7 recoveries per Hard stage, none on Moderate. Expect to need
+  lockers, low range, airing down and the winch on Hard.
+- **Steep climbs**: each section packs most of its height into one or two short
+  pitches (*ahon*), 35-65% on Hard, with a churned mud wallow at the foot.
+  Rock steps have real 0.5 m ledges. Tune in `stage_plan.gd::KINDS` (`rise`, `pitch`).
+- **Slick clay is slick**: wet clay grip down to ~0.3 (`wheel.gd`, `mu`).
+- **River current** pushes the rig downstream in deep water (`current_at`, 700 N per m of depth).
+- **Body roll / "stretching" in curves**: the solid axles now hand load across
+  (`axle_roll_stiffness`), side force goes in at axle height, and the shocks damp
+  rebound 2.6x harder than bump. Swerve test on the paddy road: worst roll 38 -> 17 deg,
+  inside-wheel hang 1.0 -> 0.66 m. Tilt table now slides at ~39 deg before it
+  rolls (was: rolled at 36), so rollovers come from catching ruts and drops
+  sideways, not from cornering.
+- The finish clearing no longer pads the stage with a long empty road; the slack
+  is shared across the middle sections. The farm road is rutted with puddles.
+
 ## Procedural stage, start and pause menus
 
 Built and run headless: three seeds (7, 4242, 31337) drive from the paddies to

@@ -68,6 +68,14 @@ func _ready() -> void:
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
 	left.add_child(weather)
+	var trail := UiKit.button("")
+	trail.text = "Trail: " + StagePlan.DIFFICULTY[Game.level][0]
+	trail.pressed.connect(func() -> void:
+		Game.level = (Game.level + 1) % 3  # hard -> extreme -> moderate -> hard
+		trail.text = "Trail: " + StagePlan.DIFFICULTY[Game.level][0]
+		if _seed_edit.text.is_valid_int():
+			_preview_seed(int(_seed_edit.text)))
+	left.add_child(trail)
 	var quit := UiKit.button("Quit")
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	left.add_child(quit)
@@ -111,7 +119,7 @@ func _show_seed(s: int) -> void:
 
 
 func _preview_seed(s: int) -> void:
-	var plan := StagePlan.generate(s, Game.weather)
+	var plan := StagePlan.generate(s, Game.weather, Game.level)
 	_title.text = "Stage %d   ·   %.1f km" % [s, plan.length / 1000.0]
 	_preview.text = plan.describe()
 

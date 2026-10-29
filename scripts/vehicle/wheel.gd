@@ -11,7 +11,8 @@ extends Node3D
 @export var rest_length := 0.36     # suspension travel at rest
 @export var max_travel := 0.30      # extra droop below rest
 @export var stiffness := 38000.0
-@export var damping := 3600.0
+@export var damping := 3600.0       # bump
+@export var rebound_ratio := 2.6    # rebound damping = damping * this
 @export var steerable := false
 @export var left_side := false
 
@@ -26,6 +27,7 @@ var omega := 0.0              # rad/s, for visuals and dig
 var steer_angle := 0.0
 var ground := {}              # last terrain sample
 var _last_compression := 0.0
+var axle_load := 0.0          # N the solid axle hands this corner from the other side (anti-roll)
 
 var tire_mud := 0.0           # 0..1 mud coating the tire (visual)
 var packing := 0.0            # 0..1 tread voids filled with clay: a slick tire
@@ -241,6 +243,11 @@ static func _shrink_curve() -> CurveTexture:
 ## force the drivetrain is asking this tire to put down (N, +forward).
 ## Returns a dictionary with what actually happened so the rig can model the
 ## open diff and the mud caking.
+## Compression of the spring last tick (m, + = squashed), for the axle coupling.
+func compression() -> float:
+	return _last_compression if contact else -1.0
+
+
 func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force: float,
 		brake_force: float, grip_cap_override: float) -> Dictionary:
 	var space := rig.get_world_3d().direct_space_state
@@ -296,7 +303,10 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var spring := 0.0
 	if contact:
 		var comp_vel := (compression - _last_compression) / delta
-		spring = maxf(0.0, stiffness * compression + damping * comp_vel)
+		# shocks valve rebound much stiffer than bump: the body settles back
+		# onto the axle instead of leaping off the unloaded side
+		var damp := damping * (rebound_ratio if comp_vel < 0.0 else 1.0)
+		spring = maxf(0.0, stiffness * compression + damp * comp_vel + axle_load)
 		# bottoming out
 		if compression > rest_length * 0.95:
 			spring += stiffness * 4.0 * (compression - rest_length * 0.95)
@@ -326,10 +336,10 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 
 	# --- grip -----------------------------------------------------------
 	var soft := smoothstep(0.03, 0.2, room + ground["rut"])
-	var mu := lerpf(0.95, 0.40, wet)                    # slick when wet
+	var mu := lerpf(0.92, 0.3, wet)                      # slick when wet: greasy clay is barely 0.3
 	mu *= 1.0 - 0.15 * soft                              # soup has less to push on
 	var sink_ratio := sink / maxf(room, 0.05)
-	mu += 0.3 * sink_ratio * (1.0 - wet * 0.5) * (1.0 - 0.7 * packing)  # bite once the tire is in
+	mu += 0.22 * sink_ratio * (1.0 - wet * 0.5) * (1.0 - 0.7 * packing)  # bite once the tire is in
 	mu += aired() * (0.06 + 0.16 * soft)                 # bigger footprint, lugs wrap the ground
 	mu *= 1.0 - 0.3 * packing                            # tread full of clay: a slick
 	if debeaded:
@@ -374,13 +384,21 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# Pushing a tire through mud: drag that grows with sink and wetness, plus
 	# water drag in the creek. This is what makes the bog feel like a bog.
 	var planar := vel - contact_normal * vel.dot(contact_normal)
+	# a river pushes you downstream: drag on the tire, rim and the body
+	# behind it, growing with depth
+	if water > 0.1:
+		rig.apply_force(terrain.current_at(contact_point.x, contact_point.z) * water * 700.0, contact_point - rig.global_position)
 	var drag_c := sink * 1500.0 * (0.6 + 0.6 * wet) + water * 900.0 + (400.0 if debeaded else 0.0)
 	var f_drag := -planar * drag_c
 	# suction: hard to get moving from a stop in deep mud
 	if planar.length() < 0.6 and sink > 0.08:
 		f_drag -= planar.normalized() * sink * 1800.0 * (planar.length() / 0.6)
 
-	rig.apply_force(fwd * f_long + right * f_lat + f_drag, contact_point - rig.global_position)
+	rig.apply_force(fwd * f_long + f_drag, contact_point - rig.global_position)
+	# side force goes into the body through the axle's links, part way up to
+	# the hub, not at the ground: a solid axle doesn't jack the body up off the
+	# inside wheels in a turn
+	rig.apply_force(right * f_lat, contact_point + contact_normal * r * 0.5 - rig.global_position)
 
 	# --- slip / wheel speed / digging -------------------------------------
 	var target_slip := 0.0

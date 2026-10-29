@@ -1,6 +1,6 @@
 extends Node
 ## Autoload "Game": which stage is being driven, and moving between the start
-## menu and a stage. `--seed N` (and `--weather dry|rain`) after `--` on the command line pick the
+## menu and a stage. `--seed N` (and `--weather dry|rain`, `--level 0|1|2`) after `--` on the command line pick the
 ## stage; otherwise every launch starts with a fresh random one.
 
 const MENU := "res://scenes/menu.tscn"
@@ -9,6 +9,8 @@ const STAGE := "res://scenes/main.tscn"
 var stage_seed := 0
 ## -1 random (the seed decides), 0 dry season, 1 rainy season
 var weather := -1
+## key into StagePlan.DIFFICULTY: 0 moderate, 1 hard, 2 extreme
+var level := 1
 
 
 func _ready() -> void:
@@ -22,6 +24,9 @@ func _ready() -> void:
 	var wi := args.find("--weather")
 	if wi >= 0 and wi + 1 < args.size():
 		weather = {"dry": 0, "rain": 1}.get(args[wi + 1], -1)
+	var li := args.find("--level")
+	if li >= 0 and li + 1 < args.size():
+		level = clampi(int(args[li + 1]), 0, 2)
 
 
 static func random_seed() -> int:
