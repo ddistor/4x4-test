@@ -19,7 +19,7 @@ func _ready() -> void:
 	_label.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(_label)
 	_help = Label.new()
-	_help.text = "W/S drive   A/D steer   Space handbrake   L diff lock   G low range   F winch   C camera   Backspace reset"
+	_help.text = "W/S drive   A/D steer   Space handbrake   L diff lock   G low range   F winch   C camera   Mouse drag look   Wheel zoom   Backspace reset"
 	_help.add_theme_font_size_override("font_size", 15)
 	_help.add_theme_color_override("font_color", Color(0.9, 0.88, 0.8, 0.85))
 	_help.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))

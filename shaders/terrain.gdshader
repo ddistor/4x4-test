@@ -6,11 +6,11 @@ uniform sampler2D mud_tex : filter_linear, repeat_disable;
 uniform float world_size = 256.0;
 uniform float creek_level = 0.0;
 
-uniform vec3 clay_dry = vec3(0.62, 0.33, 0.14);     // Morong laterite, sun-baked
-uniform vec3 clay_wet = vec3(0.36, 0.17, 0.07);     // same clay after rain
-uniform vec3 grass    = vec3(0.22, 0.36, 0.12);
-uniform vec3 paddy    = vec3(0.28, 0.46, 0.14);
-uniform vec3 gravel   = vec3(0.42, 0.36, 0.28);
+uniform vec3 clay_dry : source_color = vec3(0.62, 0.33, 0.14);     // Morong laterite, sun-baked
+uniform vec3 clay_wet : source_color = vec3(0.36, 0.17, 0.07);     // same clay after rain
+uniform vec3 grass    : source_color = vec3(0.30, 0.42, 0.16);
+uniform vec3 paddy    : source_color = vec3(0.38, 0.52, 0.20);
+uniform vec3 gravel   : source_color = vec3(0.52, 0.47, 0.40);
 
 varying vec3 world_pos;
 varying float v_rut;
@@ -54,8 +54,9 @@ void fragment() {
 	vec3 ground = grass * (0.8 + 0.4 * n);
 	if (world_pos.z < 45.0) {
 		// paddy floor under the water is dark silt; the dikes above it are grassy
-		ground = mix(vec3(0.16, 0.14, 0.08), paddy * (0.85 + 0.3 * n2), smoothstep(-0.3, -0.05, world_pos.y));
-		float road = 1.0 - smoothstep(2.6, 3.6, abs(world_pos.x - world_size * 0.5 - 14.0 * sin(world_pos.z * 0.035) - 0.0));
+		ground = mix(vec3(0.05, 0.04, 0.02), paddy * (0.85 + 0.3 * n2), smoothstep(-0.3, -0.05, world_pos.y));
+		// the road is the thin-mud strip; paddy cells carry 0.25 m of muck
+		float road = 1.0 - smoothstep(0.06, 0.2, v_thick);
 		ground = mix(ground, gravel * (0.9 + 0.2 * n2), road);
 		soft = 0.0;
 	}

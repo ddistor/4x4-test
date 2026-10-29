@@ -157,12 +157,11 @@ func _author_mud() -> void:
 			var wet := 0.0
 			if z < 45.0:
 				# compacted gravel road: thin, dry
-				thick = 0.04 * on_trail
-				wet = 0.15
-				if dx > 3.5:
-					# paddy: saturated but it's not the trail
-					thick = 0.25
-					wet = 1.0
+				# blending into the paddy (saturated, but not the trail) keeps the
+				# road edge from stair-stepping on the 0.5 m grid
+				var paddy_k := smoothstep(3.0, 4.5, dx)
+				thick = lerpf(0.04 * on_trail, 0.25, paddy_k)
+				wet = lerpf(0.15, 1.0, paddy_k)
 			else:
 				var patchy := _detail.get_noise_2d(x * 1.7, z * 1.7) * 0.5 + 0.5
 				thick = on_trail * (0.18 + 0.32 * patchy)
@@ -175,7 +174,7 @@ func _author_mud() -> void:
 				# wheel lines already churned by the last convoy
 				var wheel_line := exp(-pow((dx - 0.8) / 0.35, 2.0))
 				mud.rut[i] = minf(thick, 0.12 * wheel_line * (0.6 + 0.4 * patchy)) * smoothstep(50.0, 70.0, z)
-				if get_height(x, z) < creek_water_level():
+				if absf(z - CREEK_Z) < 18.0 and get_height(x, z) < creek_water_level():
 					wet = 1.0
 					thick = maxf(thick, 0.3)
 			mud.thickness[i] = thick
@@ -213,8 +212,9 @@ func _build_mesh() -> void:
 			var b := a + 1
 			var c := a + n
 			var d := c + 1
-			indices[q] = a; indices[q + 1] = c; indices[q + 2] = b
-			indices[q + 3] = b; indices[q + 4] = c; indices[q + 5] = d
+			# Godot front faces wind clockwise seen from above (+Y).
+			indices[q] = a; indices[q + 1] = b; indices[q + 2] = c
+			indices[q + 3] = b; indices[q + 4] = d; indices[q + 5] = c
 			q += 6
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -266,20 +266,19 @@ func _build_collision() -> void:
 
 func _build_water() -> void:
 	var shader := load("res://shaders/water.gdshader")
-	# Paddy water: two sheets either side of the road for the first 45 m.
-	for side: float in [-1.0, 1.0]:
-		var plane := PlaneMesh.new()
-		plane.size = Vector2(SIZE_M * 0.5 - 4.0, 44.0)
-		var mi := MeshInstance3D.new()
-		mi.mesh = plane
-		var mat := ShaderMaterial.new()
-		mat.shader = shader
-		mat.set_shader_parameter("tint", Color(0.22, 0.26, 0.14, 0.55))
-		mi.material_override = mat
-		var cx := SIZE_M * 0.5 + side * (SIZE_M * 0.25 + 2.0)
-		mi.position = Vector3(cx, -0.35 + WATER_PADDY, 22.0)
-		mi.name = "PaddyWater"
-		add_child(mi)
+	# Paddy water: one sheet over the first 45 m. The road crown sits above it,
+	# so it follows the road's curves without having to be cut to shape.
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(SIZE_M, 44.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = plane
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("tint", Color(0.22, 0.26, 0.14, 0.55))
+	mi.material_override = mat
+	mi.position = Vector3(SIZE_M * 0.5, -0.35 + WATER_PADDY, 22.0)
+	mi.name = "PaddyWater"
+	add_child(mi)
 	# Creek: a sheet across the dip; the mesh is below the banks so it only
 	# shows where the ground dips under it.
 	var creek := PlaneMesh.new()

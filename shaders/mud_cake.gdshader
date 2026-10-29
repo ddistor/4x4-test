@@ -1,57 +1,106 @@
 shader_type spatial;
 render_mode cull_back, depth_draw_opaque;
 
-// Body paint that progressively cakes with red clay. `cake` is 0 (clean)
-// to 1 (looks like it just did the creek sideways). Mud builds from the
-// bottom of the body up, with a noisy edge, and dries lighter over time.
-uniform vec4 paint : source_color = vec4(0.78, 0.12, 0.10, 1.0);
-uniform float cake : hint_range(0.0, 1.0) = 0.0;
+// Rig bodywork that cakes with red clay where the tires throw it.
+// Each corner's tire builds up its own patch around and behind the wheel:
+// solid round the arch, thinning to splatter further out, dripping down.
+// Deep bogging adds a belly line from the bottom up.
+
+#include "res://shaders/mud_common.gdshaderinc"
+
+uniform vec4 paint : source_color = vec4(0.02, 0.02, 0.022, 1.0);
+uniform float paint_roughness = 0.2;
+uniform float paint_metallic = 0.0;
+uniform float clearcoat = 1.0;
+// per tire: xyz = wheel centre in rig space, w = mud it has thrown (0..2)
+uniform vec4 corner_fl;
+uniform vec4 corner_fr;
+uniform vec4 corner_rl;
+uniform vec4 corner_rr;
+
+vec4 corner(int i) {
+	return i == 0 ? corner_fl : i == 1 ? corner_fr : i == 2 ? corner_rl : corner_rr;
+}
+uniform float cake : hint_range(0.0, 1.0) = 0.0;   // belly line from sinking
 uniform float dryness : hint_range(0.0, 1.0) = 0.3;
-uniform float body_bottom = 0.05;   // model-space y of the lowest paint
-uniform float body_top = 1.65;      // model-space y of the roof
-uniform float metallic_paint = 0.3;
+uniform float body_bottom = -0.1;
+uniform float body_top = 1.3;
+// mesh space -> rig space, for parts that move on their own (axles)
+uniform mat4 part_xform = mat4(1.0);
 
-varying vec3 model_pos;
-
-float hash(vec3 p) {
-	return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-}
-
-float vnoise(vec3 p) {
-	vec3 i = floor(p);
-	vec3 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float n000 = hash(i);
-	float n100 = hash(i + vec3(1, 0, 0));
-	float n010 = hash(i + vec3(0, 1, 0));
-	float n110 = hash(i + vec3(1, 1, 0));
-	float n001 = hash(i + vec3(0, 0, 1));
-	float n101 = hash(i + vec3(1, 0, 1));
-	float n011 = hash(i + vec3(0, 1, 1));
-	float n111 = hash(i + vec3(1, 1, 1));
-	return mix(mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
-	           mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y), f.z);
-}
+varying vec3 rig_pos;
 
 void vertex() {
-	model_pos = VERTEX;
+	rig_pos = (part_xform * vec4(VERTEX, 1.0)).xyz;
+}
+
+float coverage(vec3 p) {
+	float total = 0.0;
+	for (int i = 0; i < 4; i++) {
+		vec3 r = p - corner(i).xyz;
+		float amt = corner(i).w;
+		// thrown back and up: long reach behind the tire, short in front, less on the far side
+		float rz = r.z > 0.0 ? r.z / 2.2 : r.z / 0.9;
+		float ry = r.y > 0.0 ? r.y / 1.2 : r.y / 0.7;
+		float d = length(vec2(rz, ry));
+		float side = mix(0.3, 1.0, exp(-r.x * r.x / 0.35));
+		total += amt * side * max(0.0, 1.1 - d);
+	}
+	return total;
+}
+
+float speckle_reach(vec3 p) {
+	float total = 0.0;
+	for (int i = 0; i < 4; i++) {
+		vec3 r = p - corner(i).xyz;
+		float rz = r.z > 0.0 ? r.z / 3.6 : r.z / 1.4;
+		float ry = r.y > 0.0 ? r.y / 2.3 : r.y / 0.9;
+		float d = length(vec2(rz, ry));
+		float side = mix(0.25, 1.0, exp(-r.x * r.x / 0.5));
+		total += corner(i).w * side * max(0.0, 1.0 - d);
+	}
+	return total;
 }
 
 void fragment() {
-	float h = clamp((model_pos.y - body_bottom) / (body_top - body_bottom), 0.0, 1.0);
-	float n = vnoise(model_pos * 9.0) * 0.6 + vnoise(model_pos * 31.0) * 0.4;
-	// mud line climbs the body as cake increases; splatter dots above it
-	float line = cake * 1.15 - h + (n - 0.5) * 0.35;
-	float mud = smoothstep(-0.05, 0.12, line);
-	float splatter = step(0.72, n) * smoothstep(0.15, 0.6, cake) * (1.0 - h) * 0.9;
-	mud = max(mud, splatter);
+	vec3 p = rig_pos;
+	float n = mud_fbm(p * 7.0);
 
-	vec3 wet_clay = vec3(0.36, 0.17, 0.07);
-	vec3 dry_clay = vec3(0.66, 0.38, 0.18);
-	vec3 clay = mix(wet_clay, dry_clay, dryness) * (0.85 + 0.3 * n);
+	// mud runs down: look a little way up for mud that has dripped from there
+	float streak = mud_noise(vec3(p.x * 22.0, 0.0, p.z * 22.0));
+	float drip = (0.04 + 0.22 * streak * streak) * (1.0 - 0.6 * dryness);
+	float cov = max(coverage(p), coverage(p + vec3(0.0, drip, 0.0)) * 0.92);
 
-	ALBEDO = mix(paint.rgb, clay, mud);
-	ROUGHNESS = mix(0.35, mix(0.45, 0.95, dryness), mud);
-	METALLIC = mix(metallic_paint, 0.0, mud);
-	SPECULAR = mix(0.5, 0.2, mud);
+	float edge = cov - (0.38 + (n - 0.5) * 0.35);
+	float mud = smoothstep(-0.02, 0.05, edge);
+	float thick = clamp(edge * 2.5 + 0.25, 0.0, 1.0);
+
+	// belly line from wallowing in it
+	float h = clamp((p.y - body_bottom) / (body_top - body_bottom), 0.0, 1.0);
+	float belly = cake * 1.1 - h + (n - 0.5) * 0.3;
+	mud = max(mud, smoothstep(-0.03, 0.06, belly));
+	thick = max(thick, clamp(belly * 3.0 + 0.3, 0.0, 1.0) * step(0.0, belly));
+
+	// flung droplets further out
+	float spk = speckle_reach(p);
+	float dots = mud_noise(p * 46.0) * 0.7 + mud_noise(p * 97.0) * 0.3;
+	float speck = step(1.0 - 0.22 * min(spk, 1.6), dots) * step(0.02, spk);
+	mud = max(mud, speck);
+
+	vec3 mud_col;
+	float mud_rough;
+	float mud_spec;
+	mud_material(p, max(thick, speck * 0.5), dryness, mud_col, mud_rough, mud_spec);
+	// a wet halo where a fresh patch thins out
+	float rim = smoothstep(-0.02, 0.02, edge) - smoothstep(0.02, 0.1, edge);
+	mud_col *= 1.0 - 0.3 * rim * (1.0 - dryness);
+
+	ALBEDO = mix(paint.rgb, mud_col, mud);
+	ROUGHNESS = mix(paint_roughness, mud_rough, mud);
+	METALLIC = mix(paint_metallic, 0.0, mud);
+	SPECULAR = mix(0.35, mud_spec, mud);
+	CLEARCOAT = clearcoat * 0.6 * (1.0 - mud);
+	CLEARCOAT_ROUGHNESS = 0.08;
+	mat3 to_view = mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX);
+	NORMAL = mud_bump(NORMAL, p, mud * (0.4 + thick), to_view);
 }

@@ -20,12 +20,16 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   *firm floor* (heights minus mud thickness). Trees (MultiMesh) double as winch anchors.
 - `scripts/world/mud_field.gd` — per-cell soft-ground data: thickness, wetness, rut.
   Baked into an RGB float texture the terrain shader reads (ruts displace vertices).
-- `scripts/vehicle/rig.gd` — the FJ-style rig (RigidBody3D): drivetrain, open/locked
-  diff model, low range, winch, mud caking, HUD text.
+- `scripts/vehicle/rig.gd` — the rig (RigidBody3D), a lifted black Willys-style
+  flatfender: drivetrain, open/locked diff model, low range, winch, per-tire mud
+  throw onto the body, HUD text. Body is modelled in code with `mesh_kit.gd`.
+- `scripts/vehicle/mesh_kit.gd` — procedural modelling helpers (rounded boxes,
+  lathes, tubes, tori) appended into a SurfaceTool.
 - `scripts/vehicle/wheel.gd` — one corner: raycast suspension, brush tire, sink/drag/
   rut carving against the mud field, spray/splash particles.
 - `shaders/` — terrain (rut displacement, laterite colouring, pooling), muddy water,
-  body paint that cakes with clay.
+  body paint that cakes with clay where the tires throw it, tire/wheel mud;
+  shared clay look in `mud_common.gdshaderinc`.
 - `tests/drive_test.tscn` — headless smoke test that drives the trail with a simple
   line-follower and prints position/sink/slip each second:
   `godot --headless --path . res://tests/drive_test.tscn --quit-after 20000`
