@@ -1,38 +1,64 @@
 class_name Terrain
 extends Node3D
-## Procedural "Morong uplands" trail segment.
+## A procedural stage: a long strip of land with the trail running up it
+## (+Z), built from a StagePlan of Philippine offroad sections — paddy road,
+## laterite climbs, kanal ruts, boulder rivers, lahar washes, rock steps,
+## logging-road bogs, cogon hills, coconut farm roads. Each kind shapes the
+## land, the soft ground, the water and the plants its own way; neighbouring
+## sections blend into each other over StagePlan.BLEND metres.
 ##
-## Layout (looking along +Z):
-##   z   0 ..  45  barangay road beside flooded rice paddies (flat, firm)
-##   z  45 .. 100  first climb into the laterite foothills, cut two-track with banks
-##   z 100 .. 125  creek crossing in a dip (water, saturated mud both sides)
-##   z 125 .. 250  steeper climb toward the Sierra Madre side, deep rutted clay
-##
-## The physics collider is the firm base. The visual mesh sits on top and is
-## displaced downward in the vertex shader by the rut channel of the MudField
-## texture, so ruts show without rebuilding the mesh.
+## The physics collider is the firm base (heights minus mud thickness), in
+## square tiles. The visual mesh sits on top, in chunks, and is displaced in
+## the vertex shader by the rut channel of the MudField texture, so ruts show
+## without rebuilding the mesh.
 
-const SIZE_M := 256.0
+const WIDTH := 160.0
 const CELL := 0.5
-const RES := int(SIZE_M / CELL)  # 512
+const RES_X := int(WIDTH / CELL)  # 320
+const MESH_CHUNK := 80.0
+const NO_WATER := -1000.0
+
+## How much of each kind of land is forest (leaf litter, ferns, trees).
+const FOREST := {"paddy": 0.0, "clay": 1.0, "kanal": 0.9, "river": 0.7, "lahar": 0.0, "rocky": 0.6,
+	"bog": 1.0, "cogon": 0.05, "niyog": 0.0, "end": 0.3}
+## Broadleaf trees per metre of trail.
+const TREES := {"paddy": 0.0, "clay": 4.0, "kanal": 3.5, "river": 2.5, "lahar": 0.6, "rocky": 2.5,
+	"bog": 5.0, "cogon": 0.35, "niyog": 0.2, "end": 1.0}
+## How lumpy the trail floor is: humps, wallows and potholes (m).
+const LUMPS := {"paddy": 0.03, "clay": 0.16, "kanal": 0.1, "river": 0.12, "lahar": 0.12, "rocky": 0.0,
+	"bog": 0.2, "cogon": 0.1, "niyog": 0.1, "end": 0.06}
 
 @export var seed_value: int = 7
+var plan: StagePlan
+var length := 0.0
+var res_z := 0
 
 var mud: MudField
-var heights: PackedFloat32Array  # (RES+1)^2 firm base heights
-var trail_center: PackedFloat32Array  # x of trail centre for every 1 m of z
+var grip: PackedFloat32Array           # per mud cell: multiplies tire friction (ash, wet stone)
+var heights: PackedFloat32Array        # (RES_X+1) x (res_z+1) firm base heights
+var trail_center: PackedFloat32Array   # x of the trail centre every 1 m of z
+var trail_slope: PackedFloat32Array    # dx/dz of the centre line
+var trail_floor: PackedFloat32Array    # trail floor height every 1 m
 var tree_anchors: Array[Vector3] = []
+var crossings: Array[Dictionary] = []  # rivers and creeks running across the trail
+var pits: Array[Dictionary] = []       # holes hidden in the cogon
+var water_bodies: Array[Dictionary] = []
+var rock_spots: Array[Vector4] = []    # xyz centre, w radius
+var palm_spots: Array[Transform3D] = []
+var cover_image: Image  # 1 m: R trail distance / 32, G forest, B paddy, A lahar ash
+var soil_image: Image   # 1 m: R bedrock, G river cobbles, B water level, A where water can stand
+var soil_texture: ImageTexture
 
-var _mesh_instance: MeshInstance3D
 var _noise: FastNoiseLite
 var _detail: FastNoiseLite
 
-const WATER_PADDY := 0.15
-const CREEK_Z := 112.0
-const CREEK_LEVEL_OFFSET := -0.9  # water surface relative to trail floor at the creek
-
 
 func _ready() -> void:
+	if plan == null:
+		plan = StagePlan.generate(seed_value)
+	seed_value = plan.seed_value
+	length = plan.length
+	res_z = int(length / CELL)
 	_noise = FastNoiseLite.new()
 	_noise.seed = seed_value
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -43,92 +69,285 @@ func _ready() -> void:
 	_detail.noise_type = FastNoiseLite.TYPE_SIMPLEX
 	_detail.frequency = 0.09
 
-	mud = MudField.new(RES, RES, CELL, Vector2(0.0, 0.0))
-	_build_trail_centre()
+	mud = MudField.new(RES_X, res_z, CELL, Vector2.ZERO)
+	grip.resize(RES_X * res_z)
+	grip.fill(1.0)
+	_build_trail()
+	_plan_features()
 	_build_heights()
 	_author_mud()
 	mud.bake_image()
+	_build_maps()
 	_build_mesh()
 	_build_collision()
 	_build_water()
+	_place_rocks()
 	_build_trees()
+	_build_finish()
 
 
-# --- Authoring ---------------------------------------------------------------
+# --- the trail line ------------------------------------------------------------
+
+func _build_trail() -> void:
+	var n := int(length) + 1
+	trail_center.resize(n)
+	trail_slope.resize(n)
+	trail_floor.resize(n)
+	var phase := 0.0
+	for z in range(n):
+		var zf := float(z)
+		var bl := plan.blend_at(zf)
+		var a: Dictionary = StagePlan.KINDS[plan.sections[bl[0]]["kind"]]
+		var b: Dictionary = StagePlan.KINDS[plan.sections[bl[1]]["kind"]]
+		var w: float = bl[2]
+		# integrate the phase so changing how often it bends never jumps
+		phase += lerpf(a["freq"], b["freq"], w)
+		var amp := lerpf(a["wander"], b["wander"], w)
+		trail_center[z] = WIDTH * 0.5 + amp * sin(phase) + 3.0 * _detail.get_noise_1d(zf * 2.0)
+		trail_floor[z] = plan.profile(zf)
+	for z in range(n):
+		trail_slope[z] = (trail_center[mini(z + 1, n - 1)] - trail_center[maxi(z - 1, 0)]) * 0.5
+
+
+func _lerp_line(arr: PackedFloat32Array, z: float) -> float:
+	var i := clampi(int(z), 0, arr.size() - 2)
+	return lerpf(arr[i], arr[i + 1], clampf(z - i, 0.0, 1.0))
+
 
 func trail_x_at(z: float) -> float:
-	var i := clampi(int(z), 0, trail_center.size() - 2)
-	var t := clampf(z - i, 0.0, 1.0)
-	return lerpf(trail_center[i], trail_center[i + 1], t)
+	return _lerp_line(trail_center, z)
 
 
-func _build_trail_centre() -> void:
-	trail_center.resize(int(SIZE_M) + 1)
-	for z in range(trail_center.size()):
-		var zf := float(z)
-		# Gentle S-curves, tighter switchbacks on the upper climb.
-		var x := SIZE_M * 0.5
-		x += 14.0 * sin(zf * 0.035)
-		if zf > 140.0:
-			x += 18.0 * sin((zf - 140.0) * 0.07)
-		x += 3.0 * _detail.get_noise_1d(zf * 2.0)
-		trail_center[z] = x
+func trail_floor_at(z: float) -> float:
+	return _lerp_line(trail_floor, z)
 
 
-func _climb_profile(z: float) -> float:
-	# Base elevation along the trail (metres).
-	if z < 45.0:
-		return 0.0
-	var h := 0.0
-	# first climb
-	h += smoothstep(45.0, 100.0, z) * 9.0
-	# creek dip
-	h -= 1.6 * exp(-pow((z - CREEK_Z) / 7.0, 2.0))
-	# second, steeper climb
-	h += smoothstep(125.0, 250.0, z) * 32.0
+## 1 / sqrt(1 + slope^2): turns sideways (x) distance from the centre line into
+## distance across the trail, so the trail is as wide in a bend as on a straight.
+func _across(z: float) -> float:
+	var s := _lerp_line(trail_slope, z)
+	return 1.0 / sqrt(1.0 + s * s)
+
+
+# --- features: rivers, creeks, pits, standing water --------------------------------
+
+func _plan_features() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + 5
+	for s in plan.sections:
+		var z0: float = s["z0"]
+		var z1: float = s["z1"]
+		match s["kind"]:
+			"river":
+				# wide, shallow and clear over river stones
+				_add_crossing(lerpf(z0, z1, rng.randf_range(0.42, 0.58)), {
+					"half_w": rng.randf_range(10.0, 14.0), "bank": 7.0, "drop": 1.6,
+					"depth": rng.randf_range(0.38, 0.55), "amp": 5.0,
+					"tint": Color(0.16, 0.27, 0.24, 0.85), "clarity": 1.0, "stones": true,
+					"flow": 1.2 * (1.0 if rng.randf() < 0.5 else -1.0)}, rng)
+			"lahar":
+				# a braided channel of milky grey water across the ash
+				_add_crossing(lerpf(z0, z1, rng.randf_range(0.35, 0.65)), {
+					"half_w": 3.5, "bank": 4.0, "drop": 0.5, "depth": 0.26, "amp": 8.0,
+					"tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "stones": false, "flow": 0.8}, rng)
+			"clay":
+				if rng.randf() < 0.6:
+					# the brown creek in a dip, like the old Morong trail
+					_add_crossing(lerpf(z0, z1, rng.randf_range(0.4, 0.7)), {
+						"half_w": 5.0, "bank": 9.0, "drop": 1.4, "depth": 0.65, "amp": 3.0,
+						"tint": Color(0.4, 0.26, 0.12, 0.75), "clarity": 0.0, "stones": false, "flow": 0.3}, rng)
+			"cogon":
+				for k in range(rng.randi_range(10, 14)):
+					var z := rng.randf_range(z0 + 20.0, z1 - 20.0)
+					pits.append({"x": trail_x_at(z) + rng.randf_range(-2.4, 2.4), "z": z,
+						"r": rng.randf_range(0.9, 1.5), "depth": rng.randf_range(0.4, 0.7)})
+			"bog":
+				water_bodies.append({"z_lo": z0 + 4.0, "z_hi": z1 - 4.0, "level": float(s["h0"]) - 0.1,
+					"tint": Color(0.3, 0.2, 0.1, 0.8), "clarity": 0.0, "flow": 0.0})
+			"paddy":
+				water_bodies.append({"z_lo": z0 - 1.0, "z_hi": z1 + 2.0, "level": float(s["h0"]) - 0.2,
+					"tint": Color(0.22, 0.26, 0.14, 0.55), "clarity": 0.15, "flow": 0.0})
+
+
+func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void:
+	c["zc"] = zc
+	c["phase"] = rng.randf() * TAU
+	c["freq"] = 0.02
+	c["ref_h"] = plan.profile(zc)
+	# a ford sits in a level bottom: flatten the trail's climb round it and let
+	# the grade happen either side, or the exit bank stacks on top of the hill
+	var flat := float(c["amp"]) + float(c["half_w"]) + float(c["bank"]) + 4.0
+	for z in range(maxi(0, int(zc - flat - 30.0)), mini(trail_floor.size(), int(zc + flat + 30.0))):
+		var k := 1.0 - smoothstep(flat, flat + 30.0, absf(z - zc))
+		trail_floor[z] = lerpf(trail_floor[z], c["ref_h"], k)
+	c["level"] = float(c["ref_h"]) - float(c["drop"]) + float(c["depth"])
+	c["reach"] = float(c["amp"]) + float(c["half_w"]) + float(c["bank"]) + 1.0
+	crossings.append(c)
+	water_bodies.append({"z_lo": zc - float(c["reach"]), "z_hi": zc + float(c["reach"]), "level": c["level"],
+		"tint": c["tint"], "clarity": c["clarity"], "flow": c["flow"], "crossing": c})
+
+
+## x: how far into the channel (1 in it, 0 past the bank), y: distance from
+## the channel's middle in half-widths.
+func _channel(c: Dictionary, x: float, z: float) -> Vector2:
+	var mid: float = c["zc"] + c["amp"] * sin(x * c["freq"] + c["phase"])
+	var u := absf(z - mid) / float(c["half_w"])
+	return Vector2(1.0 - smoothstep(1.0, 1.0 + float(c["bank"]) / float(c["half_w"]), u), u)
+
+
+func _near(list: Array[Dictionary], z: float, key: String, reach_key: String, pad: float) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for f in list:
+		var reach: float = f[reach_key] if reach_key != "" else 0.0
+		if absf(z - float(f[key])) < reach + pad:
+			out.append(f)
+	return out
+
+
+func water_level_at(z: float) -> float:
+	var level := NO_WATER
+	for b in water_bodies:
+		if z > b["z_lo"] and z < b["z_hi"]:
+			level = maxf(level, b["level"])
+	return level
+
+
+# --- heights --------------------------------------------------------------------------
+
+func _lahar_half(z: float) -> float:
+	return 30.0 + 8.0 * _noise.get_noise_1d(z * 0.5 + 77.0)
+
+
+## The two kanal ruts: deep V-ish trenches worn where every rig's wheels go,
+## wandering a little so they pull you off line. Depth at signed offset `sx`.
+func _kanal(z: float, sx: float, s: Dictionary) -> float:
+	var off := 0.35 * sin(z * 0.05 + float(s["phase"]))
+	var depth := 0.3 + 0.28 * (_detail.get_noise_1d(z * 0.4 + 300.0) * 0.5 + 0.5)
+	var d := minf(absf(sx - off - 0.82), absf(sx - off + 0.82))
+	return depth * 0.5 * (1.0 + cos(PI * minf(d / 0.62, 1.0)))
+
+
+## Ground height for one kind of land. `sx` is the signed distance across the
+## trail, `th` the trail floor height.
+func _kind_height(s: Dictionary, x: float, z: float, sx: float, th: float) -> float:
+	var dx := absf(sx)
+	var hills := _noise.get_noise_2d(x, z) * 0.5 + 0.5
+	var detail := _detail.get_noise_2d(x, z)
+	var k: String = s["kind"]
+	match k:
+		"paddy":
+			# flat terraces either side of the road, pilapil dikes on a rough grid
+			var land := th - 0.35 + detail * 0.05
+			var gx := absf(fposmod(x + 3.0, 14.0) - 7.0)
+			var gz := absf(fposmod(z + 5.0, 18.0) - 9.0)
+			var dike := maxf(1.0 - smoothstep(0.3, 0.9, gx), 1.0 - smoothstep(0.3, 0.9, gz))
+			land += dike * 0.45
+			return lerpf(th, land, smoothstep(3.2, 4.7, dx))
+		"lahar":
+			# a wide flat valley floor of ash and sand between grey cliffs
+			var half := _lahar_half(z)
+			var floor_h := th + 0.22 * _detail.get_noise_2d(x * 0.35, z * 0.35) * smoothstep(1.5, 4.0, dx)
+			return lerpf(floor_h, th + 7.0 + hills * 7.0, smoothstep(half, half + 9.0, dx))
+		"cogon":
+			# open rolling grassland; the trail is two faint tracks over it
+			return lerpf(th, th + hills * 5.0 + detail * 0.35, smoothstep(1.5, 16.0, dx))
+		"niyog", "end":
+			var h := lerpf(th, th + 0.3 + hills * 2.5 + detail * 0.3, smoothstep(3.0, 16.0, dx))
+			if dx < 2.8:
+				h += 0.06 * cos(dx * 1.4)
+			return h
+		"bog":
+			# a sunken logging road with a chain of water-filled holes in it
+			var h := lerpf(th, th + 0.9 + hills * 3.0 + detail * 0.5, smoothstep(2.8, 6.0, dx))
+			var pit := clampf(_detail.get_noise_1d(z * 0.6 + float(s["phase"]) * 40.0) * 1.5, 0.0, 0.55)
+			h -= pit * (1.0 - smoothstep(1.4, 2.9, dx))
+			if dx < 2.8:
+				h += 0.08 * cos(dx * 1.4) * (1.0 - pit / 0.55)
+			return h
+	# clay, kanal, river, rocky: a two-track cut into the hillside
+	var relief := 6.0
+	var bank_h := 1.8
+	var bank_out := 7.0
+	match k:
+		"kanal":
+			relief = 5.0
+			bank_h = 1.2
+		"river":
+			relief = 4.0
+			bank_h = 1.0
+		"rocky":
+			# an open rocky hillside, not a slot: the trail climbs over the rock
+			relief = 5.0
+			bank_h = 1.2
+			bank_out = 9.0
+	var h := lerpf(th, th + hills * relief + detail * 0.6 + bank_h, smoothstep(2.8, bank_out, dx))
+	if dx < 2.8:
+		h += 0.08 * cos(dx * 1.4)
+	if k == "kanal":
+		h -= _kanal(z, sx, s)
+	elif k == "rocky":
+		h += 0.14 * _detail.get_noise_2d(x * 2.3, z * 2.3) * (1.0 - smoothstep(2.0, 4.0, dx))
 	return h
 
 
-func _base_height(x: float, z: float) -> float:
-	var tx := trail_x_at(z)
-	var dx := absf(x - tx)
-	var trail_h := _climb_profile(z)
-	# Surrounding land: hills rising away from the trail, more so uphill.
-	var land := trail_h + (_noise.get_noise_2d(x, z) * 0.5 + 0.5) * 6.0 * smoothstep(40.0, 120.0, z)
-	land += _detail.get_noise_2d(x, z) * 0.6
-	if z < 45.0:
-		# Paddies: flat terraces either side of the road.
-		land = -0.35 + _detail.get_noise_2d(x, z) * 0.05
-		# pilapil: the low earth dikes between paddies, on a rough 14 x 18 m grid
-		var gx := absf(fposmod(x + 3.0, 14.0) - 7.0)
-		var gz := absf(fposmod(z + 5.0, 18.0) - 9.0)
-		var dike := maxf(1.0 - smoothstep(0.3, 0.9, gx), 1.0 - smoothstep(0.3, 0.9, gz))
-		land += dike * 0.45
-		# road shoulder slopes down into the paddy over 1.5 m
-		return lerpf(0.0, land, smoothstep(3.2, 4.7, dx))
-	# Cut two-track: floor 3 m half-width, banks ramping up over the next 4 m.
-	var bank := smoothstep(2.8, 7.0, dx)
-	var h := lerpf(trail_h, land + 1.8 * smoothstep(60.0, 140.0, z), bank)
-	# crown + a shallow camber so water collects in the wheel lines
-	if dx < 2.8:
-		h += 0.08 * cos(dx * 1.4)
+## Humps, wallows and potholes in the trail floor: nothing on a real trail is flat.
+func _lumps(x: float, z: float) -> float:
+	var big := _detail.get_noise_2d(x * 0.45 + 50.0, z * 0.45)
+	var small := _detail.get_noise_2d(x * 1.3 - 20.0, z * 1.3)
+	var hole := minf(0.0, _noise.get_noise_2d(x * 9.0, z * 9.0) + 0.25) * 1.6  # sharp-edged potholes
+	return big * 0.6 + small * 0.3 + hole
+
+
+func _height_at(x: float, z: float, bl: Array, th: float, tx: float, inv: float,
+		near_cross: Array[Dictionary], near_pits: Array[Dictionary]) -> float:
+	var sa: Dictionary = plan.sections[bl[0]]
+	var sb: Dictionary = plan.sections[bl[1]]
+	var w: float = bl[2]
+	var sx := (x - tx) * inv
+	var h := _kind_height(sa, x, z, sx, th)
+	var lumps: float = LUMPS[sa["kind"]]
+	if w > 0.0:
+		h = lerpf(h, _kind_height(sb, x, z, sx, th), w)
+		lumps = lerpf(lumps, LUMPS[sb["kind"]], w)
+	h += lumps * _lumps(x, z) * (1.0 - smoothstep(2.5, 5.0, absf(sx)))
+	# the land closes in past the finish clearing, so the trail doesn't just stop at an edge
+	h += smoothstep(length - 30.0, length, z) * (5.0 + 3.0 * _noise.get_noise_2d(x, 0.0))
+	for c in near_cross:
+		var ch := _channel(c, x, z)
+		if ch.x > 0.0:
+			var bed: float = float(c["ref_h"]) - float(c["drop"]) + 0.35 * float(c["depth"]) * minf(ch.y * ch.y, 1.0)
+			if c["stones"]:
+				bed += 0.1 * _detail.get_noise_2d(x * 1.6, z * 1.6)
+			h = lerpf(h, minf(h, bed), ch.x)
+	for p in near_pits:
+		var d := Vector2(x - float(p["x"]), z - float(p["z"])).length()
+		var r: float = p["r"]
+		if d < r:
+			var f := 1.0 - (d / r) * (d / r)
+			h -= float(p["depth"]) * f * f
 	return h
 
 
 func _build_heights() -> void:
-	var n := RES + 1
-	heights.resize(n * n)
-	for j in range(n):
-		for i in range(n):
-			var x := i * CELL
-			var z := j * CELL
-			heights[j * n + i] = _base_height(x, z)
+	var nx := RES_X + 1
+	var nz := res_z + 1
+	heights.resize(nx * nz)
+	for j in range(nz):
+		var z := j * CELL
+		var bl := plan.blend_at(z)
+		var near_cross := _near(crossings, z, "zc", "reach", 1.0)
+		var near_pits := _near(pits, z, "z", "", 1.6)
+		var tx := trail_x_at(z)
+		var th := trail_floor_at(z)
+		var inv := _across(z)
+		for i in range(nx):
+			heights[j * nx + i] = _height_at(i * CELL, z, bl, th, tx, inv, near_cross, near_pits)
 
 
 func get_height(x: float, z: float) -> float:
-	var n := RES + 1
-	var fx := clampf(x / CELL, 0.0, RES - 1.001)
-	var fz := clampf(z / CELL, 0.0, RES - 1.001)
+	var n := RES_X + 1
+	var fx := clampf(x / CELL, 0.0, RES_X - 0.001)
+	var fz := clampf(z / CELL, 0.0, res_z - 0.001)
 	var i := int(fx)
 	var j := int(fz)
 	var tx := fx - i
@@ -140,181 +359,319 @@ func get_height(x: float, z: float) -> float:
 	return lerpf(lerpf(h00, h10, tx), lerpf(h01, h11, tx), tz)
 
 
-func creek_water_level() -> float:
-	return _climb_profile(CREEK_Z) + CREEK_LEVEL_OFFSET + 1.6
+# --- soft ground ---------------------------------------------------------------------
+
+## (thickness, wetness, preset rut, grip) for one kind of land.
+func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> Vector4:
+	var dx := absf(sx)
+	var on := 1.0 - smoothstep(2.6, 4.0, dx)
+	var rain: float = s["wet"]
+	var wheel_line := exp(-pow((dx - 0.8) / 0.35, 2.0))  # churned by the last convoy
+	match s["kind"]:
+		"paddy":
+			# compacted gravel road, blending into the saturated paddy
+			var pk := smoothstep(3.0, 4.5, dx)
+			return Vector4(lerpf(0.04 * on, 0.25, pk), lerpf(0.15, 1.0, pk), 0.0, 1.0)
+		"clay":
+			var thick := on * (0.18 + 0.32 * patchy)
+			return Vector4(thick, 0.3 + 0.25 * patchy + 0.3 * rain, minf(thick, 0.12 * wheel_line * (0.6 + 0.4 * patchy)), 1.0)
+		"kanal":
+			var tr := _kanal(z, sx, s) / 0.58
+			return Vector4(on * (0.12 + 0.2 * patchy) + 0.12 * tr, 0.45 + 0.25 * patchy + 0.3 * tr, 0.0, 1.0)
+		"river":
+			var thick := on * (0.08 + 0.14 * patchy)
+			return Vector4(thick, 0.45 + 0.25 * patchy, minf(thick, 0.06 * wheel_line), 1.0)
+		"lahar":
+			# loose ash and sand all across the floor, packed thinner on the track
+			var half := _lahar_half(z)
+			var floor_k := 1.0 - smoothstep(half - 3.0, half + 4.0, dx)
+			var packed := 1.0 - smoothstep(1.5, 3.0, dx)
+			return Vector4(floor_k * (0.14 + 0.24 * patchy) * (1.0 - 0.5 * packed), 0.1 + 0.15 * patchy + 0.25 * rain * on, 0.0, 0.8)
+		"rocky":
+			return Vector4(on * 0.06 * patchy, 0.2 + 0.2 * rain, 0.0, 1.05)
+		"bog":
+			var thick := on * (0.4 + 0.3 * patchy)
+			return Vector4(thick, 0.75 + 0.25 * patchy, minf(thick, 0.18 * wheel_line), 1.0)
+		"cogon":
+			return Vector4(on * 0.03, 0.2, 0.0, 1.0)
+	# niyog, end: dry farm road with the odd puddle
+	var pud := on * smoothstep(0.58, 0.75, _detail.get_noise_2d(x * 0.5, z * 0.5) * 0.5 + 0.5)
+	return Vector4(on * (0.05 + 0.08 * patchy) + 0.22 * pud, maxf(0.25 + 0.2 * rain, 0.85 * pud), 0.0, 1.0)
 
 
 func _author_mud() -> void:
-	for cy in range(RES):
-		for cx in range(RES):
+	var nx := RES_X + 1
+	for cy in range(res_z):
+		var z := (cy + 0.5) * CELL
+		var bl := plan.blend_at(z)
+		var sa: Dictionary = plan.sections[bl[0]]
+		var sb: Dictionary = plan.sections[bl[1]]
+		var w: float = bl[2]
+		var near_cross := _near(crossings, z, "zc", "reach", 1.0)
+		var near_pits := _near(pits, z, "z", "", 1.6)
+		var tx := trail_x_at(z)
+		var inv := _across(z)
+		var lumps := lerpf(LUMPS[sa["kind"]], LUMPS[sb["kind"]], w)
+		var rain_k := lerpf(sa["wet"], sb["wet"], w)
+		var paddy_w := _weight("paddy", sa["kind"], sb["kind"], w)
+		for cx in range(RES_X):
 			var x := (cx + 0.5) * CELL
-			var z := (cy + 0.5) * CELL
-			var tx := trail_x_at(z)
-			var dx := absf(x - tx)
+			var sx := (x - tx) * inv
+			var patchy := _detail.get_noise_2d(x * 1.7, z * 1.7) * 0.5 + 0.5
+			var m := _kind_soil(sa, x, z, sx, patchy)
+			if w > 0.0:
+				m = m.lerp(_kind_soil(sb, x, z, sx, patchy), w)
+			var thick := m.x
+			var wet := m.y
+			# the season: dry clay is firm and thin, after rain it's deep and
+			# soupy (the paddies are flooded either way)
+			var dry_k := 1.0 - paddy_w
+			wet = lerpf(wet, clampf(wet * lerpf(0.5, 1.3, rain_k), 0.0, 1.0), dry_k)
+			thick *= lerpf(1.0, lerpf(0.75, 1.2, rain_k), dry_k)
+			# hollows in the lumpy floor hold more mud, and water if it has rained
+			if thick > 0.02 and lumps > 0.0:
+				var hollow := clampf(-_lumps(x, z), 0.0, 1.0)
+				thick += hollow * lumps * 0.8
+				wet = lerpf(wet, 1.0, hollow * (0.3 + 0.7 * rain_k))
+			for c in near_cross:
+				var k := smoothstep(0.3, 0.8, _channel(c, x, z).x)
+				if k <= 0.0:
+					continue
+				if c["stones"]:
+					thick = lerpf(thick, 0.02, k)
+					m.w = lerpf(m.w, 0.75, k)  # wet river stones
+				elif c["clarity"] > 0.0:
+					thick = lerpf(thick, 0.2, k)
+				else:
+					thick = maxf(thick, 0.3 * k)
+				wet = lerpf(wet, 1.0, k)
+			for p in near_pits:
+				var d := Vector2(x - float(p["x"]), z - float(p["z"])).length()
+				var hk := 1.0 - smoothstep(float(p["r"]) * 0.5, float(p["r"]), d)
+				thick = maxf(thick, 0.45 * hk)
+				wet = maxf(wet, 0.9 * hk)
 			var i := mud.idx(cx, cy)
-			var on_trail := 1.0 - smoothstep(2.6, 4.0, dx)
-			var thick := 0.0
-			var wet := 0.0
-			if z < 45.0:
-				# compacted gravel road: thin, dry
-				# blending into the paddy (saturated, but not the trail) keeps the
-				# road edge from stair-stepping on the 0.5 m grid
-				var paddy_k := smoothstep(3.0, 4.5, dx)
-				thick = lerpf(0.04 * on_trail, 0.25, paddy_k)
-				wet = lerpf(0.15, 1.0, paddy_k)
-			else:
-				var patchy := _detail.get_noise_2d(x * 1.7, z * 1.7) * 0.5 + 0.5
-				thick = on_trail * (0.18 + 0.32 * patchy)
-				# the lower climb holds water, the top is drier and firmer
-				var creek_influence := exp(-pow((z - CREEK_Z) / 14.0, 2.0))
-				thick += on_trail * 0.35 * creek_influence
-				wet = 0.35 + 0.25 * patchy
-				wet = lerpf(wet, 1.0, creek_influence)
-				wet *= 1.0 - 0.45 * smoothstep(170.0, 250.0, z)
-				# wheel lines already churned by the last convoy
-				var wheel_line := exp(-pow((dx - 0.8) / 0.35, 2.0))
-				mud.rut[i] = minf(thick, 0.12 * wheel_line * (0.6 + 0.4 * patchy)) * smoothstep(50.0, 70.0, z)
-				if absf(z - CREEK_Z) < 18.0 and get_height(x, z) < creek_water_level():
-					wet = 1.0
-					thick = maxf(thick, 0.3)
 			mud.thickness[i] = thick
 			mud.wetness[i] = clampf(wet, 0.0, 1.0)
+			mud.rut[i] = minf(m.z, thick)
+			grip[i] = m.w
 
 
-# --- Geometry ----------------------------------------------------------------
+## 1 m maps for the ground shader (and vegetation / audio queries).
+func _build_maps() -> void:
+	var nx := int(WIDTH)
+	var nz := int(length)
+	cover_image = Image.create(nx, nz, false, Image.FORMAT_RGBAH)
+	soil_image = Image.create(nx, nz, false, Image.FORMAT_RGBAH)  # half floats filter on every GPU
+	for z in range(nz):
+		var zf := z + 0.5
+		var bl := plan.blend_at(zf)
+		var ka: String = plan.sections[bl[0]]["kind"]
+		var kb: String = plan.sections[bl[1]]["kind"]
+		var w: float = bl[2]
+		var forest_k := lerpf(FOREST[ka], FOREST[kb], w)
+		var paddy_k := _weight("paddy", ka, kb, w)
+		var ash_k := _weight("lahar", ka, kb, w)
+		var rock_k := _weight("rocky", ka, kb, w)
+		var level := water_level_at(zf)
+		# paddies and bogs hold water wherever the ground dips; rivers and
+		# creeks only in their own channel (soil A is that mask)
+		var band_water := 0.0
+		for b in water_bodies:
+			if not b.has("crossing") and zf > b["z_lo"] and zf < b["z_hi"]:
+				band_water = 1.0
+		var near_cross := _near(crossings, zf, "zc", "reach", 1.0)
+		var tx := trail_x_at(zf)
+		var inv := _across(zf)
+		var half := _lahar_half(zf)
+		for x in range(nx):
+			var xf := x + 0.5
+			var dx := absf(xf - tx) * inv
+			var edge := 4.5 + 2.5 * _detail.get_noise_2d(xf * 0.7, zf * 0.7)
+			var forest := forest_k * smoothstep(edge, edge + 4.0, dx) * (1.0 - smoothstep(26.0, 40.0, dx) * 0.6)
+			if ash_k > 0.0:
+				forest = maxf(forest, ash_k * 0.7 * smoothstep(half + 8.0, half + 14.0, dx))  # woods on the cliff tops
+			var on := 1.0 - smoothstep(2.6, 4.0, dx)
+			var cobble := 0.0
+			var wet_mask := band_water
+			for c in near_cross:
+				var k := _channel(c, xf, zf).x
+				if k > 0.02:
+					wet_mask = 1.0
+				if c["stones"]:
+					cobble = maxf(cobble, smoothstep(0.2, 0.7, k))
+			cover_image.set_pixel(x, z, Color(minf(dx / 32.0, 1.0), forest, paddy_k, ash_k))
+			soil_image.set_pixel(x, z, Color(rock_k * (0.9 * on + 0.3 * (1.0 - on)), cobble, level, wet_mask))
+
+
+static func _weight(kind: String, ka: String, kb: String, w: float) -> float:
+	return (1.0 - w if ka == kind else 0.0) + (w if kb == kind else 0.0)
+
+
+# --- geometry ------------------------------------------------------------------------
 
 func _build_mesh() -> void:
-	var n := RES + 1
-	var verts := PackedVector3Array()
-	var normals := PackedVector3Array()
-	var uvs := PackedVector2Array()
-	var indices := PackedInt32Array()
-	verts.resize(n * n)
-	normals.resize(n * n)
-	uvs.resize(n * n)
-	for j in range(n):
-		for i in range(n):
-			var k := j * n + i
-			var x := i * CELL
-			var z := j * CELL
-			verts[k] = Vector3(x, heights[k], z)
-			uvs[k] = Vector2(x / SIZE_M, z / SIZE_M)
-			var hl := heights[j * n + maxi(i - 1, 0)]
-			var hr := heights[j * n + mini(i + 1, n - 1)]
-			var hd := heights[maxi(j - 1, 0) * n + i]
-			var hu := heights[mini(j + 1, n - 1) * n + i]
-			normals[k] = Vector3(hl - hr, 2.0 * CELL, hd - hu).normalized()
-	indices.resize(RES * RES * 6)
-	var q := 0
-	for j in range(RES):
-		for i in range(RES):
-			var a := j * n + i
-			var b := a + 1
-			var c := a + n
-			var d := c + 1
-			# Godot front faces wind clockwise seen from above (+Y).
-			indices[q] = a; indices[q + 1] = b; indices[q + 2] = c
-			indices[q + 3] = b; indices[q + 4] = d; indices[q + 5] = c
-			q += 6
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var nx := RES_X + 1
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/terrain.gdshader")
 	mat.set_shader_parameter("mud_tex", mud.texture)
-	mat.set_shader_parameter("cover_tex", _cover_texture())
-	mat.set_shader_parameter("world_size", SIZE_M)
-	mat.set_shader_parameter("creek_level", creek_water_level())
-	mesh.surface_set_material(0, mat)
-	_mesh_instance = MeshInstance3D.new()
-	_mesh_instance.name = "TerrainMesh"
-	_mesh_instance.mesh = mesh
-	_mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-	add_child(_mesh_instance)
-
-
-## 1 m ground-cover map for the shader: R = distance to trail centre / 32 m,
-## G = forest cover (leaf litter instead of grass), which follows where
-## _build_trees plants its trunks.
-func _cover_texture() -> ImageTexture:
-	var n := int(SIZE_M)
-	var img := Image.create(n, n, false, Image.FORMAT_RGF)
-	for z in range(n):
-		var tx := trail_x_at(z + 0.5)
-		var woods := smoothstep(42.0, 55.0, z + 0.5)
-		for x in range(n):
-			var dx := absf(x + 0.5 - tx)
-			var edge := 4.5 + 2.5 * _detail.get_noise_2d(x * 0.7, z * 0.7)
-			var forest := woods * smoothstep(edge, edge + 4.0, dx) * (1.0 - smoothstep(26.0, 40.0, dx) * 0.6)
-			img.set_pixel(x, z, Color(minf(dx / 32.0, 1.0), forest, 0.0))
-	return ImageTexture.create_from_image(img)
+	mat.set_shader_parameter("cover_tex", ImageTexture.create_from_image(cover_image))
+	soil_texture = ImageTexture.create_from_image(soil_image)
+	mat.set_shader_parameter("soil_tex", soil_texture)
+	mat.set_shader_parameter("world_size", WIDTH)
+	var rows := int(MESH_CHUNK / CELL)
+	for j0 in range(0, res_z, rows):
+		var j1 := mini(j0 + rows, res_z)
+		var count := (j1 - j0 + 1) * nx
+		var verts := PackedVector3Array()
+		var normals := PackedVector3Array()
+		var uvs := PackedVector2Array()
+		verts.resize(count)
+		normals.resize(count)
+		uvs.resize(count)
+		for j in range(j0, j1 + 1):
+			for i in range(nx):
+				var k := j * nx + i
+				var q := (j - j0) * nx + i
+				var x := i * CELL
+				var z := j * CELL
+				verts[q] = Vector3(x, heights[k], z)
+				uvs[q] = Vector2(x / WIDTH, z / length)
+				var hl := heights[j * nx + maxi(i - 1, 0)]
+				var hr := heights[j * nx + mini(i + 1, nx - 1)]
+				var hd := heights[maxi(j - 1, 0) * nx + i]
+				var hu := heights[mini(j + 1, res_z) * nx + i]
+				normals[q] = Vector3(hl - hr, 2.0 * CELL, hd - hu).normalized()
+		var indices := PackedInt32Array()
+		indices.resize((j1 - j0) * RES_X * 6)
+		var q := 0
+		for j in range(j1 - j0):
+			for i in range(RES_X):
+				var a := j * nx + i
+				var b := a + 1
+				var c := a + nx
+				var d := c + 1
+				# Godot front faces wind clockwise seen from above (+Y).
+				indices[q] = a; indices[q + 1] = b; indices[q + 2] = c
+				indices[q + 3] = b; indices[q + 4] = d; indices[q + 5] = c
+				q += 6
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = verts
+		arrays[Mesh.ARRAY_NORMAL] = normals
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
+		arrays[Mesh.ARRAY_INDEX] = indices
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(0, mat)
+		# ruts and berms move the surface in the shader; give culling some slack
+		mesh.custom_aabb = mesh.get_aabb().grow(1.0)
+		var mi := MeshInstance3D.new()
+		mi.name = "Ground%d" % (j0 / rows)
+		mi.mesh = mesh
+		add_child(mi)
 
 
 func _build_collision() -> void:
-	var n := RES + 1
 	# The collider is the FIRM floor under the soft mud, so wheels and chassis
 	# can sink below the visual surface without fighting an invisible wall.
-	var firm := PackedFloat32Array()
-	firm.resize(n * n)
-	for j in range(n):
-		for i in range(n):
-			var cx := mini(i, RES - 1)
-			var cy := mini(j, RES - 1)
-			firm[j * n + i] = heights[j * n + i] - mud.thickness[mud.idx(cx, cy)]
-	var shape := HeightMapShape3D.new()
-	shape.map_width = n
-	shape.map_depth = n
-	shape.map_data = firm
+	# Square tiles, one HeightMapShape3D each.
+	var nx := RES_X + 1
 	var body := StaticBody3D.new()
 	body.name = "TerrainBody"
 	body.collision_layer = 1
-	var cs := CollisionShape3D.new()
-	cs.shape = shape
-	# HeightMapShape3D is centred on its origin and 1 unit per cell; scale to CELL.
-	cs.scale = Vector3(CELL, 1.0, CELL)
-	cs.position = Vector3(SIZE_M * 0.5, 0.0, SIZE_M * 0.5)
-	body.add_child(cs)
+	for t0 in range(0, res_z, RES_X):
+		var firm := PackedFloat32Array()
+		firm.resize(nx * nx)
+		for jj in range(nx):
+			var j := mini(t0 + jj, res_z)
+			for i in range(nx):
+				firm[jj * nx + i] = heights[j * nx + i] - mud.thickness[mud.idx(mini(i, RES_X - 1), mini(j, res_z - 1))]
+		var shape := HeightMapShape3D.new()
+		shape.map_width = nx
+		shape.map_depth = nx
+		shape.map_data = firm
+		var cs := CollisionShape3D.new()
+		cs.shape = shape
+		# HeightMapShape3D is centred on its origin and 1 unit per cell; scale to CELL.
+		cs.scale = Vector3(CELL, 1.0, CELL)
+		cs.position = Vector3(WIDTH * 0.5, 0.0, (t0 + RES_X * 0.5) * CELL)
+		body.add_child(cs)
 	add_child(body)
 
 
 func _build_water() -> void:
 	var shader := load("res://shaders/water.gdshader")
-	# Paddy water: one sheet over the first 45 m. The road crown sits above it,
-	# so it follows the road's curves without having to be cut to shape.
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(SIZE_M, 44.0)
-	var mi := MeshInstance3D.new()
-	mi.mesh = plane
-	var mat := ShaderMaterial.new()
-	mat.shader = shader
-	mat.set_shader_parameter("tint", Color(0.22, 0.26, 0.14, 0.55))
-	mi.material_override = mat
-	mi.position = Vector3(SIZE_M * 0.5, -0.35 + WATER_PADDY, 22.0)
-	mi.name = "PaddyWater"
-	add_child(mi)
-	# Creek: a sheet across the dip; the mesh is below the banks so it only
-	# shows where the ground dips under it.
-	var creek := PlaneMesh.new()
-	creek.size = Vector2(SIZE_M, 36.0)
-	var cmi := MeshInstance3D.new()
-	cmi.mesh = creek
-	var cmat := ShaderMaterial.new()
-	cmat.shader = shader
-	cmat.set_shader_parameter("tint", Color(0.40, 0.26, 0.12, 0.7))
-	cmi.material_override = cmat
-	cmi.position = Vector3(SIZE_M * 0.5, creek_water_level(), CREEK_Z)
-	cmi.name = "CreekWater"
-	add_child(cmi)
+	# One sheet per body of water, as wide as the map. Each sits below the
+	# banks, so it only shows where the ground dips under it.
+	for b in water_bodies:
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(WIDTH, float(b["z_hi"]) - float(b["z_lo"]))
+		var mi := MeshInstance3D.new()
+		mi.mesh = plane
+		var mat := ShaderMaterial.new()
+		mat.shader = shader
+		mat.set_shader_parameter("tint", b["tint"])
+		mat.set_shader_parameter("clarity", b["clarity"])
+		mat.set_shader_parameter("flow", Vector2(b["flow"], 0.0))
+		mat.set_shader_parameter("use_mask", true)
+		mat.set_shader_parameter("soil_tex", soil_texture)
+		mat.set_shader_parameter("world_size", Vector2(WIDTH, length))
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(WIDTH * 0.5, b["level"], (float(b["z_lo"]) + float(b["z_hi"])) * 0.5)
+		mi.name = "Water"
+		add_child(mi)
+
+
+func _place_rocks() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + 9
+	var add := func(x: float, z: float, r: float) -> void:
+		if x < 3.0 or x > WIDTH - 3.0 or z < 2.0 or z > length - 2.0:
+			return
+		rock_spots.append(Vector4(x, get_height(x, z) - r * 0.35, z, r))
+		if r > 0.9 and absf(x - trail_x_at(z)) < 14.0:
+			tree_anchors.append(Vector3(x, get_height(x, z) + r * 0.5, z))  # a boulder takes a tree saver too
+	for s in plan.sections:
+		var z0: float = s["z0"]
+		var z1: float = s["z1"]
+		var off_trail := 8
+		match s["kind"]:
+			"river":
+				for c in crossings:
+					if c["zc"] < z0 or c["zc"] > z1:
+						continue
+					for k in range(90):
+						var x := trail_x_at(c["zc"]) + rng.randfn(0.0, 22.0)
+						var z: float = c["zc"] + c["amp"] * sin(x * c["freq"] + c["phase"]) + rng.randf_range(-1.1, 1.1) * float(c["half_w"])
+						var r := 0.25 + pow(rng.randf(), 2.2) * 1.2
+						if absf(x - trail_x_at(z)) < 2.4 and r > 0.45:
+							r = rng.randf_range(0.22, 0.42)  # the line across is crawlable
+						add.call(x, z, r)
+				off_trail = 12
+			"rocky":
+				for k in range(26):
+					var z := rng.randf_range(z0 + 8.0, z1 - 8.0)
+					add.call(trail_x_at(z) + rng.randf_range(-1.8, 1.8), z, rng.randf_range(0.22, 0.5))
+				off_trail = 40
+			"lahar":
+				off_trail = 14
+		for k in range(off_trail):
+			var z := rng.randf_range(z0, z1)
+			var side := 1.0 if rng.randf() < 0.5 else -1.0
+			var big := 1.8 if s["kind"] in ["rocky", "lahar"] else 1.3
+			add.call(trail_x_at(z) + side * rng.randf_range(4.5, 25.0), z, rng.randf_range(0.5, big))
+	var rocks := Rocks.new()
+	rocks.name = "Rocks"
+	add_child(rocks)
+	rocks.build(self, rock_spots)
 
 
 func _build_trees() -> void:
-	# Secondary forest: dense off the trail, a few right at the bank edge so
-	# there's always a winch anchor in reach. Trunks are solid; canopies are not.
+	# Trees by section: dense off the trail in the forest kinds, a few right
+	# at the bank edge so there's always a winch anchor in reach. Coconut farms
+	# get palms in rows instead. Trunks near the trail are solid; canopies are not.
 	# The look (trees, bamboo, palms, grass, rice) is all in Vegetation.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
@@ -322,30 +679,58 @@ func _build_trees() -> void:
 	var anchors_body := StaticBody3D.new()
 	anchors_body.name = "Trees"
 	anchors_body.collision_layer = 1
-	for _k in range(900):
-		var z := rng.randf_range(48.0, SIZE_M - 4.0)
-		var tx := trail_x_at(z)
-		var side := 1.0 if rng.randf() < 0.5 else -1.0
-		# clustered just past the bank, thinning further out
-		var off := 4.2 + absf(rng.randfn(0.0, 1.0)) * 9.0
-		if rng.randf() < 0.12:
-			off = rng.randf_range(3.6, 4.4)  # right on the bank: winch anchors
-		var x := tx + side * off
-		if x < 2.0 or x > SIZE_M - 2.0:
-			continue
-		var y := get_height(x, z)
-		var scale := rng.randf_range(0.75, 1.15)
-		var t := Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3(scale, scale, scale)), Vector3(x, y - 0.15, z))
-		placements.append(t)
-		if off < 7.0:
-			tree_anchors.append(Vector3(x, y + 0.8, z))
-			var cs := CollisionShape3D.new()
-			var cap := CylinderShape3D.new()
-			cap.radius = 0.3 * scale
-			cap.height = 7.0 * scale
-			cs.shape = cap
-			cs.position = Vector3(x, y + 3.5 * scale, z)
-			anchors_body.add_child(cs)
+	var solid := func(x: float, y: float, z: float, scale: float) -> void:
+		tree_anchors.append(Vector3(x, y + 0.8, z))
+		var cs := CollisionShape3D.new()
+		var cap := CylinderShape3D.new()
+		cap.radius = 0.3 * scale
+		cap.height = 7.0 * scale
+		cs.shape = cap
+		cs.position = Vector3(x, y + 3.5 * scale, z)
+		anchors_body.add_child(cs)
+	for s in plan.sections:
+		var z0: float = s["z0"]
+		var z1: float = s["z1"]
+		var kind: String = s["kind"]
+		var count := int((z1 - z0) * float(TREES[kind]))
+		for _k in range(count):
+			var z := rng.randf_range(z0, z1)
+			var tx := trail_x_at(z)
+			var side := 1.0 if rng.randf() < 0.5 else -1.0
+			# clustered just past the bank, thinning further out
+			var off := 4.2 + absf(rng.randfn(0.0, 1.0)) * 9.0
+			if rng.randf() < 0.12:
+				off = rng.randf_range(3.6, 4.4)  # right on the bank: winch anchors
+			if kind == "lahar":
+				off = _lahar_half(z) + 8.0 + absf(rng.randfn(0.0, 1.0)) * 12.0
+			elif kind == "cogon":
+				off = rng.randf_range(6.0, 45.0)
+			var x := tx + side * off / _across(z)
+			if x < 2.0 or x > WIDTH - 2.0:
+				continue
+			var y := get_height(x, z)
+			if y < water_at(x, z) + 0.3:
+				continue  # not in the river
+			var scale := rng.randf_range(0.75, 1.15)
+			placements.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * scale), Vector3(x, y - 0.15, z)))
+			if off < 7.0:
+				solid.call(x, y, z, scale)
+		if kind == "niyog":
+			# a coconut plantation: palms in loose rows either side of the road
+			var gz := z0 + 4.0
+			while gz < z1 - 2.0:
+				var gx := 6.0
+				while gx < WIDTH - 6.0:
+					var x := gx + rng.randf_range(-1.2, 1.2)
+					var z := gz + rng.randf_range(-1.2, 1.2)
+					var dx := absf(x - trail_x_at(z))
+					if dx > 4.8 and dx < 60.0 and rng.randf() < 0.85:
+						var y := get_height(x, z)
+						palm_spots.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.85, 1.15)), Vector3(x, y - 0.1, z)))
+						if dx < 9.0:
+							solid.call(x, y, z, 0.8)
+					gx += 8.5
+				gz += 8.5
 	add_child(anchors_body)
 	var veg := Vegetation.new()
 	veg.name = "Vegetation"
@@ -353,23 +738,88 @@ func _build_trees() -> void:
 	veg.build(self, placements)
 
 
-# --- Queries used by the vehicle -------------------------------------------
+func _build_finish() -> void:
+	# a bamboo arch with a tarpaulin banner across the trail, barangay-fiesta style
+	var z := plan.finish_z
+	var tx := trail_x_at(z)
+	var arch := Node3D.new()
+	arch.name = "Finish"
+	var heading := Vector3(trail_x_at(z + 3.0) - trail_x_at(z - 3.0), 0.0, 6.0).normalized()
+	arch.transform = Transform3D(Basis.looking_at(heading, Vector3.UP), Vector3(tx, trail_floor_at(z), z))
+	var pole_mat := StandardMaterial3D.new()
+	pole_mat.albedo_color = Color(0.62, 0.55, 0.3)
+	pole_mat.roughness = 0.6
+	for side: float in [-1.0, 1.0]:
+		var pole := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.07
+		cyl.bottom_radius = 0.08
+		cyl.height = 5.0
+		cyl.material = pole_mat
+		pole.mesh = cyl
+		pole.position = Vector3(side * 4.2, 2.3, 0.0)
+		arch.add_child(pole)
+	var banner := MeshInstance3D.new()
+	var cloth := BoxMesh.new()
+	cloth.size = Vector3(8.2, 1.0, 0.03)
+	var cloth_mat := StandardMaterial3D.new()
+	cloth_mat.albedo_color = Color(0.75, 0.12, 0.08)
+	cloth_mat.roughness = 0.8
+	cloth.material = cloth_mat
+	banner.mesh = cloth
+	banner.position = Vector3(0.0, 4.1, 0.0)
+	arch.add_child(banner)
+	for flip: float in [0.0, PI]:
+		var text := Label3D.new()
+		text.text = "FINISH"
+		text.font_size = 160
+		text.pixel_size = 0.005
+		text.modulate = Color(1.0, 0.86, 0.3)
+		text.outline_size = 0
+		text.position = Vector3(0.0, 4.1, 0.03 if flip == 0.0 else -0.03)
+		text.rotation = Vector3(0.0, flip, 0.0)  # one side reads to the rig coming up the trail
+		arch.add_child(text)
+	add_child(arch)
+
+
+# --- queries -----------------------------------------------------------------------
 
 ## Soft-ground sample at a world position. Returns the MudField dictionary
-## plus "water_depth" (metres of standing water above the surface, 0 if none).
+## plus "water_depth" (metres of standing water above the surface, 0 if none)
+## and "grip" (friction multiplier for this kind of ground).
 func ground_sample(world_pos: Vector3) -> Dictionary:
-	var s := mud.sample(Vector2(world_pos.x, world_pos.z))
+	var xz := Vector2(world_pos.x, world_pos.z)
+	var s := mud.sample(xz)
 	var top := get_height(world_pos.x, world_pos.z)
 	var surface: float = top - s["rut"]
 	s["firm_y"] = top - s["thickness"]
-	var water := 0.0
-	if world_pos.z > CREEK_Z - 20.0 and world_pos.z < CREEK_Z + 20.0:
-		water = maxf(0.0, creek_water_level() - surface)
-	elif world_pos.z < 45.0 and absf(world_pos.x - trail_x_at(world_pos.z)) > 3.5:
-		water = maxf(0.0, (-0.35 + WATER_PADDY) - surface)
-	s["water_depth"] = water
+	s["water_depth"] = maxf(0.0, water_at(world_pos.x, world_pos.z) - surface)
 	s["surface_y"] = surface
+	var c := mud.world_to_cell(xz)
+	s["grip"] = grip[mud.idx(c.x, c.y)]
 	return s
+
+
+func _cover(x: float, z: float) -> Color:
+	return cover_image.get_pixel(clampi(int(x), 0, cover_image.get_width() - 1), clampi(int(z), 0, cover_image.get_height() - 1))
+
+
+## Water surface height here, or NO_WATER if water can't stand here.
+func water_at(x: float, z: float) -> float:
+	return water_level_at(z) if water_mask_at(x, z) else NO_WATER
+
+
+## Can water stand here (a paddy, a bog hole, inside a river or creek channel)?
+func water_mask_at(x: float, z: float) -> bool:
+	return soil_image.get_pixel(clampi(int(x), 0, soil_image.get_width() - 1), clampi(int(z), 0, soil_image.get_height() - 1)).a > 0.5
+
+
+func forest_at(x: float, z: float) -> float:
+	return _cover(x, z).g
+
+
+func paddy_at(x: float, z: float) -> float:
+	return _cover(x, z).b
 
 
 func nearest_anchor(from: Vector3, max_dist: float) -> Vector3:

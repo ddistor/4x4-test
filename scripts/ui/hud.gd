@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Debug/driver HUD for the mud playground.
+## Driver HUD: rig status, inclinometers, and the stage line (section, distance, clock).
 
 @export var rig_path: NodePath
 
@@ -7,6 +7,9 @@ var rig: Rig
 var _label: Label
 var _help: Label
 var _incl: Inclinometer
+var _stage: Label
+var _finish: Label
+var _finished := false
 
 
 func _ready() -> void:
@@ -20,7 +23,7 @@ func _ready() -> void:
 	_label.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(_label)
 	_help = Label.new()
-	_help.text = "W/S drive   A/D steer   Space handbrake   L diff lock   G low range   F winch   -/= tire pressure   C camera   Mouse drag look   Wheel zoom   Backspace reset"
+	_help.text = "W/S drive   A/D steer   Space handbrake   L diff lock   G low range   F winch   -/= tire pressure   C camera   Mouse drag look   Wheel zoom   Backspace recover   Esc pause"
 	_help.add_theme_font_size_override("font_size", 15)
 	_help.add_theme_color_override("font_color", Color(0.9, 0.88, 0.8, 0.85))
 	_help.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
@@ -33,11 +36,49 @@ func _ready() -> void:
 	_incl.position = Vector2(-300, -170)
 	_incl.size = Vector2(280, 140)
 	add_child(_incl)
+	_stage = Label.new()
+	_stage.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_stage.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_stage.position = Vector2(-400, 14)
+	_stage.size = Vector2(800, 60)
+	_style(_stage, 20)
+	add_child(_stage)
+	_finish = Label.new()
+	_finish.set_anchors_preset(Control.PRESET_CENTER)
+	_finish.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_finish.position = Vector2(-400, -120)
+	_finish.size = Vector2(800, 160)
+	_style(_finish, 54)
+	_finish.visible = false
+	add_child(_finish)
+
+
+func _style(l: Label, size: int) -> void:
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", Color(0.96, 0.93, 0.86))
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	l.add_theme_constant_override("shadow_offset_x", 2)
+	l.add_theme_constant_override("shadow_offset_y", 2)
 
 
 func _process(_delta: float) -> void:
 	_label.text = rig.status_text()
 	_incl.queue_redraw()
+	_stage_step(_delta)
+
+
+## Which section you're in and how far up the trail; no clock, it's a drive.
+func _stage_step(_delta: float) -> void:
+	var plan := rig.terrain.plan
+	var z := rig.global_position.z
+	if not _finished and z > plan.finish_z:
+		_finished = true
+		_finish.text = "You made it to the end of the trail.\nStage %d  ·  Esc for the menu" % plan.seed_value
+		_finish.visible = true
+		get_tree().create_timer(8.0).timeout.connect(func() -> void: _finish.visible = false)
+	var i := plan.index_at(z)
+	_stage.text = "%d / %d   %s\n%d / %d m" % [i + 1, plan.sections.size(), StagePlan.display_name(plan.sections[i]),
+		clampi(int(z), 0, int(plan.finish_z)), int(plan.finish_z)]
 
 
 ## Two dash inclinometers: the rig seen from behind (roll) and from the side

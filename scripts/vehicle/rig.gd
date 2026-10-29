@@ -358,12 +358,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		var i := PSI_STEPS.find(psi_target) + (1 if event.is_action_pressed("air_down") else -1)
 		psi_target = PSI_STEPS[clampi(i, 0, PSI_STEPS.size() - 1)]
 	elif event.is_action_pressed("reset_rig"):
-		reset_to_spawn()
+		recover()
 
 
 func reset_to_spawn() -> void:
 	# Put it back on the road, upright, pointed up the trail.
 	place_on_trail(6.0)
+
+
+## Back on the trail where you are, a couple of metres behind: the marshal's
+## recovery, not a trip back to the start of the stage.
+func recover() -> void:
+	place_on_trail(clampf(global_position.z - 2.0, 6.0, terrain.length - 5.0))
 
 
 ## Drop the rig on the trail centre at distance `z`, upright, facing up-trail.
@@ -390,7 +396,7 @@ func place_on_trail(z: float) -> void:
 func _physics_process(delta: float) -> void:
 	if global_position.y < -25.0 or global_transform.basis.y.y < -0.6 and linear_velocity.length() < 0.3:
 		# fell off the map or settled on the roof
-		reset_to_spawn()
+		recover()
 	throttle = Input.get_action_strength("throttle")
 	brake = Input.get_action_strength("brake")
 	var steer_in := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")

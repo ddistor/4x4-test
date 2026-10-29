@@ -1,13 +1,14 @@
 extends Node3D
-## M1 mud playground: builds the Morong trail, drops the rig at the paddies,
-## and wires up camera + HUD. Everything is procedural so the whole scene
-## lives in text.
+## A stage: builds the trail from the seed the start menu picked (Game),
+## drops the rig on the barangay road, and wires up camera, HUD and the pause
+## menu. Everything is procedural so the whole scene lives in text.
 
 
 func _ready() -> void:
 	_build_environment()
 	var terrain := Terrain.new()
 	terrain.name = "Terrain"
+	terrain.plan = StagePlan.generate(Game.stage_seed, Game.weather)
 	add_child(terrain)
 	var backdrop := Backdrop.new()
 	backdrop.name = "Backdrop"
@@ -34,6 +35,12 @@ func _ready() -> void:
 	hud.name = "HUD"
 	hud.rig_path = rig.get_path()
 	add_child(hud)
+
+	var pause := load("res://scripts/ui/pause_menu.gd").new() as CanvasLayer
+	pause.name = "Pause"
+	pause.set("terrain", terrain)
+	pause.set("rig", rig)
+	add_child(pause)
 
 	if "--snap" in OS.get_cmdline_user_args():
 		var snap: Node = load("res://scripts/snapshot.gd").new()

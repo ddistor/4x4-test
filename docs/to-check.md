@@ -1,97 +1,80 @@
 # To check in Claude Code / by hand
 
-## M1 mud playground (branch `m1-mud-playground`)
+## Procedural stage, start and pause menus
 
-The physics runs and the headless drive test gets from the paddies through the
-creek. Visuals are checked with `--snap` screenshots, not yet by a human
-driving it. In order:
+Built and run headless: three seeds (7, 4242, 31337) drive from the paddies to
+the finish with no recoveries using the crawling line-follower; the rainy seed
+(99) gets through the bog, river and creek, just slowly. Visuals checked with
+`--snap` screenshots of every section. Not yet driven by a human. In order:
 
-0. **Snapshot mode works on Windows.** Run `Godot.exe --path . -- --snap` from the
-   repo folder; it should open a window for ~10 s and leave 7 PNGs in `snaps/`.
-   Each `saved ...` line prints where the rig was (placement used to stick at
-   the first spot; fixed by setting the transform on the physics server too).
-1. **Look around (F5, mouse drag).** Realism pass: cloud sky, AgX tonemap, soft
-   shadows, light haze, far hills and Laguna de Bay past the map edge; ground is
-   layered per pixel (grass, leaf litter under the trees, laterite on cut banks,
-   gravel road, glossy wet clay with puddles in the ruts); vegetation is modelled
-   in code (broadleaf trees, bamboo, saging, niyog, grass, ferns, rice in rows).
-   Things to judge by eye: forest trunks may read too grey/pole-like; puddles
-   may be too few or too many (`pool` in `terrain.gdshader`); performance with
-   grass density (`step` in `vegetation.gd::_place_ground_cover`) on your GPU.
-2. **Drive the road** (W). Should reach ~35 km/h on the gravel. Steering (A/D)
-   should feel heavy but not sloppy. The rig is a lifted black flatfender on
-   35s with a 2.35 m wheelbase and 1950 kg, so it may pitch and wander. Drag
-   with either mouse button to orbit, scroll to zoom; C is a driver's-seat cam.
-3. **Hit the first clay at z≈50 in 4H / open diff.** Intended: it bogs within a
-   few metres and one wheel per axle spins. Press **G** (4L) and **L** (diff lock)
-   and it should crawl out at 5–7 km/h. If it crawls out too easily in 4H, raise
-   `wetness` on the lower climb in `terrain.gd::_author_mud`.
-4. **Creek crossing at z≈112.** Sinks ~0.4 m, splashes (droplets + mist), engine
-   chokes if the front wheels go past ~0.75 m of water. Passable in 4L.
-5. **Upper switchbacks past z≈139.** Marginal: one headless run with the new rig
-   reached the top, the latest one jammed at z≈142 against the bank, and the
-   `--snap` drop at z=150 can tip it over. Needs a human drive. If the banks
-   are the problem, soften `smoothstep(2.8, 7.0, dx)` in `terrain.gd::_base_height`.
-6. **Winch (F).** Point the nose roughly at a trunk within 18 m and press F. A line
-   should draw and the rig should get pulled at ~0.9 m/s. F again releases.
-   Trees right at the bank edge (12% of them) are the intended anchors.
-7. **Mud caking.** Each tire throws clay onto the body around and behind it: a
-   second or two of wheelspin should show round the arch, a long bog buries the
-   corner. Fresh mud is dark and glossy, bakes pale and cracked over ~a minute,
-   the tread packs first, and the creek rinses it off. Tune by feel: throw rate
-   `0.35` (`corner_mud[i] = ...` in `rig.gd`), reach ellipses in
-   `mud_cake.gdshader::coverage`, threshold `0.38` in its `fragment()`.
-8. **Ruts.** Drive the same stretch twice; the second pass should sit lower and the
-   terrain should show the wheel lines. If ruts look blocky, the mud grid is 0.5 m
-   (`Terrain.CELL`).
+0. **Start menu (F5).** Painted backdrop, stage preview on the right (season,
+   sections, places, lengths). *Reroll* draws a new stage, typing a seed previews
+   it, *Weather* cycles random / dry season / rainy season. *Drive this stage*
+   shows "Building the stage…" for ~4 s, then drops you on the barangay road.
+1. **Pause (Esc).** Resume, restart the same stage, new stage, back to the start
+   menu, quit. Sound should stop while paused.
+2. **HUD.** Top centre: section number, name and place, metres along the trail.
+   No timer on purpose. Under the bamboo FINISH arch: "You made it…" for 8 s.
+3. **Each section, by feel** (`scripts/world/terrain.gd`, `_kind_height` /
+   `_kind_soil`; lengths and climbs in `stage_plan.gd::KINDS`):
+   - *Barangay road*: gravel road between flooded paddies, as before.
+   - *Laterite climb*: cut two-track in red clay, 60% of the time with a brown
+     creek in a level bottom. The creek exit was the one hang-up in testing
+     (fixed by levelling the trail round fords); if it's still a wall, `bank` /
+     `drop` of the creek in `_plan_features`.
+   - *Kanal ruts*: two deep V-ruts (0.3–0.6 m) that wander and pull the wheels
+     off line; the crown between them can high-centre you.
+   - *Boulder river*: wide, shallow (0.4–0.55 m) clear water over cobbles, boulders
+     either side (small, crawlable ones on the line), foam where it's thin, the
+     current streaking across. Wet stone is slicker.
+   - *Lahar wash*: wide grey ash floor between gullied ash cliffs; loose (grip
+     0.8), with a milky braided channel across it.
+   - *Rock steps*: bedrock ledges and small boulders up an open hillside. Crawl it
+     in 4L; at speed the rig launches off the ledges.
+   - *Logging-road bog*: sunken forest road with a chain of water-filled holes;
+     slow and deep (sink ~0.3–0.4 m) but passable in 4L with lockers.
+   - *Cogon hills*: open grassland, head-high talahib over a faint two-track,
+     hidden holes in and beside the wheel lines.
+   - *Niyogan farm road*: dry dirt road through coconut rows and saging, the odd puddle.
+4. **Wet and dry.** The season is rolled per stage (or picked in the menu): dry
+   season is pale, cracked and firm; rainy season is darker, deeper and slicker,
+   and the hollows hold water. Sections vary a little around the stage's season.
+5. **Lumpy trail floor.** Humps, wallows and potholes everywhere (`LUMPS` in
+   `terrain.gd`), with more, wetter mud sitting in the hollows. Too rough or too
+   tame: tune `LUMPS` per kind.
+6. **Backspace recovers** onto the trail where you are (2 m back), not the start.
+   Rolling over or falling off does the same.
+7. **Performance.** A stage is ~1 km of terrain, trees and grass; trees, rocks
+   and plants are chunked with visibility ranges. Watch FPS in the forest
+   sections; `TREE_RANGE` in `vegetation.gd` and `TREES` density in `terrain.gd`.
 
-9. **Sound** (written and run, never heard). Engine should idle as a lumpy V8,
-   rev up when you spin the wheels, and sit higher in 4L at the same speed.
-   Mud squelch when churning, gravel crunch on the road, swash in the creek
-   (plus a splash if you hit it fast), winch whine, a clunk on L / G / F.
-   Frogs and crickets in the paddies fading to cicadas and birds in the forest.
-   If anything's too loud or quiet, the dB offsets are at the end of each
-   line in `rig_audio.gd::_process`; the sounds themselves are in
-   `sound_synth.gd`.
+Known rough edges: the bank above the bog water can pick up a bluish sheen;
+dry river cobbles on the banks read a little pale in full sun.
 
-10. **Tread packing.** Crawl slowly through the sticky clay and the HUD should
-    start saying "tread packed" and the rig loses bite; give it wheel speed and
-    the tires fling clean. Rates in `wheel.gd` (`fill` / `clear`).
-11. **Airing down** (stop first, then `-` / `=`): 35 → 28 → 22 → 18 → 15 → 12
-    psi. Hiss when letting air out, compressor when filling (slow). Lower =
-    floats and grips better in mud (A/B on the first clay: 35 m vs 30 m in 12 s
-    at 15 vs 35 psi), squats a little, steers vaguer. Under 15 psi, hard
-    cornering can pop a bead ("OFF THE BEAD"); Backspace reseats it.
-12. **Rollover.** Inclinometer bottom right (amber 25°, red 35° roll). Tilt-table
-    test: holds 33° and rolls at 36° on dry ground, slides first on wet clay.
-    Centre of mass raised to ~0.8 m off the ground; parked tires now hold on a
-    slope instead of creeping (static grip in `wheel.gd`, `_lat_drift`).
+## Earlier milestone (rig, mud, sound), still to drive by hand
+
+- **Winch (F)**: point the nose at a trunk or a big boulder within 18 m; F again releases.
+- **Mud caking**: wheelspin throws clay round the arches, a long bog buries the
+  corner; fresh mud is dark and glossy, bakes pale and cracked, rivers rinse it.
+- **Ruts**: drive the same stretch twice; the second pass sits lower.
+- **Sound**: V8 idle and revs, squelch, gravel, swash, winch, clunk on L / G / F;
+  sparse frogs and birds that follow open country vs forest.
+- **Tread packing**, **airing down** (`-` / `=`, stopped), **rollover** gauges.
 
 Known guesses to validate: spring/damper numbers in `wheel.gd`, mud drag
 coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
 ## Queued (asked for, not started)
 
-- **River crossing** like the reference photos: wide, shallow, clear water over
-  river stones, white water piling against the bumper, rooster-tail spray, a
-  glassy pool with reflections.
-- ~~**Flung mud lands**~~ done: dug clay piles into berms beside the rut and
-  spinning tires throw clods behind (negative rut in `MudField.deposit`).
-- **After the procedural stage — realism plan:**
+- **The driver**: a typical Filipino trail driver in the seat: motocross helmet,
+  t-shirt cut sleeveless, jorts, tsinelas. Must move realistically: body sways
+  and bounces with the rig, head bobs, arms work the wheel.
+- **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
      low range.
   2. Recovery kit: shovel (dig out a high-centred rig), traction boards,
      high-lift jack; snatch strap if a buddy rig arrives.
   3. Damage: mud-caked radiator overheats, axle/CV snaps when shock-loaded with
      lockers in, tie rod bends on rocks, hydrolock in deep water (snorkel fix).
-  4. Weather: rain that wets the trail over time, growing puddles, slicker clay.
-- **Procedural stage, different every run**: one long track chained from
-  Philippine terrain sections — Rizal laterite clay, Pinatubo lahar/ash
-  riverbeds, boulder river crossings, Cordillera rocky switchbacks, Ilocos /
-  Zambales sand, paddy-dike and coconut farm roads, cogon fields with hidden
-  holes, Sierra Madre logging-road bogs — with deep V-ruts ("kanal") that
-  grab the tires.
-
-## Not done in M1
-
-No audio, no AI buddy rig, no missions, one vehicle.
+  4. Weather that changes during a run: rain starting, puddles growing.
+- Ilocos / Zambales beach sand as its own section (lahar covers loose sand for now).

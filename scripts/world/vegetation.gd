@@ -9,6 +9,8 @@ extends Node3D
 ## small stuff is chunked and only drawn near the camera.
 
 const CHUNK := 32.0
+const TREE_CHUNK := 64.0
+const TREE_RANGE := 300.0
 
 var terrain: Terrain
 var _rng := RandomNumberGenerator.new()
@@ -253,7 +255,22 @@ func _place_trees(spots: Array[Transform3D]) -> void:
 	for s in spots:
 		(groups[_rng.randi() % variants] as Array[Transform3D]).append(s)
 	for v in range(variants):
-		_multi(meshes[v], groups[v], "Trees%d" % v)
+		_chunked(meshes[v], groups[v], "Trees%d" % v, TREE_CHUNK, TREE_RANGE)
+
+
+## Split a long scatter into chunks along the stage, each drawn only within
+## `vis` metres, so a kilometre of forest doesn't all render at once.
+func _chunked(mesh: Mesh, xforms: Array[Transform3D], name_: String, chunk: float, vis: float, shadows := true) -> void:
+	var by := {}
+	for x in xforms:
+		var k := int(x.origin.z / chunk)
+		if not by.has(k):
+			by[k] = [] as Array[Transform3D]
+		(by[k] as Array[Transform3D]).append(x)
+	for k: int in by:
+		var centre := Vector3(Terrain.WIDTH * 0.5, 0.0, (k + 0.5) * chunk)
+		centre.y = terrain.trail_floor_at(centre.z)
+		_multi(mesh, by[k], "%s_%d" % [name_, k], shadows, vis, centre)
 
 
 # --- bamboo -----------------------------------------------------------------------
@@ -300,16 +317,25 @@ func _bamboo_mesh(seed_v: int) -> ArrayMesh:
 func _place_bamboo() -> void:
 	var meshes: Array[ArrayMesh] = [_bamboo_mesh(901), _bamboo_mesh(902), _bamboo_mesh(903)]
 	var groups: Array = [[] as Array[Transform3D], [] as Array[Transform3D], [] as Array[Transform3D]]
-	for k in range(46):
-		# clumps crowd the creek and the trail edges
-		var z := _rng.randf_range(90.0, 135.0) if k < 18 else _rng.randf_range(48.0, 250.0)
+	# clumps crowd the rivers and creeks, and line the trail through the hills
+	var spots: Array[float] = []
+	for c in terrain.crossings:
+		for k in range(14):
+			spots.append(float(c["zc"]) + _rng.randf_range(-1.0, 1.0) * float(c["reach"]))
+	for s in terrain.plan.sections:
+		if s["kind"] in ["clay", "kanal", "river", "rocky", "niyog"]:
+			for k in range(int((s["z1"] - s["z0"]) / 8.0)):
+				spots.append(_rng.randf_range(s["z0"], s["z1"]))
+	var k := 0
+	for z in spots:
 		var side := 1.0 if _rng.randf() < 0.5 else -1.0
 		var x := terrain.trail_x_at(z) + side * _rng.randf_range(5.5, 12.0)
-		if x < 3.0 or x > Terrain.SIZE_M - 3.0:
+		if x < 3.0 or x > Terrain.WIDTH - 3.0 or terrain.get_height(x, z) < terrain.water_at(x, z) + 0.2:
 			continue
 		(groups[k % 3] as Array[Transform3D]).append(_ground_xf(x, z, _rng.randf_range(0.8, 1.15), 0.1))
+		k += 1
 	for v in range(3):
-		_multi(meshes[v], groups[v], "Bamboo%d" % v)
+		_chunked(meshes[v], groups[v], "Bamboo%d" % v, TREE_CHUNK, TREE_RANGE)
 
 
 # --- banana and coconut --------------------------------------------------------
@@ -398,27 +424,36 @@ func _place_paddy_edge_plants() -> void:
 	var palms: Array[ArrayMesh] = [_palm_mesh(61), _palm_mesh(62)]
 	var bg: Array = [[] as Array[Transform3D], [] as Array[Transform3D], [] as Array[Transform3D]]
 	var pg: Array = [[] as Array[Transform3D], [] as Array[Transform3D]]
-	for k in range(70):
-		# saging by the road edge, on the dikes and along the forest edge
-		var z := _rng.randf_range(4.0, 70.0)
-		var side := 1.0 if _rng.randf() < 0.5 else -1.0
-		var x := terrain.trail_x_at(z) + side * _rng.randf_range(4.8, 14.0)
-		if z < 45.0 and terrain.get_height(x, z) < -0.15:
-			continue  # in the paddy water
-		(bg[k % 3] as Array[Transform3D]).append(_ground_xf(x, z, _rng.randf_range(0.8, 1.2), 0.05))
-	for k in range(40):
-		var z := _rng.randf_range(-2.0, 52.0)
-		var x := _rng.randf_range(20.0, Terrain.SIZE_M - 20.0)
-		if absf(x - terrain.trail_x_at(z)) < 5.0:
+	for s in terrain.plan.sections:
+		var kind: String = s["kind"]
+		var z0: float = s["z0"]
+		var z1: float = s["z1"]
+		# saging by the road edge, on the dikes, under the coconuts
+		var bananas_here: float = {"paddy": 0.6, "niyog": 0.5, "clay": 0.05, "end": 0.2}.get(kind, 0.0)
+		for k in range(int((z1 - z0) * bananas_here)):
+			var z := _rng.randf_range(z0, z1)
+			var side := 1.0 if _rng.randf() < 0.5 else -1.0
+			var x := terrain.trail_x_at(z) + side * _rng.randf_range(4.8, 14.0 if kind != "niyog" else 40.0)
+			if terrain.get_height(x, z) < terrain.water_at(x, z) + 0.05:
+				continue  # in the paddy water
+			(bg[k % 3] as Array[Transform3D]).append(_ground_xf(x, z, _rng.randf_range(0.8, 1.2), 0.05))
+		if kind != "paddy":
 			continue
-		# palms stand on the dikes and the road shoulder, not in the water
-		if z < 45.0 and terrain.get_height(x, z) < -0.1:
-			x = terrain.trail_x_at(z) + signf(x - terrain.trail_x_at(z)) * _rng.randf_range(4.8, 6.0)
-		(pg[k % 2] as Array[Transform3D]).append(_ground_xf(x, z, _rng.randf_range(0.85, 1.15), 0.1))
+		for k in range(int((z1 - z0) * 0.4)):
+			var z := _rng.randf_range(z0, z1)
+			var x := _rng.randf_range(20.0, Terrain.WIDTH - 20.0)
+			if absf(x - terrain.trail_x_at(z)) < 5.0:
+				continue
+			# palms stand on the dikes and the road shoulder, not in the water
+			if terrain.get_height(x, z) < terrain.water_at(x, z) + 0.1:
+				x = terrain.trail_x_at(z) + signf(x - terrain.trail_x_at(z)) * _rng.randf_range(4.8, 6.0)
+			(pg[k % 2] as Array[Transform3D]).append(_ground_xf(x, z, _rng.randf_range(0.85, 1.15), 0.1))
+	for k in range(terrain.palm_spots.size()):
+		(pg[k % 2] as Array[Transform3D]).append(terrain.palm_spots[k])
 	for v in range(3):
-		_multi(bananas[v], bg[v], "Saging%d" % v)
+		_chunked(bananas[v], bg[v], "Saging%d" % v, TREE_CHUNK, TREE_RANGE)
 	for v in range(2):
-		_multi(palms[v], pg[v], "Niyog%d" % v)
+		_chunked(palms[v], pg[v], "Niyog%d" % v, TREE_CHUNK, TREE_RANGE)
 
 
 # --- grass, ferns, rice ------------------------------------------------------------
@@ -475,6 +510,8 @@ func _place_ground_cover() -> void:
 	]
 	var rice := _clump_mesh(22, 0.75, 0.05, Color(0.14, 0.28, 0.06), Color(0.36, 0.52, 0.14), 0.3, 4)
 	var ferns: Array[ArrayMesh] = [_fern_mesh(7), _fern_mesh(8)]
+	# talahib / tall cogon, head-high on a rig: it hides what the trail is doing
+	var tall := _clump_mesh(16, 1.35, 0.22, Color(0.16, 0.22, 0.06), Color(0.62, 0.58, 0.32), 0.2, 5)
 	var chunks := {}  # Vector2i -> {kind: Array[Transform3D]}
 
 	var add := func(kind: String, xf: Transform3D) -> void:
@@ -488,53 +525,71 @@ func _place_ground_cover() -> void:
 
 	var cover := terrain.mud
 	var step := 0.75
-	var nz := int(Terrain.SIZE_M / step)
+	var nz := int(terrain.length / step)
 	for iz in range(nz):
 		var z := (iz + 0.5) * step
 		var tx := terrain.trail_x_at(z)
-		for ix in range(int(Terrain.SIZE_M / step)):
+		var kind: String = terrain.plan.section_at(z)["kind"]
+		for ix in range(int(Terrain.WIDTH / step)):
 			var x := (ix + 0.5) * step + _rng.randf_range(-0.3, 0.3)
 			var zz := z + _rng.randf_range(-0.3, 0.3)
 			var dx := absf(x - tx)
 			if dx > 55.0:
 				continue
 			var h := terrain.get_height(x, zz)
+			if h < terrain.water_at(x, zz) + 0.05:
+				continue  # under water: rice goes in separately
 			var cell := cover.world_to_cell(Vector2(x, zz))
 			var thick := cover.thickness[cover.idx(cell.x, cell.y)]
-			if zz < 45.0:
+			var map := terrain._cover(x, zz)
+			if map.b > 0.5:
 				if dx < 4.3:
 					continue  # road
-				if h < -0.12:
-					continue  # paddy water: rice goes in separately
+			elif kind == "cogon":
+				# the cogon grows right over the faint two-track and hides the pits;
+				# only the wheel lines themselves are worn bare
+				if absf(dx - 0.8) < 0.35:
+					continue
 			elif thick > 0.04:
 				continue  # trail mud
 			# steep cut banks stay bare
 			var slope := absf(terrain.get_height(x + 0.5, zz) - terrain.get_height(x - 0.5, zz)) + absf(terrain.get_height(x, zz + 0.5) - terrain.get_height(x, zz - 0.5))
 			if slope > 0.9:
 				continue
-			var woods := zz > 48.0 and dx > 6.0 + 2.0 * sin(zz * 0.3)
-			if woods:
+			if map.g > 0.5:
 				if _rng.randf() < 0.08:
 					add.call("fern%d" % (_rng.randi() % 2), _ground_xf(x, zz, _rng.randf_range(0.7, 1.3)))
 				continue
-			var kind := "grass%d" % (1 if _rng.randf() < 0.25 else (0 if _rng.randf() < 0.6 else 2))
-			add.call(kind, _ground_xf(x, zz, _rng.randf_range(0.7, 1.3)))
+			if map.a > 0.5:
+				# lahar sand: the odd tuft of talahib
+				if _rng.randf() < 0.05:
+					add.call("tall", _ground_xf(x, zz, _rng.randf_range(0.6, 1.0)))
+				continue
+			if kind == "cogon":
+				add.call("tall" if _rng.randf() < 0.7 else "grass1", _ground_xf(x, zz, _rng.randf_range(0.75, 1.25)))
+				continue
+			var grass := "grass%d" % (1 if _rng.randf() < 0.25 else (0 if _rng.randf() < 0.6 else 2))
+			add.call(grass, _ground_xf(x, zz, _rng.randf_range(0.7, 1.3)))
 
 	# rice: rows 0.45 m apart, a hill every 0.35 m, in the flooded paddies only
-	var rz := 1.0
-	while rz < 44.0:
-		var rx := 20.0
-		while rx < Terrain.SIZE_M - 20.0:
-			var hx := rx + _rng.randf_range(-0.04, 0.04)
-			if absf(hx - terrain.trail_x_at(rz)) > 5.0 and terrain.get_height(hx, rz) < -0.2:
-				var xf := Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * _rng.randf_range(0.85, 1.1)), Vector3(hx, terrain.get_height(hx, rz), rz))
-				add.call("rice", xf)
-			rx += 0.35
-		rz += 0.45
+	for s in terrain.plan.sections:
+		if s["kind"] != "paddy":
+			continue
+		var rz: float = s["z0"] + 1.0
+		while rz < float(s["z1"]) - 1.0:
+			var level := terrain.water_level_at(rz)
+			var rx := 20.0
+			while rx < Terrain.WIDTH - 20.0:
+				var hx := rx + _rng.randf_range(-0.04, 0.04)
+				if absf(hx - terrain.trail_x_at(rz)) > 5.0 and terrain.get_height(hx, rz) < level - 0.05 and terrain.paddy_at(hx, rz) > 0.5:
+					var xf := Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * _rng.randf_range(0.85, 1.1)), Vector3(hx, terrain.get_height(hx, rz), rz))
+					add.call("rice", xf)
+				rx += 0.35
+			rz += 0.45
 
 	var kinds := {
 		"grass0": grass_meshes[0], "grass1": grass_meshes[1], "grass2": grass_meshes[2],
-		"rice": rice, "fern0": ferns[0], "fern1": ferns[1],
+		"rice": rice, "fern0": ferns[0], "fern1": ferns[1], "tall": tall,
 	}
 	for key: Vector2i in chunks:
 		var centre := Vector3((key.x + 0.5) * CHUNK, 0.0, (key.y + 0.5) * CHUNK)

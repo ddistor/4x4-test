@@ -8,11 +8,11 @@ render_mode cull_back, depth_draw_opaque;
 
 // R = rut depth (m), G = wetness 0..1, B = soft mud thickness (m)
 uniform sampler2D mud_tex : filter_linear, repeat_disable;
-// R = distance to trail centre / 32 m, G = forest cover 0..1
+// R = distance to trail centre / 32 m, G = forest cover, B = paddy, A = lahar ash
 uniform sampler2D cover_tex : filter_linear, repeat_disable;
-uniform float world_size = 256.0;
-uniform float creek_level = 0.0;
-uniform float paddy_water = -0.2;
+// R = bedrock, G = river cobbles, B = water level (m; -1000 where there's none)
+uniform sampler2D soil_tex : filter_linear, repeat_disable;
+uniform float world_size = 160.0;  // width of the map in metres
 
 uniform vec3 clay_dry : source_color = vec3(0.60, 0.31, 0.14);     // Morong laterite, sun-baked
 uniform vec3 clay_wet : source_color = vec3(0.33, 0.14, 0.06);     // same clay after rain
@@ -27,6 +27,9 @@ uniform vec3 gravel   : source_color = vec3(0.50, 0.44, 0.36);
 uniform vec3 stone    : source_color = vec3(0.66, 0.63, 0.57);
 uniform vec3 silt     : source_color = vec3(0.12, 0.10, 0.06);
 uniform vec3 puddle_col : source_color = vec3(0.10, 0.06, 0.03);
+uniform vec3 ash_dry : source_color = vec3(0.64, 0.61, 0.55);     // Pinatubo lahar sand
+uniform vec3 ash_wet : source_color = vec3(0.36, 0.35, 0.33);
+uniform vec3 bedrock : source_color = vec3(0.44, 0.42, 0.39);
 
 varying vec3 world_pos;
 
@@ -93,8 +96,12 @@ void vertex() {
 
 void fragment() {
 	vec3 m = texture(mud_tex, UV).rgb;
-	vec2 cov = texture(cover_tex, UV).rg;
+	vec4 cov = texture(cover_tex, UV);
+	vec4 soil = texture(soil_tex, UV);
 	float forest = cov.g;
+	float paddy_k = cov.b;
+	float ash = cov.a;
+	float water_level = soil.b;
 	vec3 wn = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	float slope = 1.0 - wn.y;
 	vec2 p = world_pos.xz;
@@ -135,18 +142,58 @@ void fragment() {
 	float rough_ground = mix(0.92, 0.85, forest);
 
 	// --- paddies and the gravel road ---------------------------------------
-	if (world_pos.z < 45.0) {
+	if (paddy_k > 0.01) {
 		vec3 dike = paddy * (0.8 + 0.35 * g3);
-		float under = 1.0 - smoothstep(paddy_water - 0.1, paddy_water + 0.06, world_pos.y);
-		ground = mix(dike, silt * (0.8 + 0.4 * g3), under);
+		float under = 1.0 - smoothstep(water_level - 0.1, water_level + 0.06, world_pos.y);
+		vec3 pg = mix(dike, silt * (0.8 + 0.4 * g3), under);
 		float road = 1.0 - smoothstep(0.06, 0.2, m.b);
 		vec2 st = cells(p * 11.0);
 		float pebble = smoothstep(0.26, 0.1, st.x) * step(0.35, st.y) * detail;
 		vec3 grav = gravel * (0.8 + 0.3 * g3);
 		grav = mix(grav, stone * (0.6 + 0.4 * st.y), pebble * 0.45);
-		ground = mix(ground, grav, road);
-		h = mix(h, pebble * 0.025 * (0.5 + st.y), road);
-		soft = 0.0;
+		pg = mix(pg, grav, road);
+		ground = mix(ground, pg, paddy_k);
+		h = mix(h, mix(h, pebble * 0.025 * (0.5 + st.y), road), paddy_k);
+		soft *= 1.0 - paddy_k;
+	}
+
+	// --- lahar: grey ash and sand, wind-rippled, cliffs of the same stuff ----
+	if (ash > 0.01) {
+		float ripple = sin(dot(p, vec2(0.8, 2.6)) + fbm(p * 0.4) * 6.0) * 0.5 + 0.5;
+		vec3 ag = ash_dry * (0.85 + 0.2 * g2 + 0.12 * (g4 - 0.5) * detail);
+		ag = mix(ag, ash_wet, smoothstep(0.25, 0.7, m.g) * 0.8);
+		// layered banding on the cliffs
+		ag *= mix(1.0, 0.8 + 0.25 * noise(vec2(world_pos.y * 3.0, p.x * 0.05)), smoothstep(0.2, 0.45, slope));
+		ground = mix(ground, ag, ash);
+		h = mix(h, ripple * 0.012 + g4 * 0.006, ash);
+	}
+
+	// --- bedrock: grey slabs with cracks where the trail climbs over rock ---
+	float rock = soil.r;
+	if (rock > 0.01) {
+		vec2 slab = cells(p * 0.9);
+		vec3 rc = bedrock * (0.75 + 0.35 * slab.y) * (0.85 + 0.25 * g2);
+		float crack = smoothstep(0.035, 0.0, abs(fbm(p * 0.7 + slab.y) - 0.5)) * smoothstep(0.3, 0.6, slab.x);
+		rc *= 1.0 - 0.3 * crack;
+		ground = mix(ground, rc, rock);
+		h = mix(h, (1.0 - crack) * 0.03 + g4 * 0.01, rock);
+		soft *= 1.0 - 0.8 * rock;
+	}
+
+	// --- river bed: rounded cobbles of every colour -------------------------
+	float cob = soil.g;
+	if (cob > 0.01) {
+		vec2 c1 = cells(p * 2.6);
+		vec2 c2 = cells(p * 6.5 + 3.0);
+		float big = smoothstep(0.62, 0.2, c1.x);
+		float small = smoothstep(0.6, 0.25, c2.x);
+		vec3 s1 = mix(vec3(0.3, 0.29, 0.27), vec3(0.4, 0.33, 0.26), c1.y) * (0.75 + 0.4 * hash(vec2(c1.y, 3.0)));
+		vec3 s2 = mix(vec3(0.27, 0.26, 0.25), vec3(0.42, 0.4, 0.35), c2.y);
+		vec3 sand = vec3(0.32, 0.29, 0.24) * (0.8 + 0.3 * g3);
+		vec3 bed = mix(mix(sand, s2, small), s1, big);
+		ground = mix(ground, bed, cob);
+		h = mix(h, big * 0.06 + small * 0.025, cob);
+		soft *= 1.0 - cob;
 	}
 
 	// mud piled up by the tires (negative rut) is clay wherever it landed,
@@ -156,26 +203,36 @@ void fragment() {
 
 	// --- trail clay ------------------------------------------------------------
 	vec3 clay = mix(clay_dry, clay_wet, m.g);
+	clay = mix(clay, mix(ash_dry * 0.92, ash_wet, m.g), ash);  // churned ash is grey, not red
 	clay *= 0.8 + 0.28 * fbm(p * 1.4) + 0.2 * (g4 - 0.5) * detail;
 	float rut_k = smoothstep(0.02, 0.18, m.r);
 	clay = mix(clay, clay_wet * 0.72, rut_k * (0.5 + 0.5 * g3));
 	float clods = fbm(p * 3.5);
+	// dry-season clay: pale, dusty, split into plates along shrinkage cracks
+	float dry = (1.0 - smoothstep(0.12, 0.35, m.g)) * (1.0 - ash) * (1.0 - rut_k);
+	float crack = smoothstep(0.03, 0.0, abs(fbm(p * 1.9 + 5.0) - 0.5)) + 0.6 * smoothstep(0.02, 0.0, abs(fbm(p * 4.3) - 0.5));
+	crack = min(crack, 1.0) * dry * detail;
+	clay = mix(clay, clay * 1.12 + 0.03, dry * 0.5);
+	clay *= 1.0 - 0.45 * crack;
 	vec3 col = mix(ground, clay, soft);
-	h = mix(h, clods * 0.05 + g4 * 0.012, soft);
+	h = mix(h, clods * 0.05 + g4 * 0.012 - crack * 0.02, soft);
 	float rough = mix(rough_ground, mix(0.85, 0.28, pow(m.g, 1.4)), soft);
 	float spec = mix(0.3, 0.5, soft * m.g);
 
-	// --- standing water: in deep wet ruts, low spots on wet clay, the creek --
+	// --- standing water: in deep wet ruts, low spots on wet clay -------------
 	float pool = m.g * (0.45 + rut_k) - fbm(p * 0.16 + 11.0) * 0.75;
 	float puddle = smoothstep(0.1, 0.16, pool) * soft;
-	float underwater = step(world_pos.y, creek_level) * step(92.0, world_pos.z) * step(world_pos.z, 132.0);
-	float water = max(puddle, underwater);
 	// a dark wet margin round each puddle
 	col *= 1.0 - 0.3 * smoothstep(0.04, 0.1, pool) * soft * (1.0 - puddle);
-	col = mix(col, puddle_col, water * 0.85);
-	rough = mix(rough, 0.03, water);
-	spec = mix(spec, 0.5, water);
-	h = mix(h, 0.0015 * sin(p.x * 9.0 + TIME * 1.3) * sin(p.y * 7.0 - TIME), water);
+	col = mix(col, puddle_col, puddle * 0.85);
+	rough = mix(rough, 0.03, puddle);
+	spec = mix(spec, 0.5, puddle);
+	h = mix(h, 0.0015 * sin(p.x * 9.0 + TIME * 1.3) * sin(p.y * 7.0 - TIME), puddle);
+	// under a river, creek or paddy (the water sheet draws the surface):
+	// soaked and dark, plus a wet band just above the waterline
+	float wetline = (1.0 - smoothstep(water_level, water_level + 0.3, world_pos.y)) * smoothstep(0.3, 0.7, soil.a);
+	col *= mix(1.0, 0.62, wetline);
+	rough = mix(rough, 0.25, wetline);
 
 	ALBEDO = col;
 	ROUGHNESS = rough;

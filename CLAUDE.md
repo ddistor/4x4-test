@@ -14,14 +14,30 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 
 ## Layout
 
-- `scripts/main.gd` — builds environment, terrain, rig, camera, HUD.
-- `scripts/world/terrain.gd` — procedural Morong trail: paddies → first clay climb →
-  creek → upper switchbacks. Heightmap mesh + `HeightMapShape3D` collider of the
-  *firm floor* (heights minus mud thickness). Trees (MultiMesh) double as winch anchors.
+- `scripts/game.gd` — autoload `Game`: the stage seed and weather, and switching
+  between the start menu (`scenes/menu.tscn`, the main scene) and a stage
+  (`scenes/main.tscn`). `-- --seed N --weather dry|rain` on the command line.
+- `scripts/ui/start_menu.gd` — start menu (painted backdrop, stage preview, seed,
+  weather); `pause_menu.gd` — Esc; `hud.gd` — rig status, inclinometers, section
+  and distance (no clock on purpose: it's a drive, not a race); `ui_kit.gd` — shared look.
+- `scripts/main.gd` — builds environment, terrain, rig, camera, HUD, pause menu.
+- `scripts/world/stage_plan.gd` — the seeded chain of sections: paddy road first,
+  then six of laterite climb, kanal ruts, boulder river, lahar wash, rock steps,
+  logging-road bog, cogon hills, niyogan farm road (always a river and kanal), then
+  the finish clearing. Trail profile per section; the season (dry .. rainy).
+- `scripts/world/terrain.gd` — builds the stage as a 160 m wide strip along +Z:
+  each section kind shapes heights, soft ground and grip its own way and blends
+  into the next; rivers/creeks cross the trail, pits hide in the cogon, the trail
+  floor is lumpy. Heightmap mesh in chunks + `HeightMapShape3D` tiles of the
+  *firm floor* (heights minus mud thickness). 1 m cover/soil maps feed the shader
+  (forest, paddy, ash, bedrock, cobbles, water level and where water may stand).
+  Trees, palms and boulders double as winch anchors.
+- `scripts/world/rocks.gd` — boulders and river stones, convex colliders; wheels
+  treat group "rock" as firm ground.
 - `scripts/world/vegetation.gd` — everything green, modelled in code: broadleaf
   trees (sweep trunks + procedural leaf-card canopies), bamboo, saging, niyog,
-  grass/ferns, rice in rows. Small stuff is chunked with a visibility range.
-- `scripts/world/backdrop.gd` — far hills past the map edge and Laguna de Bay.
+  grass/talahib/ferns, rice in rows, placed per section. Chunked with visibility ranges.
+- `scripts/world/backdrop.gd` — far hills in rings round the strip, Laguna de Bay.
 - `scripts/world/mud_field.gd` — per-cell soft-ground data: thickness, wetness, rut.
   Baked into an RGB float texture the terrain shader reads (ruts displace vertices).
 - `scripts/vehicle/rig.gd` — the rig (RigidBody3D), a lifted black Willys-style
@@ -36,26 +52,29 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   lathes, tubes, tori) appended into a SurfaceTool.
 - `scripts/vehicle/wheel.gd` — one corner: raycast suspension, brush tire, sink/drag/
   rut carving against the mud field, spray/splash particles.
-- `shaders/` — terrain (rut displacement, laterite colouring, pooling), muddy water,
+- `shaders/` — terrain (rut displacement, laterite, ash, bedrock, river cobbles,
+  dry-season cracks, pooling), water (muddy, or clear with depth colour and foam),
+  `rock` for boulders,
   body paint that cakes with clay where the tires throw it, tire/wheel mud;
   shared clay look in `mud_common.gdshaderinc`; `foliage`/`bark` for plants,
   `sky` (procedural clouds), `backdrop` for the far hills. Vertex colours are
   authored as sRGB and linearised in the shader (clamp before `pow`: MSAA on
   thin blades otherwise makes NaNs that glow turns into white blobs).
-- `tests/drive_test.tscn` — headless smoke test that drives the trail with a simple
-  line-follower and prints position/sink/slip each second:
-  `godot --headless --path . res://tests/drive_test.tscn --quit-after 20000`
+- `tests/drive_test.tscn` — headless smoke test that drives a whole stage with a
+  line-follower (crawling in 4L), recovers when stuck >10 s and prints where:
+  `godot --headless --path . res://tests/drive_test.tscn --quit-after 36000 -- --seed 7`
 
 ## Seeing the game without a hand on the keyboard
 
-`Godot.exe --path . -- --snap` (needs a window, not `--headless`) drops the rig at
-six spots along the trail plus one driving shot and saves PNGs to `snaps/`. Read
-them to check visuals and tune. Spots are listed in `scripts/snapshot.gd`.
+`Godot.exe --path . -- --snap --seed N` (needs a window, not `--headless`) skips the
+menu, drops the rig mid-way through every section and at each crossing, plus one
+driving shot, and saves PNGs to `snaps/`. Read them to check visuals and tune.
 
 ## Conventions
 
-- Forward is -Z (Godot). The rig spawns facing world +Z, so its left is world +X.
+- Forward is -Z (Godot). The stage runs along world +Z; the rig spawns facing up it.
 - Units are metres, newtons, seconds. Tune in the `@export` vars at the top of
   `rig.gd` and `wheel.gd` before touching the formulas.
 - Setting: Morong, Rizal. Red laterite clay, secondary forest, rice paddies by
-  Laguna de Bay. Keep names and vibe local; avoid making it generic "jungle".
+  Laguna de Bay, and the stage sections named after real Philippine trail country.
+  Keep names and vibe local; avoid making it generic "jungle".

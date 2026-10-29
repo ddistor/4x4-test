@@ -266,6 +266,14 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 
 	# --- where the tire actually sits -------------------------------------
 	ground = terrain.ground_sample(hit.position)
+	if hit.collider is Node and (hit.collider as Node).is_in_group("rock"):
+		# up on a boulder: nothing to sink into, and slick where the river wets it
+		var level := terrain.water_at(hit.position.x, hit.position.z)
+		ground["thickness"] = 0.0
+		ground["rut"] = 0.0
+		ground["wetness"] = 0.7 if level > hit.position.y - 0.25 else 0.2
+		ground["water_depth"] = maxf(0.0, level - hit.position.y)
+		ground["grip"] = 1.0
 	var room: float = maxf(0.0, ground["thickness"] - ground["rut"])
 	var wet: float = ground["wetness"]
 	var water: float = ground["water_depth"]
@@ -326,6 +334,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	mu *= 1.0 - 0.3 * packing                            # tread full of clay: a slick
 	if debeaded:
 		mu *= 0.45
+	mu *= ground.get("grip", 1.0)                        # loose ash, wet river stone, bare rock
 	var mu_lat := mu + 0.45 * smoothstep(0.05, 0.25, ground["rut"])  # rut walls guide
 	var cap := mu * load
 	if grip_cap_override >= 0.0:

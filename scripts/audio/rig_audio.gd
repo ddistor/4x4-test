@@ -28,6 +28,7 @@ var _clunk: AudioStream
 var _splash: AudioStream
 var _last := {}
 var _was_wet := false
+var _forest := 0.0  # 0 open country .. 1 in the trees, eased so it doesn't flicker
 
 # wildlife: a bank of separate calls, played at random round the listener
 var _calls := {}           # kind -> Array[AudioStream]
@@ -141,8 +142,10 @@ func _process(delta: float) -> void:
 	_was_wet = wet
 
 	# --- ambience: paddies by the lake, forest once you're in the trees -------
-	var z := rig.global_position.z
-	var f := smoothstep(35.0, 70.0, z)
+	var at := rig.global_position
+	var woods := (rig.terrain.forest_at(at.x - 12.0, at.z) + rig.terrain.forest_at(at.x + 12.0, at.z)) * 0.5
+	_forest = lerpf(_forest, smoothstep(0.1, 0.6, woods), 1.0 - exp(-delta * 0.5))
+	var f := _forest
 	_paddy_amb.volume_db = _db((1.0 - f) * 0.5) - 6.0
 	_forest_amb.volume_db = _db(f * 0.55) - 6.0
 	_critter_step(delta, f)
