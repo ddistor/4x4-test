@@ -27,6 +27,16 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Front corners closed up
+
+On the Rubikon you could see into the body at the front corner: the grille
+face stopped short of the fender sides, the side panels started 5 cm behind
+the nose, and the hood stood proud of the fender tops. Fixed there, and the
+same nose gap on the Ronda and Feroz. `--snap --snap-rig --rig ID` now also
+saves `97_rig_corner_ID.png`, a close-up of the front-left corner; all six
+checked. The Gera and Owner keep their open flat fenders on purpose (you see
+the engine bay under them, like the real ones).
+
 ## Rock gully (new section kind)
 
 "Rock gully · Wawa, Montalban" (`gully` in `stage_plan.gd::KINDS`, shaped in

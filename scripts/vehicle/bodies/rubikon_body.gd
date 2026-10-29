@@ -71,8 +71,10 @@ static func build(rig: Rig) -> void:
 	# front: fenders with flat tops beside a long vented hood, the grille face
 	for sx: float in [-1.0, 1.0]:
 		var x := sx * HALF_W
-		KuwarentaBody._side_panel(paint, x, NOSE_Z + 0.05, COWL_Z, SILL + 0.1, HOOD_Y - 0.02, [[fz, arch]], 0.035, c)
-		rb.call(paint, Vector3(0.24, 0.05, COWL_Z - NOSE_Z - 0.05), 0.02, at.call(Vector3(sx * (HALF_W - 0.12), HOOD_Y - 0.02, (COWL_Z + NOSE_Z) * 0.5 + 0.02)))
+		KuwarentaBody._side_panel(paint, x, NOSE_Z - 0.02, COWL_Z, SILL + 0.1, HOOD_Y, [[fz, arch]], 0.035, c)
+		# fender top: from under the hood's edge out to the side, nose to cowl
+		var fin := spec.tire_inner() - 0.03
+		rb.call(paint, Vector3(HALF_W + 0.01 - fin, 0.05, COWL_Z - NOSE_Z + 0.02), 0.02, at.call(Vector3(sx * (HALF_W + 0.01 + fin) * 0.5, HOOD_Y, (COWL_Z + NOSE_Z) * 0.5)))
 		rb.call(paint, Vector3(0.03, HOOD_Y - 0.7, COWL_Z - NOSE_Z), 0.01, at.call(Vector3(sx * spec.tire_inner(), (HOOD_Y + 0.7) * 0.5, (COWL_Z + NOSE_Z) * 0.5)))
 	var hood := Transform3D(Basis(Vector3.RIGHT, -0.03), Vector3(0, HOOD_Y + 0.02, (COWL_Z + NOSE_Z) * 0.5))
 	rb.call(paint, Vector3(HALF_W * 2.0 - 0.46, 0.06, COWL_Z - NOSE_Z), 0.03, hood)
@@ -80,7 +82,7 @@ static func build(rig: Rig) -> void:
 		for k in range(4):
 			rb.call(plastic, Vector3(0.12, 0.012, 0.018), 0.004, hood * at.call(Vector3(sx * 0.3, 0.035, -0.25 + k * 0.05)))
 	var face_y0 := SILL + 0.15
-	rb.call(paint, Vector3(HALF_W * 2.0 - 0.06, HOOD_Y - face_y0, 0.05), 0.025, at.call(Vector3(0, (HOOD_Y + face_y0) * 0.5, NOSE_Z)))
+	rb.call(paint, Vector3(HALF_W * 2.0 + 0.02, HOOD_Y - face_y0 + 0.02, 0.05), 0.025, at.call(Vector3(0, (HOOD_Y + face_y0) * 0.5, NOSE_Z)))
 	for k in range(9):
 		rb.call(chassis, Vector3(0.045, 0.24, 0.02), 0.012, at.call(Vector3((k - 4) * 0.075, 0.93, NOSE_Z - 0.03)))
 	for sx: float in [-1.0, 1.0]:

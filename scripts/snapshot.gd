@@ -155,9 +155,12 @@ func _rig_shots() -> void:
 	var r := _rig.global_transform
 	var views := [["97_rig_front", Vector3(-3.6, 1.9, -5.0)], ["97_rig_side", Vector3(-6.5, 1.5, 0.0)],
 		["97_rig_rear", Vector3(3.8, 2.1, 5.2)]]
+	# and a close look at the front-left corner, where nose, fender and hood meet
+	var corner := Vector3(-_rig.spec.track, 0.95, _rig.spec.fairlead.z + 0.35)
+	views.append(["97_rig_corner", corner + Vector3(-1.1, 0.5, -1.4), corner])
 	for v: Array in views:
 		cam.global_position = r * (v[1] as Vector3)
-		cam.look_at(r * Vector3(0, 0.95, 0), r.basis.y)
+		cam.look_at(r * (v[2] as Vector3 if v.size() > 2 else Vector3(0, 0.95, 0)), r.basis.y)
 		cam.make_current()
 		for i in range(3):
 			await RenderingServer.frame_post_draw

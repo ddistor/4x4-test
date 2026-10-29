@@ -59,12 +59,14 @@ static func build(rig: Rig) -> void:
 		BodyKit.wheel_houses(plastic, rig.spec, zc, HALF_W, SILL, c)
 	for sx: float in [-1.0, 1.0]:
 		var x := sx * HALF_W
-		KuwarentaBody._side_panel(paint, x, NOSE_Z + 0.04, TAIL_Z, CLAD, BELT, [[fz, arch], [rz, arch]], 0.03, c)
-		KuwarentaBody._side_panel(plastic, x + sx * 0.008, NOSE_Z + 0.04, TAIL_Z, SILL, CLAD, [[fz, arch], [rz, arch]], 0.03, c)
+		KuwarentaBody._side_panel(paint, x, NOSE_Z - 0.02, TAIL_Z, CLAD, BELT, [[fz, arch], [rz, arch]], 0.03, c)
+		KuwarentaBody._side_panel(plastic, x + sx * 0.008, NOSE_Z - 0.02, TAIL_Z, SILL, CLAD, [[fz, arch], [rz, arch]], 0.03, c)
 		# pinstripe along the flank, broken by the arches
 		for seg: Array in [[NOSE_Z + 0.08, fz - arch - 0.04], [fz + arch + 0.04, rz - arch - 0.04], [rz + arch + 0.04, TAIL_Z - 0.03]]:
 			var z0: float = seg[0]
 			var z1: float = seg[1]
+			if z1 - z0 < 0.05:
+				continue   # no room between the nose and the arch
 			rb.call(stripe, Vector3(0.01, 0.035, z1 - z0), 0.004, at.call(Vector3(x + sx * 0.004, 0.86, (z0 + z1) * 0.5)))
 		# square-cut plastic flares round both arches
 		for zc: float in [fz, rz]:

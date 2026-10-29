@@ -56,7 +56,7 @@ static func build(rig: Rig) -> void:
 		BodyKit.wheel_houses(plastic, rig.spec, zc, HALF_W, SILL, c)
 	for sx: float in [-1.0, 1.0]:
 		var x := sx * HALF_W
-		KuwarentaBody._side_panel(paint, x, NOSE_Z + 0.05, TAIL_Z, SILL, BELT, [[fz, arch], [rz, arch]], 0.035, c)
+		KuwarentaBody._side_panel(paint, x, NOSE_Z - 0.02, TAIL_Z, SILL, BELT, [[fz, arch], [rz, arch]], 0.035, c)
 		for zc: float in [fz, rz]:
 			_flare(plastic, x + sx * 0.035, zc, arch, c)
 		# door shut lines and handles
