@@ -27,6 +27,20 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Water and the barangay road look
+
+`water.gdshader` now works out depth from the terrain (`Terrain.bed_texture`)
+instead of the depth buffer, so it looks the same on every renderer: clear
+rivers show the cobbles in the shallows and go green in the pools, the sky
+mirrors at a glancing angle, foam lines the banks and the riffles, the bank
+edge is soft. The rig rings each tire with white water, trails a V wake when it
+moves, and spinning tires in a clear river stir up a brown plume that drifts off
+downstream (`Rig._stir_water`; not seen rendered yet, the snapshot rig is parked).
+Muddy water is opaque a hand deep with brown froth. The paddy road is packed
+grey-brown dirt with paler loose stones and darker wheel lines instead of near
+white. To check by driving: wakes and the plume through a river, and how the
+water reads in Forward+ (only the simpler renderer was available here).
+
 ## Mud: slower, sets hard, flakes, washes realistically
 
 `rig.gd` (mud on the rig) and `mud_cake.gdshader`. Rolling through clay only

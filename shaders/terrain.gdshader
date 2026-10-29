@@ -23,7 +23,7 @@ uniform vec3 grass_dk : source_color = vec3(0.10, 0.20, 0.05);
 uniform vec3 paddy    : source_color = vec3(0.27, 0.38, 0.12);
 uniform vec3 litter_a : source_color = vec3(0.26, 0.17, 0.09);
 uniform vec3 litter_b : source_color = vec3(0.46, 0.31, 0.15);
-uniform vec3 gravel   : source_color = vec3(0.50, 0.44, 0.36);
+uniform vec3 gravel   : source_color = vec3(0.40, 0.34, 0.27);   // packed dirt and crushed adobe
 uniform vec3 stone    : source_color = vec3(0.66, 0.63, 0.57);
 uniform vec3 silt     : source_color = vec3(0.12, 0.10, 0.06);
 uniform vec3 puddle_col : source_color = vec3(0.10, 0.06, 0.03);
@@ -148,12 +148,20 @@ void fragment() {
 		vec3 pg = mix(dike, silt * (0.8 + 0.4 * g3), under);
 		float road = 1.0 - smoothstep(0.06, 0.2, m.b);
 		vec2 st = cells(p * 11.0);
-		float pebble = smoothstep(0.26, 0.1, st.x) * step(0.35, st.y) * detail;
-		vec3 grav = gravel * (0.8 + 0.3 * g3);
-		grav = mix(grav, stone * (0.6 + 0.4 * st.y), pebble * 0.45);
+		float pebble = smoothstep(0.22, 0.08, st.x) * step(0.45, st.y) * detail;
+		vec3 grav = gravel * (0.78 + 0.22 * g2 + 0.15 * g3);
+		// loose stones are paler than the packed dirt round them, not dark specks
+		grav = mix(grav, stone * (0.75 + 0.25 * st.y), pebble * 0.35);
+		// the two wheel lines: packed smooth and darker, a grassy crown between
+		float across = cov.r * 32.0;
+		float lines = exp(-pow((across - 0.8) / 0.32, 2.0));
+		float crown = 1.0 - smoothstep(0.15, 0.45, across);
+		grav = mix(grav, gravel * 0.72, lines * 0.6);
+		grav = mix(grav, mix(grav, grass_dk * 1.6, 0.5), crown * smoothstep(0.4, 0.7, g2) * 0.7);
+		pebble *= 1.0 - lines * 0.8;
 		pg = mix(pg, grav, road);
 		ground = mix(ground, pg, paddy_k);
-		h = mix(h, mix(h, pebble * 0.025 * (0.5 + st.y), road), paddy_k);
+		h = mix(h, mix(h * 0.6, pebble * 0.008 * (0.5 + st.y), road), paddy_k);
 		soft *= 1.0 - paddy_k;
 	}
 
