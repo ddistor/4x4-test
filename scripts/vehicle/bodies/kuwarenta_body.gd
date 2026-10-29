@@ -26,9 +26,13 @@ const HOOD_Y := 1.06
 # headlights in the grille panel
 const HL_X := 0.46
 const HL_Y := 0.83
-# windshield: low, raked back a little
-const WS_TILT := 0.2
-const WS_H := 0.5
+# door opening (doors off)
+const DOOR_Z := 0.56
+const DOOR_SILL := 0.74
+# windshield: a broad body-colour frame, nearly upright
+const WS_TILT := 0.12
+const WS_H := 0.6
+const WS_BAR := 0.07                   # width of the frame bars
 # roll bar hoop behind the front seats
 const HOOP_Z := 0.66
 const HOOP_X := 0.72
@@ -74,14 +78,21 @@ static func build(rig: Rig) -> void:
 	BodyKit.wheel_houses(paint, rig.spec, rz, HALF_W, SILL, c)
 	BodyKit.wheel_houses(paint, rig.spec, fz, FX_OUT, F_FRONT, c)
 	for sx: float in [-1.0, 1.0]:
-		_side_panel(paint, sx * HALF_W, COWL_Z, TAIL_Z, SILL, BELT, [[rz, arch]], 0.035, c)
+		# doors off: the side drops to a low step in the door opening, the
+		# cowl post in front of it and the rear quarter standing up behind
+		_side_panel(paint, sx * HALF_W, COWL_Z, COWL_Z + 0.08, SILL, BELT, [], 0.035, c)
+		_side_panel(paint, sx * HALF_W, COWL_Z + 0.08, DOOR_Z, SILL, DOOR_SILL, [], 0.035, c)
+		_side_panel(paint, sx * HALF_W, DOOR_Z, TAIL_Z, SILL, BELT, [[rz, arch]], 0.035, c)
 		# rear arch: a rolled lip round the cut
 		_arch_lip(paint, sx * HALF_W, rz, arch, SILL, c)
-		# door shut lines and handles
-		rb.call(chassis, Vector3(0.006, BELT - SILL - 0.06, 0.008), 0.002, at.call(Vector3(sx * (HALF_W + 0.018), (BELT + SILL) * 0.5, 0.52)))
-		rb.call(bright, Vector3(0.025, 0.025, 0.12), 0.008, at.call(Vector3(sx * (HALF_W + 0.025), BELT - 0.09, 0.4)))
-		# body-colour rail rolled over the top of the sides
-		rb.call(paint, Vector3(0.06, 0.04, TAIL_Z - COWL_Z), 0.015, at.call(Vector3(sx * (HALF_W - 0.01), BELT, (TAIL_Z + COWL_Z) * 0.5)))
+		# body-colour rails rolled over the top edges, round the opening
+		rb.call(paint, Vector3(0.06, 0.04, TAIL_Z - DOOR_Z), 0.015, at.call(Vector3(sx * (HALF_W - 0.01), BELT, (TAIL_Z + DOOR_Z) * 0.5)))
+		rb.call(paint, Vector3(0.06, 0.04, DOOR_Z - COWL_Z - 0.08), 0.015, at.call(Vector3(sx * (HALF_W - 0.01), DOOR_SILL, (DOOR_Z + COWL_Z + 0.08) * 0.5)))
+		for z: float in [COWL_Z + 0.08, DOOR_Z]:
+			rb.call(paint, Vector3(0.06, BELT - DOOR_SILL + 0.04, 0.04), 0.015, at.call(Vector3(sx * (HALF_W - 0.01), (BELT + DOOR_SILL) * 0.5, z)))
+		# hinge stubs left on the cowl post
+		for y: float in [0.8, 1.02]:
+			rb.call(chassis, Vector3(0.03, 0.06, 0.05), 0.008, at.call(Vector3(sx * (HALF_W + 0.012), y, COWL_Z + 0.06)))
 	rb.call(paint, Vector3(1.62, BELT - SILL, 0.04), 0.02, at.call(Vector3(0, (BELT + SILL) * 0.5, TAIL_Z)))
 	rb.call(paint, Vector3(1.62, 0.04, 0.06), 0.015, at.call(Vector3(0, BELT, TAIL_Z)))
 	rb.call(chassis, Vector3(1.4, 0.006, 0.006), 0.002, at.call(Vector3(0, BELT - 0.12, TAIL_Z + 0.022)))   # tailgate seam
@@ -119,10 +130,10 @@ static func build(rig: Rig) -> void:
 
 	# windshield: a low frame raked back on the cowl, a hinge at each foot
 	var ws := Transform3D(Basis(Vector3.RIGHT, WS_TILT), Vector3(0, BELT + 0.06, COWL_Z - 0.08))
-	rb.call(paint, Vector3(1.56, 0.06, 0.05), 0.015, ws * at.call(Vector3(0, 0.0, 0)))
-	rb.call(paint, Vector3(1.56, 0.045, 0.045), 0.015, ws * at.call(Vector3(0, WS_H, 0)))
+	rb.call(paint, Vector3(1.56, WS_BAR, 0.05), 0.02, ws * at.call(Vector3(0, 0.0, 0)))
+	rb.call(paint, Vector3(1.56, WS_BAR, 0.05), 0.03, ws * at.call(Vector3(0, WS_H, 0)))
 	for sx: float in [-1.0, 1.0]:
-		rb.call(paint, Vector3(0.05, WS_H, 0.045), 0.015, ws * at.call(Vector3(sx * 0.755, WS_H * 0.5, 0)))
+		rb.call(paint, Vector3(WS_BAR, WS_H + WS_BAR, 0.05), 0.03, ws * at.call(Vector3(sx * (0.78 - WS_BAR * 0.5), WS_H * 0.5, 0)))
 		rb.call(chassis, Vector3(0.06, 0.05, 0.08), 0.01, at.call(Vector3(sx * 0.7, BELT + 0.04, COWL_Z - 0.06)))
 		MeshKit.tube(steel, ws * Vector3(sx * 0.36 - 0.2, 0.05, -0.03), ws * Vector3(sx * 0.36 + 0.08, 0.32, -0.03), 0.006, Transform3D.IDENTITY, c, 5)
 
@@ -190,7 +201,7 @@ static func build(rig: Rig) -> void:
 	glass.roughness = 0.05
 	glass.metallic_specular = 0.9
 	var gst := MeshKit.begin()
-	MeshKit.rounded_box(gst, Vector3(1.46, WS_H - 0.05, 0.008), 0.004, ws * at.call(Vector3(0, WS_H * 0.5, 0)), c, 1)
+	MeshKit.rounded_box(gst, Vector3(1.56 - WS_BAR * 2.0, WS_H - WS_BAR, 0.008), 0.004, ws * at.call(Vector3(0, WS_H * 0.5, 0)), c, 1)
 	rig._add_mesh(MeshKit.commit(gst, glass))
 	var lamp := StandardMaterial3D.new()
 	lamp.albedo_color = Color(0.95, 0.93, 0.85)
@@ -281,7 +292,7 @@ static func _hood(st: SurfaceTool, col: Color) -> void:
 	var n := 16
 	for i in range(n + 1):
 		var z := lerpf(z0, z1, float(i) / n)
-		var drop := 0.05 * pow(clampf((z0 + 0.08 - z) / 0.08, 0.0, 1.0), 2.0)
+		var drop := 0.08 * pow(clampf((z0 + 0.16 - z) / 0.16, 0.0, 1.0), 2.0)   # nose rolled down over the grille
 		var row := PackedVector3Array()
 		for k in range(21):
 			var x := lerpf(-hw, hw, k / 20.0)
