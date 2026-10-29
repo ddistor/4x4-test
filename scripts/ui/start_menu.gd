@@ -14,7 +14,9 @@ var _drive: Button
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if "--snap" in OS.get_cmdline_user_args():
+	if "--snap-menu" in OS.get_cmdline_user_args():
+		_snap_menu.call_deferred()
+	elif "--snap" in OS.get_cmdline_user_args():
 		Game.start_stage.call_deferred(Game.stage_seed)
 		return
 
@@ -76,17 +78,6 @@ func _ready() -> void:
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
 	left.add_child(trail)
-	var rigs := []
-	for k in RigSpec.kinds():
-		rigs.append([k.name, Color(0, 0, 0, 0)])
-	left.add_child(_look_button("Rig", rigs, "rig_kind"))
-	left.add_child(_look_button("Rig paint", Game.PAINTS, "paint"))
-	left.add_child(_look_button("Shirt", Game.SHIRTS, "shirt"))
-	left.add_child(_look_button("Jorts", Game.SHORTS, "shorts"))
-	var prints := []
-	for l: Array in Game.LOGOS:
-		prints.append([l[0], Color(0, 0, 0, 0)])
-	left.add_child(_look_button("Shirt print", prints, "logo"))
 	var quit := UiKit.button("Quit")
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	left.add_child(quit)
@@ -104,6 +95,30 @@ func _ready() -> void:
 	pv.add_child(_title)
 	_preview = UiKit.label("", 19, UiKit.DIM)
 	pv.add_child(_preview)
+
+	# your rig and your driver: two columns under the stage preview
+	var look_panel := PanelContainer.new()
+	look_panel.add_theme_stylebox_override("panel", UiKit.box(Color(0.05, 0.04, 0.03, 0.66), 10))
+	look_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	look_panel.position = Vector2(-640, -250)
+	look_panel.custom_minimum_size = Vector2(560, 0)
+	add_child(look_panel)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 10)
+	look_panel.add_child(grid)
+	var rigs := []
+	for k in RigSpec.kinds():
+		rigs.append([k.name, Color(0, 0, 0, 0)])
+	var prints := []
+	for l: Array in Game.LOGOS:
+		prints.append([l[0], Color(0, 0, 0, 0)])
+	grid.add_child(_look_button("Rig", rigs, "rig_kind"))
+	grid.add_child(_look_button("Paint", Game.PAINTS, "paint"))
+	grid.add_child(_look_button("Shirt", Game.SHIRTS, "shirt"))
+	grid.add_child(_look_button("Jorts", Game.SHORTS, "shorts"))
+	grid.add_child(_look_button("Print", prints, "logo"))
 
 	var help := UiKit.label("W/S drive   A/D steer   G low range   L diff lock   F winch   -/= tire pressure   Backspace recover   Esc pause", 16, UiKit.DIM)
 	help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -124,13 +139,24 @@ func _ready() -> void:
 	_drive.grab_focus()
 
 
+## `--snap-menu`: save a picture of this menu to snaps/ and quit.
+func _snap_menu() -> void:
+	for i in range(10):
+		await RenderingServer.frame_post_draw
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://snaps"))
+	get_viewport().get_texture().get_image().save_png("res://snaps/96_menu.png")
+	print("saved ", ProjectSettings.globalize_path("res://snaps/96_menu.png"))
+	get_tree().quit()
+
+
 ## A button that cycles one of Game's colour choices, with a swatch beside it.
 func _look_button(what: String, choices: Array, key: String) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	var b := UiKit.button("")
+	var b := UiKit.button("", 220)
+	b.add_theme_font_size_override("font_size", 18)
 	var swatch := ColorRect.new()
-	swatch.custom_minimum_size = Vector2(46, 46)
+	swatch.custom_minimum_size = Vector2(26, 46)
 	var show := func() -> void:
 		var c: Array = choices[Game.get(key)]
 		b.text = "%s: %s" % [what, c[0]]

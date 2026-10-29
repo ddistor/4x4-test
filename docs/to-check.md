@@ -27,6 +27,12 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Start menu layout
+
+Rig, paint, shirt, jorts and print moved into their own two-column panel under
+the stage preview (the list ran off the bottom at 720p). `--snap-menu` saves
+`snaps/96_menu.png`. To check: it still fits at your resolution.
+
 ## Shirt print selector
 
 Start menu *Shirt print* button: Tropang Saligawsaw, Saligawsaw 4x4, or None
