@@ -83,6 +83,10 @@ func _ready() -> void:
 	left.add_child(_look_button("Rig paint", Game.PAINTS, "paint"))
 	left.add_child(_look_button("Shirt", Game.SHIRTS, "shirt"))
 	left.add_child(_look_button("Jorts", Game.SHORTS, "shorts"))
+	var prints := []
+	for l: Array in Game.LOGOS:
+		prints.append([l[0], Color(0, 0, 0, 0)])
+	left.add_child(_look_button("Shirt print", prints, "logo"))
 	var quit := UiKit.button("Quit")
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	left.add_child(quit)

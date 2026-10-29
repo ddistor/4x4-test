@@ -28,7 +28,6 @@ const VISOR := Color(0.06, 0.06, 0.07)
 const LENS := Color(0.9, 0.45, 0.1)
 const SLIPPER := Color(0.15, 0.3, 0.65)      # rubber tsinelas, blue on white
 const SOLE := Color(0.92, 0.92, 0.9)
-const CLUB_PRINT := "res://assets/driver/tropang_saligawsaw.png"   # club logo on the chest
 const PRINT_SIZE := 0.24                     # m across
 
 # where he sits and where the wheel is: from the rig's RigSpec at build time
@@ -376,11 +375,15 @@ func _build_torso() -> void:
 	_part(st, _torso, "Torso", _shirt_mat)
 
 
-## The logo texture: imported when the editor has seen it, else read straight off disk.
+## The print picked in the menu (Game.LOGOS), or null for a plain tee:
+## imported when the editor has seen it, else read straight off disk.
 func _club_print() -> Texture2D:
-	if ResourceLoader.exists(CLUB_PRINT):
-		return load(CLUB_PRINT)
-	var img := Image.load_from_file(CLUB_PRINT)
+	var path := Game.logo_path()
+	if path == "":
+		return null
+	if ResourceLoader.exists(path):
+		return load(path)
+	var img := Image.load_from_file(path)
 	if img == null or img.is_empty():
 		return null
 	img.generate_mipmaps()

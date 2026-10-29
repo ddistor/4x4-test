@@ -2,7 +2,8 @@ extends Node
 ## Autoload "Game": which stage is being driven, and moving between the start
 ## menu and a stage. `--seed N` (and `--weather dry|rain`, `--level 0|1|2`) after `--` on the command line pick the
 ## stage; otherwise every launch starts with a fresh random one. `--rig ID` picks
-## the rig (RigSpec ids), `--look P,S,J` the paint, shirt and jorts colours by index.
+## the rig (RigSpec ids), `--look P,S,J` the paint, shirt and jorts colours by index,
+## `--logo N` the shirt print.
 
 const MENU := "res://scenes/menu.tscn"
 const STAGE := "res://scenes/main.tscn"
@@ -28,8 +29,14 @@ const SHIRTS := [
 const SHORTS := [
 	["Blue denim", Color(0.27, 0.36, 0.52)], ["Faded denim", Color(0.45, 0.55, 0.68)],
 	["Black denim", Color(0.12, 0.12, 0.14)], ["Khaki", Color(0.55, 0.48, 0.34)]]
+## Prints for the front of the shirt: [name, image] ("" for a plain tee).
+const LOGOS := [
+	["Tropang Saligawsaw", "res://assets/driver/tropang_saligawsaw.png"],
+	["Saligawsaw 4x4", "res://assets/driver/saligawsaw_4x4.png"],
+	["None", ""]]
 const LOOK_FILE := "user://look.cfg"
 var rig_kind := 0   # index into RigSpec.kinds()
+var logo := 0
 var paint := 0
 var shirt := 0
 var shorts := 0
@@ -55,11 +62,15 @@ func _ready() -> void:
 		paint = clampi(cfg.get_value("look", "paint", 0), 0, PAINTS.size() - 1)
 		shirt = clampi(cfg.get_value("look", "shirt", 0), 0, SHIRTS.size() - 1)
 		shorts = clampi(cfg.get_value("look", "shorts", 0), 0, SHORTS.size() - 1)
+		logo = clampi(cfg.get_value("look", "logo", 0), 0, LOGOS.size() - 1)
 	var ri := args.find("--rig")
 	if ri >= 0 and ri + 1 < args.size():
 		for k in RigSpec.kinds().size():
 			if RigSpec.kinds()[k].id == args[ri + 1]:
 				rig_kind = k
+	var gi := args.find("--logo")
+	if gi >= 0 and gi + 1 < args.size():
+		logo = clampi(int(args[gi + 1]), 0, LOGOS.size() - 1)
 	# --look P,S,J picks paint, shirt and jorts by index for this run (snapshots)
 	var ki := args.find("--look")
 	if ki >= 0 and ki + 1 < args.size():
@@ -76,6 +87,7 @@ func save_look() -> void:
 	cfg.set_value("look", "paint", paint)
 	cfg.set_value("look", "shirt", shirt)
 	cfg.set_value("look", "shorts", shorts)
+	cfg.set_value("look", "logo", logo)
 	cfg.save(LOOK_FILE)
 
 
@@ -89,6 +101,10 @@ func shirt_color() -> Color:
 
 func shorts_color() -> Color:
 	return SHORTS[shorts][1]
+
+
+func logo_path() -> String:
+	return LOGOS[logo][1]
 
 
 static func random_seed() -> int:

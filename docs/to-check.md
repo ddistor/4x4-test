@@ -27,6 +27,15 @@ solid, so you can't drive through trunks off the trail any more. Lahar
 washes have few anchors on purpose: boulders only. To check: the rings show
 through terrain so you can find them; too cluttered?
 
+## Shirt print selector
+
+Start menu *Shirt print* button: Tropang Saligawsaw, Saligawsaw 4x4, or None
+(`Game.LOGOS`; add a print by dropping a square transparent PNG in
+`assets/driver/` and listing it). The Saligawsaw 4x4 art was cut off its white
+paper (`assets/driver/saligawsaw_4x4.png`); its black shadow lettering
+disappears on the club black shirt and shows on light ones. Rendered here on the
+black tee. `--logo N` picks one for a run.
+
 ## Kuwarenta (forty-series-style hardtop)
 
 Second rig in the *Rig* picker: `bodies/kuwarenta_body.gd`, spec in
