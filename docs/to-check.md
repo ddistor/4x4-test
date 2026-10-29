@@ -1,5 +1,31 @@
 # To check in Claude Code / by hand
 
+## Rolling over, winch jolts, wheel wells, finish banner
+
+`tests/tip_test.tscn` (new, headless): a tilt table with a lip, or `--winch`
+pulling the rig over a 0.3 m curb. `-- --rig ID [--winch] [--no-lip]`.
+- **Rigs roll over now.** The solid-axle load transfer (`axle_roll_stiffness`
+  in `rig.gd`) could hand the low side more than the high side carried, a free
+  righting force: every rig held on to 45.7 deg on the tilt table. Capped to
+  the light side's load: Kuwarenta, Gerilya, Feroz, Ronda now roll at 41-42 deg
+  (their geometry), the wide low Gera last at ~48. And tires **trip**: sliding
+  sideways into something steep (rock, rut wall, bank, curb) they're stopped
+  at ground level instead of riding over it like a ray (`wheel.gd`, `lat_at`),
+  so a rig sliding off-camber into a rut can go over. On open ground the side
+  force still goes in at axle height (the cornering-roll fix stays).
+- **Winch jolts**: the line was an undamped spring that went slack and snapped
+  tight; now it's damped (`WINCH_C`), reels in slack instead of leaving it, and
+  tires are round to the ground (`wheel.gd`: rays fore and aft against the
+  tire's curve) so a curb or ledge lifts them gradually, not in one step.
+  Curb pull: worst bounce 1.52 -> 0.69 m/s, vertical jolt 154 -> 83 m/s2, no
+  slack-snaps.
+- **Wheel wells** were skinned only on the tire side, so from the seats you
+  saw the tire through the humps; both faces now (`body_kit.gd`), every rig.
+- **Finish banner** raised to 5.6 m (the chase camera ran into it); its poles
+  stand on the ground where they are.
+To check by driving: off-camber in the kanal and lahar (does it go over when
+it slides into a rut, and not too easily); winching up the rock steps.
+
 ## Rollover, jumps, mud that moved
 
 - **On its side or roof** it now lies still instead of thrashing and sinking:

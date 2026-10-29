@@ -31,18 +31,23 @@ static func wheel_houses(st: SurfaceTool, spec: RigSpec, zc: float, x_out: float
 			var p1 := Vector2(sin(a1) * r, cos(a1) * r)
 			var n0 := -Vector3(0, p0.y, p0.x).normalized()
 			var n1 := -Vector3(0, p1.y, p1.x).normalized()
-			# the roof of the well, facing the tire
-			MeshKit._quad(st, Transform3D.IDENTITY,
-				[Vector3(xi, hub + p0.y, zc + p0.x), Vector3(xo, hub + p0.y, zc + p0.x),
-				Vector3(xo, hub + p1.y, zc + p1.x), Vector3(xi, hub + p1.y, zc + p1.x)],
-				[n0, n0, n1, n1], col)
-			# the inner wall, a fan from the hub height down to the bottom edge
+			# the roof of the well: skinned on the tire side and on top, where
+			# it's the hump you see inside the tub (one side alone shows the
+			# tire straight through it from the seats)
+			var roof: Array[Vector3] = [Vector3(xi, hub + p0.y, zc + p0.x), Vector3(xo, hub + p0.y, zc + p0.x),
+				Vector3(xo, hub + p1.y, zc + p1.x), Vector3(xi, hub + p1.y, zc + p1.x)]
+			MeshKit._quad(st, Transform3D.IDENTITY, roof, [n0, n0, n1, n1], col)
+			var lift := Vector3(0, 0.012, 0)
+			MeshKit._quad(st, Transform3D.IDENTITY, [roof[0] + lift, roof[1] + lift, roof[2] + lift, roof[3] + lift], [-n0, -n0, -n1, -n1], col)
+			# the inner wall, a fan from the hub height down to the bottom edge,
+			# again on both faces: the tire side and the cabin side
 			var wn := Vector3(sx, 0, 0)
 			var b0 := Vector3(xi, bottom_y, zc + p0.x)
 			var b1 := Vector3(xi, bottom_y, zc + p1.x)
-			MeshKit._quad(st, Transform3D.IDENTITY,
-				[b0, b1, Vector3(xi, hub + p1.y, zc + p1.x), Vector3(xi, hub + p0.y, zc + p0.x)],
-				[wn, wn, wn, wn], col)
+			var wall: Array[Vector3] = [b0, b1, Vector3(xi, hub + p1.y, zc + p1.x), Vector3(xi, hub + p0.y, zc + p0.x)]
+			MeshKit._quad(st, Transform3D.IDENTITY, wall, [wn, wn, wn, wn], col)
+			var inset := -wn * 0.012
+			MeshKit._quad(st, Transform3D.IDENTITY, [wall[0] + inset, wall[1] + inset, wall[2] + inset, wall[3] + inset], [-wn, -wn, -wn, -wn], col)
 
 
 ## A floor from z0 to z1 at height y, `half_w` wide, narrowed to inboard of

@@ -299,6 +299,18 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var water: float = ground["water_depth"]
 	# Soft surface the tire would rest on if it didn't sink: firm + room.
 	var surface_dist: float = (hit.position - top).dot(down) - room
+	# A tire is round: an edge ahead or behind (a curb, a ledge, a rock) lifts
+	# it as it rolls up to it, not all at once when the centre ray reaches the
+	# top. Sample the ground fore and aft and take the highest the circle sits.
+	var along := -rig.global_transform.basis.z
+	for f: float in [-0.7, -0.35, 0.35, 0.7]:
+		var d := f * r
+		var sq := PhysicsRayQueryParameters3D.create(top - down * RAY_LIFT + along * d, top + down * ray_len + along * d)
+		sq.exclude = [rig.get_rid()]
+		var sh := space.intersect_ray(sq)
+		if not sh.is_empty() and (sh.normal as Vector3).dot(-down) > 0.0:
+			var dist_f: float = (sh.position - top - along * d).dot(down)
+			surface_dist = minf(surface_dist, dist_f - sqrt(r * r - d * d) + r)
 	# How far it wants to sink: wetter + heavier + spinning = deeper, capped by room.
 	# aired down = longer footprint = lower ground pressure = floats more
 	var load_k := clampf(load / NOMINAL_LOAD, 0.4, 1.6) / (1.0 + 0.6 * aired())
@@ -393,6 +405,22 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# friction circle: a spinning tire has little sideways grip
 	var long_use := absf(f_long) / maxf(cap, 1.0)
 	f_lat *= sqrt(maxf(0.0, 1.0 - long_use * long_use)) * 0.6 + 0.4
+	# Tripping: a tire sliding sideways into something steep (a rock, a rut
+	# wall, a bank, a curb) doesn't ride over it like a ray would: the face
+	# stops the bottom of the tire dead, low down, and the rig's momentum
+	# carries on over it. That's how a rig sliding off-camber rolls.
+	var lat_at := contact_point + contact_normal * r * 0.5
+	if absf(v_lat) > 0.15:
+		var slide := right * signf(v_lat)
+		var probe_from := contact_point + contact_normal * 0.1
+		var tq := PhysicsRayQueryParameters3D.create(probe_from, probe_from + slide * (width * 0.5 + 0.12))
+		tq.exclude = [rig.get_rid()]
+		var wall := space.intersect_ray(tq)
+		if not wall.is_empty() and (wall.normal as Vector3).dot(contact_normal) < 0.6 and (wall.normal as Vector3).dot(slide) < -0.3:
+			var stop := -v_lat * load * 6.0
+			f_lat = clampf(stop, -2.5 * load - 3000.0, 2.5 * load + 3000.0)
+			lat_at = wall.position
+			result["tripped"] = 1.0
 
 	# --- soft-ground resistance -----------------------------------------
 	# Pushing a tire through mud: drag that grows with sink and wetness, plus
@@ -412,7 +440,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# side force goes into the body through the axle's links, part way up to
 	# the hub, not at the ground: a solid axle doesn't jack the body up off the
 	# inside wheels in a turn
-	rig.apply_force(right * f_lat, contact_point + contact_normal * r * 0.5 - rig.global_position)
+	rig.apply_force(right * f_lat, lat_at - rig.global_position)
 
 	# --- slip / wheel speed / digging -------------------------------------
 	var target_slip := 0.0

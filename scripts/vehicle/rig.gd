@@ -30,6 +30,9 @@ var low_range := false
 var winch_active := false
 var winch_anchor := Vector3.INF
 var winch_target_len := 0.0
+var winch_tension := 0.0    # N in the cable this step (HUD, tests)
+const WINCH_K := 60000.0    # N per m the line stretches
+const WINCH_C := 16000.0    # N per m/s: damping, ~0.7 of critical for a 2 t rig
 var throttle := 0.0
 var brake := 0.0
 var steer := 0.0
@@ -383,6 +386,11 @@ func _physics_process(delta: float) -> void:
 		var bar := 0.0
 		if ca > -0.5 and cb > -0.5:
 			bar = axle_roll_stiffness * (ca - cb)
+			# it only moves load across: it can't hand over more than the light
+			# side carries (or it would hold the rig up and stop it ever tipping)
+			var light := wheels[b] if bar > 0.0 else wheels[a]
+			var light_c := cb if bar > 0.0 else ca
+			bar = clampf(bar, -light.stiffness * maxf(light_c, 0.0), light.stiffness * maxf(light_c, 0.0))
 		wheels[a].axle_load = bar
 		wheels[b].axle_load = -bar
 		var cap_override_a := -1.0
@@ -564,6 +572,7 @@ func _bumper_pos() -> Vector3:
 
 func _winch_step(delta: float) -> void:
 	_cable_mesh.clear_surfaces()
+	winch_tension = 0.0
 	if not winch_active:
 		return
 	var bumper := _bumper_pos()
@@ -573,12 +582,22 @@ func _winch_step(delta: float) -> void:
 		winch_active = false
 		return
 	winch_target_len = maxf(1.2, winch_target_len - winch_pull_speed * delta)
+	# The line is a stiff spring with a damper: the damper soaks up the snap
+	# when the rig lurches off whatever it was hung up on, instead of the
+	# stored stretch flinging it forward and the line going slack and tight.
+	var dir := to / dist
+	var bumper_vel := linear_velocity + angular_velocity.cross(bumper - global_position)
+	var closing := bumper_vel.dot(dir)   # + when the bumper runs toward the anchor
 	var stretch := dist - winch_target_len
-	var force := clampf(stretch * 60000.0, 0.0, winch_max_force)
-	# cable can't push, and it stalls rather than snapping: hold target
-	if force >= winch_max_force:
-		winch_target_len = dist - winch_max_force / 60000.0
-	apply_force(to.normalized() * force, bumper - global_position)
+	var force := clampf(stretch * WINCH_K - closing * WINCH_C, 0.0, winch_max_force)
+	# it stalls rather than snapping: the drum stops paying in at full pull
+	# (and a slack line is reeled in to just taut, not left to snap tight)
+	if stretch * WINCH_K >= winch_max_force:
+		winch_target_len = dist - winch_max_force / WINCH_K
+	elif stretch < 0.0:
+		winch_target_len = dist
+	winch_tension = force
+	apply_force(dir * force, bumper - global_position)
 	_cable_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
 	_cable_mesh.surface_add_vertex(bumper)
 	_cable_mesh.surface_add_vertex(winch_anchor)

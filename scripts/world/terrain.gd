@@ -853,15 +853,21 @@ func _build_finish() -> void:
 	var pole_mat := StandardMaterial3D.new()
 	pole_mat.albedo_color = Color(0.62, 0.55, 0.3)
 	pole_mat.roughness = 0.6
+	# the banner rides high enough to clear a caged rig and the chase camera
+	# behind it; each pole runs from the ground where it stands up to it
+	var banner_y := 5.6
 	for side: float in [-1.0, 1.0]:
 		var pole := MeshInstance3D.new()
+		var at := arch.transform * Vector3(side * 4.2, 0.0, 0.0)
+		var foot := low_ground(at.x, at.z, 0.1) - arch.transform.origin.y - 0.3
+		var top := banner_y + 0.6
 		var cyl := CylinderMesh.new()
 		cyl.top_radius = 0.07
-		cyl.bottom_radius = 0.08
-		cyl.height = 5.0
+		cyl.bottom_radius = 0.085
+		cyl.height = top - foot
 		cyl.material = pole_mat
 		pole.mesh = cyl
-		pole.position = Vector3(side * 4.2, 2.3, 0.0)
+		pole.position = Vector3(side * 4.2, (top + foot) * 0.5, 0.0)
 		arch.add_child(pole)
 	var banner := MeshInstance3D.new()
 	var cloth := BoxMesh.new()
@@ -871,7 +877,7 @@ func _build_finish() -> void:
 	cloth_mat.roughness = 0.8
 	cloth.material = cloth_mat
 	banner.mesh = cloth
-	banner.position = Vector3(0.0, 4.1, 0.0)
+	banner.position = Vector3(0.0, banner_y, 0.0)
 	arch.add_child(banner)
 	for flip: float in [0.0, PI]:
 		var text := Label3D.new()
@@ -880,7 +886,7 @@ func _build_finish() -> void:
 		text.pixel_size = 0.005
 		text.modulate = Color(1.0, 0.86, 0.3)
 		text.outline_size = 0
-		text.position = Vector3(0.0, 4.1, 0.03 if flip == 0.0 else -0.03)
+		text.position = Vector3(0.0, banner_y, 0.03 if flip == 0.0 else -0.03)
 		text.rotation = Vector3(0.0, flip, 0.0)  # one side reads to the rig coming up the trail
 		arch.add_child(text)
 	add_child(arch)
