@@ -45,6 +45,15 @@ driving it. In order:
    terrain should show the wheel lines. If ruts look blocky, the mud grid is 0.5 m
    (`Terrain.CELL`).
 
+9. **Sound** (written and run, never heard). Engine should idle as a lumpy V8,
+   rev up when you spin the wheels, and sit higher in 4L at the same speed.
+   Mud squelch when churning, gravel crunch on the road, swash in the creek
+   (plus a splash if you hit it fast), winch whine, a clunk on L / G / F.
+   Frogs and crickets in the paddies fading to cicadas and birds in the forest.
+   If anything's too loud or quiet, the dB offsets are at the end of each
+   line in `rig_audio.gd::_process`; the sounds themselves are in
+   `sound_synth.gd`.
+
 Known guesses to validate: spring/damper numbers in `wheel.gd`, mud drag
 coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
 
@@ -55,6 +64,12 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
   glassy pool with reflections.
 - **Flung mud lands**: clay thrown by the tires piles into berms beside and
   behind the ruts instead of vanishing.
+- **Procedural stage, different every run**: one long track chained from
+  Philippine terrain sections — Rizal laterite clay, Pinatubo lahar/ash
+  riverbeds, boulder river crossings, Cordillera rocky switchbacks, Ilocos /
+  Zambales sand, paddy-dike and coconut farm roads, cogon fields with hidden
+  holes, Sierra Madre logging-road bogs — with deep V-ruts ("kanal") that
+  grab the tires.
 
 ## Not done in M1
 

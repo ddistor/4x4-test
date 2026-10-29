@@ -19,6 +19,10 @@ func _ready() -> void:
 	rig.terrain_path = terrain.get_path()
 	add_child(rig)
 	rig.reset_to_spawn()
+	var audio := RigAudio.new()
+	audio.name = "Audio"
+	rig.add_child(audio)
+	audio.setup(rig)
 
 	var cam := load("res://scripts/camera/chase_camera.gd").new() as Camera3D
 	cam.name = "ChaseCamera"
