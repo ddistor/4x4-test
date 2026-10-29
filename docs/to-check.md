@@ -3,15 +3,16 @@
 ## The driver (first sketch)
 
 In the seat: white full-face helmet with a black visor (his face hidden),
-red/blue stripes and a blue chin,
- a maroon tee with the sleeves cut off, jorts with frayed cuffs, blue
+red/blue stripes and a blue chin, a maroon tee with the sleeves cut off, jorts with frayed cuffs, blue
 tsinelas. The steering wheel now turns with the steering and his hands stay on it.
 He moves from what the rig does: thrown to the outside in corners, folds
 forward under braking, sinks and floats over bumps, head lagging and trying to
 keep level. Things to judge by eye while driving: too floppy or too stiff
 (`_spring(...)` frequencies and the gains on `f.x` / `f.z` in
 `driver.gd::_physics_process`), proportions, colours. The seat camera (C) moved
-up to his eye height and hides his helmet.
+up to his eye height and hides his helmet. He gets muddy with the rig
+(open tub): flecks first, then splatters, capped at about 40% so he never
+turns into a clay statue (`shaders/driver.gdshader`, `reach`).
 
 ## Hard trails, steep climbs, body roll fix
 

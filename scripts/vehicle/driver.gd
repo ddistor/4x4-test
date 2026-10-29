@@ -35,7 +35,7 @@ const FOREARM := 0.29
 
 var rig: RigidBody3D
 var steering_wheel: Node3D
-var _mat: StandardMaterial3D
+var _mat: ShaderMaterial
 var _torso: Node3D
 var _head: Node3D
 var _arms: Array = []   # per side: [upper arm, forearm, hand, elbow] MeshInstance3Ds
@@ -53,10 +53,8 @@ var _felt := Vector3(0, 9.8, 0)
 
 func build(r: RigidBody3D) -> void:
 	rig = r
-	_mat = StandardMaterial3D.new()
-	_mat.vertex_color_use_as_albedo = true
-	_mat.vertex_color_is_srgb = true
-	_mat.roughness = 0.75
+	_mat = ShaderMaterial.new()
+	_mat.shader = load("res://shaders/driver.gdshader")
 	_build_steering_wheel()
 	_build_legs()
 	_torso = Node3D.new()
@@ -314,6 +312,9 @@ func _physics_process(delta: float) -> void:
 	_head.transform = Transform3D(Basis.from_euler(Vector3(_h_ang.x, 0, _h_ang.y)), Vector3(0, 0.68, 0.04))
 	_place_steering()
 	_place_arms()
+	# he's in an open tub: what the tires throw at the rig lands on him too
+	_mat.set_shader_parameter("mud", rig.call("mud_amount"))
+	_mat.set_shader_parameter("dryness", rig.get("dryness"))
 
 
 ## Damped spring toward `target`; natural frequency `w` (rad/s), damping ratio `z`.
