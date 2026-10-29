@@ -2,7 +2,7 @@ extends Node
 ## Snapshot mode: lets Claude (or anyone without a hand on the keyboard) see the
 ## game. Drops the rig mid-way through every section of the stage and at each
 ## river crossing, lets it settle, saves a PNG from the chase camera at each,
-## then quits.
+## plus a driving shot and a close-up of the driver, then quits.
 ##
 ##   Godot.exe --path . -- --snap [--seed N]
 ##
@@ -55,4 +55,28 @@ func _run() -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("res://snaps/99_driving.png")
 	print("saved ", ProjectSettings.globalize_path("res://snaps/99_driving.png"))
+	await _driver_shot()
 	get_tree().quit()
+
+
+## The driver head-on through the windshield: his tee and the club print on it.
+func _driver_shot() -> void:
+	_rig.place_on_trail(_trail_start())
+	for i in range(SETTLE_FRAMES):
+		await get_tree().physics_frame
+	var cam := Camera3D.new()
+	cam.fov = 40.0
+	get_parent().add_child(cam)
+	var r := _rig.global_transform
+	cam.global_position = r * Vector3(-0.33, 1.35, -1.9)
+	cam.look_at(r * Vector3(-0.33, 1.12, 0.2), r.basis.y)
+	cam.make_current()
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("res://snaps/98_driver.png")
+	print("saved ", ProjectSettings.globalize_path("res://snaps/98_driver.png"))
+
+
+func _trail_start() -> float:
+	var terrain: Terrain = get_parent().get_node("Terrain")
+	return lerpf(terrain.plan.sections[0]["z0"], terrain.plan.sections[0]["z1"], 0.5)

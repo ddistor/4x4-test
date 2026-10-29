@@ -35,7 +35,8 @@ tee, 24 cm across, and gets muddy with the rest of him. It's on the front
 because the seat back covers his back. Not run in the engine yet: check it
 reads the right way round (TROPANG on top, not mirrored), sits flat on the
 chest, and isn't too big for him. Size and height: `PRINT_SIZE` and the
-`0.37` in `_build_torso` (`driver.gd`). Still looks blurry? It came from a
+`0.37` in `_build_torso` (`driver.gd`). `--snap` now also saves a
+head-on close-up of him, `snaps/98_driver.png`. Still looks blurry? It came from a
 phone screenshot; a cleaner copy of the artwork can replace the PNG.
 
 ## The driver (first sketch)
