@@ -47,7 +47,7 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   mass, wheel layout, tire size, gearing, seat, fairlead, body builder; picked in
   the start menu, `--rig ID` on the command line). Bodies are modelled in code
   with `mesh_kit.gd`, one file each in `scripts/vehicle/bodies/`
-  (`flatfender_body.gd`: the lifted black Willys-style flatfender).
+  (`gera_body.gd`: the Gera, the lifted black Willys-style flatfender).
 - `scripts/audio/sound_synth.gd` — every sound, synthesised at startup (~0.4 s):
   V8 engine loops at two rpms, mud/gravel/water/winch loops, quiet paddy and
   forest beds plus a bank of separate animal calls (kept sparse on purpose),

@@ -65,9 +65,9 @@ Second rig in the *Rig* picker: `bodies/kuwarenta_body.gd`, spec in
 the fender fronts, slotted grille, upright windshield, side and rear-door
 windows, arches cut round 33s, spare on a rear carrier, winch bumper. Heavier
 (2050 kg), longer wheelbase (2.29 m), stiffer leaf-spring rate and less droop
-than the flatfender. Rendered from outside with `--snap --snap-rig --rig
+than the Gera. Rendered from outside with `--snap --snap-rig --rig
 kuwarenta`; the headless bot drives it through the paddies and lahar fine. To
-check by driving: feels heavier and flatter than the flatfender, lifts a wheel
+check by driving: feels heavier and flatter than the Gera, lifts a wheel
 sooner on the kanal ruts; seat camera (C) sits right behind the windshield;
 the winch line leaves the bumper.
 
@@ -75,8 +75,8 @@ the winch line leaves the bumper.
 
 `rig.gd` is now the shared machine; each vehicle is a `RigSpec` kind
 (`rig_spec.gd`) plus a body builder in `scripts/vehicle/bodies/`. The start menu
-has a *Rig* button (only *Flatfender* for now), saved with the colours. Drive
-test on seed 7 matches the old behaviour. To check: the flatfender drives as
+has a *Rig* button (only one rig at first), saved with the colours. Drive
+test on seed 7 matches the old behaviour. To check: the Gera (was Flatfender) drives as
 before; the menu button is there.
 
 ## Colours: rig paint, shirt, jorts

@@ -39,7 +39,7 @@ var build_body: Callable
 
 static func kinds() -> Array[RigSpec]:
 	var out: Array[RigSpec] = []
-	out.append(_flatfender())
+	out.append(_gera())
 	out.append(_kuwarenta())
 	out.append(_feroz())
 	return out
@@ -50,21 +50,22 @@ static func get_kind(i: int) -> RigSpec:
 	return all[clampi(i, 0, all.size() - 1)]
 
 
-## The original: a lifted Willys-style flatfender on 35s.
-static func _flatfender() -> RigSpec:
+## Gera ("war"): the original, a lifted Willys-style flatfender on 35s,
+## for the army jeep it comes from.
+static func _gera() -> RigSpec:
 	var s := RigSpec.new()
-	s.id = "flatfender"
-	s.name = "Flatfender"
-	s.blurb = "Lifted Willys-style tub on 35s, roll cage, winch. Light and nimble."
+	s.id = "gera"
+	s.name = "Gera"
+	s.blurb = "Lifted army-jeep-style tub on 35s, roll cage, winch. Light and nimble."
 	# engine up front, and high: lifted on 35s puts it ~0.8 m off the ground,
 	# so it rolls on an off-camber before it slides (tilt-table ~40 deg)
 	s.center_of_mass = Vector3(0, 0.5, -0.1)
-	s.build_body = FlatfenderBody.build
+	s.build_body = GeraBody.build
 	return s
 
 
 ## A 40-series-style hardtop: short, upright, leaf springs front and rear,
-## two-tone with the white top. Heavier than the flatfender and longer between
+## two-tone with the white top. Heavier than the Gera and longer between
 ## the axles, on 33s; the stiff leaves keep it flat but lift a wheel sooner.
 static func _kuwarenta() -> RigSpec:
 	var s := RigSpec.new()

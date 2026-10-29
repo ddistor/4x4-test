@@ -1,6 +1,6 @@
-class_name FlatfenderBody
+class_name GeraBody
 extends RefCounted
-## The flatfender: a lifted Willys-style tub in the paint picked in the menu,
+## The Gera ("war", for its army roots): a lifted Willys-style tub in the paint picked in the menu,
 ## on 35s, roll cage, winch bumper, flat fenders, spare on the back panel.
 ## Rig space: forward -Z, left -X, wheel hubs at y~0.13.
 
