@@ -45,6 +45,9 @@ var _last_vel := Vector3.ZERO
 var _flake_chips: GPUParticles3D
 var _no_flake := 0.0
 var _knock_cool := 0.0
+var _plumes: Array[Vector4] = []   # clay stirred into the water: x, z, strength, time
+var _plume_next := 0
+var _plume_wait := 0.0
 var wheel_status: Array[Dictionary] = []
 var psi_target := 35.0
 var airing := 0          # -1 letting air out, +1 compressor running, 0 idle
@@ -496,7 +499,41 @@ func _physics_process(delta: float) -> void:
 		spare_mat.set_shader_parameter("tire_mud", minf(1.0, (corner_mud[2] + corner_mud[3]) * 0.25))
 		spare_mat.set_shader_parameter("dryness", dryness)
 
+	_stir_water(delta)
 	terrain.mud.flush()
+
+
+## Tell the water where the tires are (wakes, white water) and drop clay into
+## a clear river where they churn the bed: it drifts off downstream.
+func _stir_water(delta: float) -> void:
+	if terrain.water_mats.is_empty():
+		return
+	var now := Time.get_ticks_msec() * 0.001
+	var wheel_u: Array[Vector4] = []
+	var churn := 0.0
+	var wet_at := Vector3.ZERO
+	for i in range(wheels.size()):
+		var w := wheels[i]
+		var depth: float = w.ground.get("water_depth", 0.0)
+		var v := 0.0
+		if w.contact and depth > 0.04:
+			v = linear_velocity.length() + absf(w.omega) * w.radius * w.slip
+			churn = maxf(churn, (0.4 + w.slip) * minf(v, 3.0))
+			wet_at = w.contact_point
+		wheel_u.append(Vector4(w.global_position.x, w.global_position.y, w.global_position.z, v if depth > 0.04 else 0.0))
+	if _plumes.is_empty():
+		for i in range(12):
+			_plumes.append(Vector4(0, 0, 0, -100.0))
+	_plume_wait -= delta
+	if churn > 0.3 and _plume_wait <= 0.0:
+		_plumes[_plume_next] = Vector4(wet_at.x, wet_at.z, minf(churn * 0.6, 1.5), now)
+		_plume_next = (_plume_next + 1) % _plumes.size()
+		_plume_wait = 0.6
+	for m in terrain.water_mats:
+		m.set_shader_parameter("wheels", wheel_u)
+		m.set_shader_parameter("rig_vel", linear_velocity)
+		m.set_shader_parameter("plumes", _plumes)
+		m.set_shader_parameter("now", now)
 
 
 func _toggle_winch() -> void:

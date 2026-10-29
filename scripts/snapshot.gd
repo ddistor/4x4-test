@@ -120,8 +120,13 @@ func _section_shots(terrain: Terrain, kind: String) -> void:
 		var s := terrain.plan.sections[i]
 		if s["kind"] != kind:
 			continue
-		for t: float in [0.35, 0.7]:
-			var z := lerpf(s["z0"], s["z1"], t)
+		var spots: Array[float] = [lerpf(s["z0"], s["z1"], 0.35), lerpf(s["z0"], s["z1"], 0.7)]
+		for c in terrain.crossings:
+			if c["zc"] > s["z0"] and c["zc"] < s["z1"]:
+				spots = [float(c["zc"]) - float(c["half_w"]) * 0.5, float(c["zc"])]
+		for k in range(spots.size()):
+			var z: float = spots[k]
+			var t := 0.35 if k == 0 else 0.7
 			_rig.place_on_trail(z)
 			for f in range(SETTLE_FRAMES):
 				await get_tree().physics_frame
@@ -134,7 +139,10 @@ func _section_shots(terrain: Terrain, kind: String) -> void:
 			var r := _rig.global_transform
 			var views := [["ahead", Vector3(0.6, 1.4, -9.0), Vector3(0, 0.6, 0)], ["above", Vector3(5.0, 7.0, 5.0), Vector3(0, 0, -2.0)]]
 			for v: Array in views:
-				cam.global_position = r * (v[1] as Vector3)
+				var at: Vector3 = r * (v[1] as Vector3)
+				# never below the ground or under a river's surface
+				at.y = maxf(at.y, maxf(terrain.get_height(at.x, at.z) + 1.4, terrain.water_at(at.x, at.z) + 1.0))
+				cam.global_position = at
 				cam.look_at(r * (v[2] as Vector3), Vector3.UP)
 				cam.make_current()
 				for f in range(3):

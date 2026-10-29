@@ -48,6 +48,8 @@ var palm_spots: Array[Transform3D] = []
 var cover_image: Image  # 1 m: R trail distance / 32, G forest, B paddy, A lahar ash
 var soil_image: Image   # 1 m: R bedrock, G river cobbles, B water level, A where water can stand
 var soil_texture: ImageTexture
+var bed_texture: ImageTexture   # 1 m: ground height, so water knows how deep it is anywhere
+var water_mats: Array[ShaderMaterial] = []   # the rig stirs these (wakes, mud plumes)
 
 var _noise: FastNoiseLite
 var _detail: FastNoiseLite
@@ -574,6 +576,13 @@ func _build_mesh() -> void:
 	mat.set_shader_parameter("mud_tex", mud.texture)
 	mat.set_shader_parameter("cover_tex", ImageTexture.create_from_image(cover_image))
 	soil_texture = ImageTexture.create_from_image(soil_image)
+	var bw := soil_image.get_width()
+	var bh := soil_image.get_height()
+	var bed := Image.create(bw, bh, false, Image.FORMAT_RF)
+	for z in range(bh):
+		for x in range(bw):
+			bed.set_pixel(x, z, Color(get_height(x + 0.5, z + 0.5), 0, 0))
+	bed_texture = ImageTexture.create_from_image(bed)
 	mat.set_shader_parameter("soil_tex", soil_texture)
 	mat.set_shader_parameter("world_size", WIDTH)
 	var rows := int(MESH_CHUNK / CELL)
@@ -674,6 +683,8 @@ func _build_water() -> void:
 		mat.set_shader_parameter("use_mask", true)
 		mat.set_shader_parameter("soil_tex", soil_texture)
 		mat.set_shader_parameter("world_size", Vector2(WIDTH, length))
+		mat.set_shader_parameter("bed_tex", bed_texture)
+		water_mats.append(mat)
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mi.position = Vector3(WIDTH * 0.5, b["level"], (float(b["z_lo"]) + float(b["z_hi"])) * 0.5)
