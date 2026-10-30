@@ -101,15 +101,67 @@ through, and from how cleanly:
 3. Career save, pesos, events and the payout card. Recoveries cost money.
 4. Garage parts page with live rebuild.
 5. Armor and roll cage on the bodies.
-6. Damage (realism plan 3), where armor and the cage start to matter.
+6. Damage (realism plan 3, see Damage above), where armor and the cage start to matter.
 
-## Open questions for you
+## Decided
 
-- Start the career in the stock Gera only, or pick any stock rig?
-- Can you lose the career (broke, can't pay for repairs), or does it always
-  give you enough for the next club run?
-- Do parts carry over between rigs (tires, winch), or are they bought per rig?
-- Any other parts you had in mind beyond these?
+- **You pick your starting rig** (any stock one).
+- **Damage goes in** as part of the career, not after it (below).
+
+## Damage
+
+Each part has a condition, and a hit to it has a cause you can see. Most of
+the inputs already exist:
+
+| What breaks | Cause | Effect | Protected by |
+|---|---|---|---|
+| Oil pan / transfer case | belly strike on rock (contact impulse under the floor) | leak; then the engine runs hot, then low range is lost | skid plate |
+| Tie rod | hard hit on a front tire's inside face on rock | bent: steering pulls to one side | heavy-duty tie rod, lift (clearance) |
+| Axle shaft / CV | wheel spinning, then sudden grip, with the locker in (shock load) | that wheel gets no drive | chromoly shafts; easy on the throttle |
+| Radiator | mud caked on the nose (the body mud map), slow in low range | overheats: limp mode, then stalls | grill guard, a wash in the river |
+| Engine | water over the intake while running (`choke` already tracks it) | hydrolock: dead, marshal tow | snorkel |
+| Rocker panels / body | side scrapes on rock, rollovers | dents (on the body), a leaning door | rock sliders, roll cage |
+| Tire | sharp rock at low psi (debeading already exists) | flat; fit the spare | beadlocks, better tires |
+
+Field fixes at the trail: change a tire, strap a bent tie rod straight
+enough to limp on. Everything else waits for the garage and costs pesos.
+That's the money sink, and it's what makes armor worth buying.
+
+## Moving parts between rigs (how it works in real life)
+
+- **Moves to any rig**: recovery kit (shovel, boards, jack), a portable
+  compressor, the winch if the new rig has a winch bumper to bolt it to.
+- **Moves only to a rig with the same bolt pattern**: wheels and tires.
+  Willys-type and most Owner jeeps are 5×5.5 in; 40-series, Pajero-type and
+  Hilux-based rigs are 6×5.5 (6×139.7); a modern Wrangler is 5×5.
+- **Stays with the rig** (made for that chassis, or welded in): lift, lockers,
+  gearing, snorkel, skid plates, sliders, the cage. Selling the rig sells them.
+
+In the game: one shared shelf for the kit and the winch, wheels move between
+rigs with a matching bolt pattern, and everything else is fitted per rig.
+
+## Which parts matter most
+
+Ranked by what the stage sections ask for and what's already modelled:
+
+1. **Tires** (size and M/T vs A/T): every section feels it; the grip/sink
+   model is already built.
+2. **Lockers**: kanal ruts, rock steps, gully, crossed-up on the cogon. The
+   biggest gain in capability after tires.
+3. **Gearing / 4:1 low range**: rock steps and steep laterite climbs, crawl
+   without riding the clutch or brake.
+4. **Lift**: lets bigger tires fit; belly and tie rod clearance.
+5. **Skid plate and sliders**: rock steps, gully, river boulders. With damage
+   they pay for themselves.
+6. **Snorkel**: boulder river and the niyogan crossings; with hydrolock in,
+   it's a must on the rainy season.
+7. **Winch upgrade**: synthetic line, more pull, for the heavy rigs in the bog.
+8. **Roll cage**: only after rollovers can cost you (damage).
+9. **Beadlocks, compressor, steering parts, chromoly shafts**: smaller
+   upgrades and fixes for specific breakages.
+
+Left out for now: engine swaps (a whole rig's character; that's what picking
+a different rig is for) and lights (no night stages).
 
 Sources: [Philkotse Hilux](https://philkotse.com/car-maintenance/modified-toyota-hilux-11637),
 [Philkotse F-150](https://philkotse.com/car-maintenance/modified-ford-f-150-tips-and-tricks-7121/amp),
