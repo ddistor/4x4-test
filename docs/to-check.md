@@ -403,6 +403,20 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
   10. Hilux/Strada-style pickup with independent front suspension: stable, poor flex, long overhangs.
   11. Owner-type jeep: the Filipino-built kind. **Built: Owner.**
   12. Pajero-style 90s coil-sprung SUV.
+- **Upgrades** (future, from the user; more to come): fit parts to a rig in
+  the garage, kept per rig with the rest of the look (`user://look.cfg`).
+  1. **Wheels and tires**: size and kind (mud-terrain, all-terrain), black
+     beadlocks or silver steelies (`RigSpec.wheel_color` already exists). A
+     size change moves grip, sink and floatation (`wheel.gd`), ground clearance
+     and the wheel wells (`BodyKit.well_radius` follows tire size), and how
+     hard the gearing pulls.
+  2. **Roll cage**: none, roll bar or full cage, modelled on the body; in a
+     rollover it carries the rig instead of the body and the driver (the
+     collision box), and it matters more once damage exists.
+  3. **Skid plate**: steel under the belly; a high-centred rig slides off a
+     rock instead of hanging on it, and later it keeps the oil pan and transfer
+     case from damage (realism plan, item 3).
+  Needs a garage page for parts. Wants the damage model to really pay off.
 - **River ford** (proposed, waiting on a yes): the river is equally deep all the
   way across, right at the engine-choke depth on Hard, so there's no better line
   to find. Make it a ford: shallow riffle (~0.35-0.5 m on Hard) where the trail
