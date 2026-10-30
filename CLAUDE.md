@@ -44,13 +44,18 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 - `scripts/world/mud_field.gd` — per-cell soft-ground data: thickness, wetness, rut.
   Baked into an RGB float texture the terrain shader reads (ruts displace vertices).
 - `scripts/vehicle/rig.gd` — the rig (RigidBody3D) every vehicle shares:
-  drivetrain, open/locked diff model, low range, winch, per-tire mud throw onto
+  open/locked diff model, air drag and rolling resistance, winch, per-tire mud throw onto
   the body, HUD text. What differs per vehicle lives in `rig_spec.gd` (`RigSpec`:
   mass, wheel layout, tire size, gearing, seat, fairlead, body builder; picked in
   the start menu, `--rig ID` on the command line). Bodies are modelled in code
   with `mesh_kit.gd`, one file each in `scripts/vehicle/bodies/`
   (`gera_body.gd`: the Gera, the lifted black Willys-style flatfender, and its
   trail-built variant the Gerilya via `build_trail`).
+- `scripts/vehicle/gearbox.gd` — engine (torque curve, idle, redline), gears,
+  final drive, low range, engine braking, auto/manual (E/Q, T), stalling; the
+  numbers per rig are in `RigSpec`. Its rpm drives the engine sound.
+- `scripts/vehicle/recovery_kit.gd` — shovel (1), traction boards (2), high-lift
+  jack that packs stones under hanging tires (3); stopped only.
 - `scripts/audio/sound_synth.gd` — every sound, synthesised at startup (~0.4 s):
   V8 engine loops at two rpms, mud/gravel/water/winch loops, quiet paddy and
   forest beds plus a bank of separate animal calls (kept sparse on purpose),

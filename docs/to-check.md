@@ -1,5 +1,41 @@
 # To check in Claude Code / by hand
 
+## Gearbox and recovery kit
+
+- **Gearbox** (`scripts/vehicle/gearbox.gd`, numbers per rig in `rig_spec.gd`):
+  every rig has its own engine (torque curve, idle, redline: V8s, the old
+  straight-six, a buzzy 1.6, diesels, a modern V6), real-ish gear ratios, a
+  final drive and a low-range transfer case (the Rubikon's 4:1). **Engine
+  braking**: off the throttle in 4L first a 58% descent holds at ~9 km/h
+  (Rubikon), ~15 (Gera), ~17 (Kuwarenta, tall gearing, it over-revs). Auto by
+  default, shifting on road speed (it holds its gear while spinning in mud);
+  **E / Q** shift up / down and make it manual, **T** back to auto. In manual
+  you can stall it: lugging at idle against something in too tall a gear;
+  throttle cranks it again. Air drag and rolling resistance replace the old
+  speed cap (and Godot's default damping, ~3 kN at 60 km/h, is off), so top
+  speed comes from the gearing: ~100-115 km/h on the flat in 4H. Sound follows
+  the gearbox's rpm and goes quiet when stalled. HUD: gear, auto/manual, rpm,
+  and "ENGINE CHOKING" when water is over the intake (that one needs the winch).
+  `tests/tip_test.tscn -- --rig ID --drive` (acceleration) / `--descend`.
+  To check by driving: shift feel, whether auto picks sensible gears on the
+  climbs, engine braking down the pitches, stalling in manual.
+- **Recovery kit** (`scripts/vehicle/recovery_kit.gd`), stopped only, the
+  rig won't drive while you're out: **1 shovel** (6 s) digs the soft mud out
+  round and 2.5 m ahead of every tire down to firm ground; **2 traction
+  boards** jammed in as ramps ahead of the front tires (behind the rear in
+  reverse), grippy (`wheel.gd`, group "boards"), 2 again picks them up, left
+  behind they're collected at 20 m; **3 high-lift jack** (5 s) lifts the rig,
+  packs stones under the tires that were hanging (full droop or no load),
+  nudges it 0.3 m on and sets it down. `tests/kit_test.tscn -- --seed N`.
+  Headless: in the kanal the shovel took one stuck rig from 0.2 m to 1.5 m of
+  progress, and jack-and-stack got a cross-axled one moving; the boards
+  haven't been proven yet (the bogs here don't strand a rig driven in 4L
+  locked). To check by driving: all three, and whether the boards earn their
+  place.
+- **Known**: the kanal ruts cross-axle the rigs (one diagonal pair hangs at
+  full droop), which is where the test bot needs most of its recoveries.
+  Worth a look at droop vs rut depth.
+
 ## River ford, ground without squares
 
 - **Fords**: the stony river used to be equally deep all along, right at the
@@ -432,9 +468,9 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
   Needs a garage page for parts. Wants the damage model to really pay off.
 - **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
-     low range.
+     low range. **Built.**
   2. Recovery kit: shovel (dig out a high-centred rig), traction boards,
-     high-lift jack; snatch strap if a buddy rig arrives.
+     high-lift jack. **Built.** Still to do: snatch strap if a buddy rig arrives.
   3. Damage: mud-caked radiator overheats, axle/CV snaps when shock-loaded with
      lockers in, tie rod bends on rocks, hydrolock in deep water (snorkel fix).
   4. Weather that changes during a run: rain starting, puddles growing.

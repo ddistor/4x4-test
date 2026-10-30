@@ -10,11 +10,7 @@ extends RigidBody3D
 
 @export var terrain_path: NodePath
 
-# Drivetrain: defaults here, each RigSpec sets its own in _ready
-@export var max_drive_force_high := 13000.0   # N, total at the wheels, from rest
-@export var max_speed_high := 26.0            # m/s where drive force reaches zero
-@export var max_drive_force_low := 26000.0
-@export var max_speed_low := 11.0
+# Engine and gears: gearbox.gd, set up from the RigSpec
 @export var brake_force := 9000.0              # N per wheel
 @export var max_steer := deg_to_rad(32.0)
 @export var steer_speed := 3.2                 # rad/s
@@ -27,6 +23,9 @@ var terrain: Terrain
 var wheels: Array[RigWheel] = []
 var diff_locked := false
 var low_range := false
+var gearbox := Gearbox.new()
+var kit: RecoveryKit      # shovel, traction boards, high-lift jack
+var choke := 0.0          # 0..1 how drowned the air intake is (no drive at 1)
 var winch_active := false
 var winch_anchor := Vector3.INF
 var winch_target_len := 0.0
@@ -86,10 +85,11 @@ func _ready() -> void:
 	mass = spec.mass
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = spec.center_of_mass
-	max_drive_force_high = spec.drive_force_high
-	max_speed_high = spec.speed_high
-	max_drive_force_low = spec.drive_force_low
-	max_speed_low = spec.speed_low
+	gearbox.setup(spec)
+	# no blanket linear damping (Godot's default 0.1/s is ~3 kN at 60 km/h):
+	# air drag and rolling resistance in _physics_process slow it instead
+	linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+	linear_damp = 0.0
 	max_steer = spec.max_steer
 	axle_roll_stiffness = spec.axle_roll_stiffness
 	can_sleep = false
@@ -103,6 +103,10 @@ func _ready() -> void:
 	winch_aim.name = "WinchAim"
 	add_child(winch_aim)
 	winch_aim.setup(self)
+	kit = RecoveryKit.new()
+	kit.name = "RecoveryKit"
+	add_child(kit)
+	kit.setup(self)
 	_build_wheels()
 	_build_axles()
 	_build_cable()
@@ -276,6 +280,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		diff_locked = not diff_locked
 	elif event.is_action_pressed("low_range"):
 		low_range = not low_range
+	elif event.is_action_pressed("shift_up"):
+		gearbox.shift(1)
+	elif event.is_action_pressed("shift_down"):
+		gearbox.shift(-1)
+	elif event.is_action_pressed("gear_mode"):
+		gearbox.auto = not gearbox.auto
 	elif event.is_action_pressed("winch"):
 		_toggle_winch()
 	elif event.is_action_pressed("air_down") or event.is_action_pressed("air_up"):
@@ -338,23 +348,41 @@ func _physics_process(delta: float) -> void:
 	var steer_in := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
 	steer = move_toward(steer, steer_in * max_steer, steer_speed * delta)
 	var handbrake := Input.is_action_pressed("handbrake")
+	if kit.busy > 0.0:
+		# the driver's out with the shovel or the jack: handbrake on
+		throttle = 0.0
+		brake = 0.0
+		handbrake = true
 
 	var fwd := -global_transform.basis.z
 	var v_fwd := linear_velocity.dot(fwd)
 	speed_kmh = absf(v_fwd) * 3.6
 
 	# --- engine ------------------------------------------------------------
-	var max_f := max_drive_force_low if low_range else max_drive_force_high
-	var max_v := max_speed_low if low_range else max_speed_high
+	# the brake held at a standstill backs up (reverse gear)
 	var reverse := brake > 0.0 and v_fwd < 0.6 and throttle <= 0.0
-	var demand := throttle
-	if reverse:
-		demand = -brake * 0.6
-	var fade := clampf(1.0 - pow(absf(v_fwd) / max_v, 2.0), 0.0, 1.0)
-	var drive_total := demand * max_f * fade
+	var pedal := brake * 0.6 if reverse else throttle
+	var braking := (brake > 0.0 and not reverse) or handbrake
+	var tire_spin := 0.0
+	for w in wheels:
+		tire_spin += w.slip * 0.25
+	var drive_total := gearbox.step(delta, pedal, reverse, braking, low_range, v_fwd, wheels[0].effective_radius(), tire_spin)
 	# hydrolock-lite: a drowned intake chokes the engine
 	var front_water := maxf(wheels[0].ground.get("water_depth", 0.0), wheels[1].ground.get("water_depth", 0.0))
-	drive_total *= 1.0 - smoothstep(0.75, 1.05, front_water)
+	choke = smoothstep(0.75, 1.05, front_water)
+	drive_total *= 1.0 - choke
+	# spinning tires turn at what the engine turns them through the gears
+	var spin_omega := gearbox.rpm * TAU / 60.0 / gearbox.ratio(low_range) * (-1.0 if gearbox.gear < 0 else 1.0)
+	for w in wheels:
+		w.spin_omega = spin_omega
+
+	# air and rolling resistance: what sets the top speed in each gear now
+	var v := linear_velocity
+	apply_central_force(-v * v.length() * 0.6 * spec.drag_area)   # ½ρ ≈ 0.6
+	var grounded := 0.0
+	for w in wheels:
+		grounded += 0.25 if w.contact else 0.0
+	apply_central_force(-fwd * 0.015 * mass * 9.8 * grounded * clampf(v_fwd / 0.5, -1.0, 1.0))
 
 	var wheel_brake := 0.0
 	if brake > 0.0 and not reverse:
@@ -639,9 +667,19 @@ func roll_pitch() -> Vector2:
 
 func status_text() -> String:
 	var lines := []
-	lines.append("%3.0f km/h   %s   %s" % [speed_kmh, "4L" if low_range else "4H", "DIFF LOCK" if diff_locked else "diff open"])
+	lines.append("%3.0f km/h   %s %s %s   %s" % [speed_kmh, "4L" if low_range else "4H", gearbox.gear_name(),
+		"auto" if gearbox.auto else "manual", "DIFF LOCK" if diff_locked else "diff open"])
+	if choke > 0.3:
+		lines.append("ENGINE CHOKING: water over the intake (winch out)")
+	elif gearbox.running:
+		lines.append("%4.0f rpm" % gearbox.rpm)
+	else:
+		lines.append("STALLED  (throttle to crank it)")
 	if winch_active:
 		lines.append("WINCH  pulling (%.1f m)" % _bumper_pos().distance_to(winch_anchor))
+	var job := kit.status()
+	if job != "":
+		lines.append(job)
 	var names := ["FL", "FR", "RL", "RR"]
 	for i in range(mini(4, wheel_status.size())):
 		var s := wheel_status[i]

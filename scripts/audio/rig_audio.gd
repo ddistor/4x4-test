@@ -1,7 +1,7 @@
 class_name RigAudio
 extends Node3D
-## Mixes the synthesised loops from what the rig is doing: engine rpm follows
-## wheel speed and gear (so wheelspin flares it), squelch follows mud and slip,
+## Mixes the synthesised loops from what the rig is doing: engine rpm comes
+## from the gearbox (so gears, wheelspin and stalls all show), squelch follows mud and slip,
 ## swash follows water, and the ambience fades from paddies to forest as you
 ## climb. One-shots for the diff lock / low range / winch and big splashes.
 
@@ -88,20 +88,20 @@ func _process(delta: float) -> void:
 		return
 	var smooth := 1.0 - exp(-delta * 8.0)
 
-	# --- engine: rpm from how fast the wheels are turning through the gears ---
-	var omega := 0.0
-	for w in rig.wheels:
-		omega += absf(w.omega)
-	omega /= rig.wheels.size()
-	var ratio := 150.0 if rig.low_range else 64.0
+	# --- engine: the gearbox's rpm; quiet when it has stalled -----------------
+	# (each engine's rpm range is mapped onto the loops' so a diesel at its
+	# 4000 redline sounds as wound up as a V8 at 4800)
+	var gb := rig.gearbox
 	var load := maxf(rig.throttle, rig.brake * 0.6)
-	var target := clampf(maxf(IDLE_RPM + load * 900.0, 600.0 + omega * ratio), IDLE_RPM, MAX_RPM)
-	rpm = lerpf(rpm, target, 1.0 - exp(-delta * (5.0 if target > rpm else 3.0)))
+	var span := (gb.rpm - gb.idle_rpm) / (gb.redline - gb.idle_rpm)
+	var target := IDLE_RPM + span * (MAX_RPM - IDLE_RPM) if gb.rpm > gb.idle_rpm * 0.5 else gb.rpm
+	rpm = lerpf(rpm, target, 1.0 - exp(-delta * 12.0))
+	var on := 1.0 if gb.running else smoothstep(0.0, 400.0, gb.rpm) * 0.5
 	var x := smoothstep(1500.0, 3400.0, rpm)
-	_engine_lo.pitch_scale = rpm / LO_RPM
-	_engine_hi.pitch_scale = rpm / HI_RPM
-	_engine_lo.volume_db = _db((1.0 - x) * (0.55 + 0.45 * load)) - 2.0
-	_engine_hi.volume_db = _db(x * (0.45 + 0.55 * load)) - 3.0
+	_engine_lo.pitch_scale = maxf(rpm, 150.0) / LO_RPM
+	_engine_hi.pitch_scale = maxf(rpm, 150.0) / HI_RPM
+	_engine_lo.volume_db = _db((1.0 - x) * (0.55 + 0.45 * load) * on) - 2.0
+	_engine_hi.volume_db = _db(x * (0.45 + 0.55 * load) * on) - 3.0
 
 	# --- tires on the ground ----------------------------------------------------
 	var mud := 0.0

@@ -38,11 +38,18 @@ func max_tire_top() -> float:
 ## Inner face of the tires, with a little room: floors and tubs stay inboard of it.
 func tire_inner() -> float:
 	return track - tire_width * 0.5 - 0.04
-# drivetrain (see the @export defaults at the top of rig.gd)
-var drive_force_high := 13000.0
-var speed_high := 26.0
-var drive_force_low := 26000.0
-var speed_low := 11.0
+# engine and gearing (gearbox.gd): the default is the Gera's small-block V8
+# behind a 4-speed, 4.56 axles for the 35s and a 2.72 low range
+var engine := "V8 petrol"
+var torque_nm := 350.0
+var peak_rpm := 2800.0
+var idle_rpm := 750.0
+var redline := 4800.0
+var gears: Array[float] = [4.02, 2.41, 1.41, 1.0]
+var reverse_ratio := 4.0
+var final_drive := 4.56
+var low_ratio := 2.72
+var drag_area := 2.3                        # m², drag coefficient x frontal area
 var max_steer := deg_to_rad(32.0)
 var axle_roll_stiffness := 18000.0
 # where the winch cable leaves the bumper, the seat and the steering wheel
@@ -99,7 +106,7 @@ static func _gerilya() -> RigSpec:
 	s.tire_width = 0.33
 	s.wheel_color = Color(0.6, 0.61, 0.6)   # silver steelies
 	s.droop = 0.18
-	s.drive_force_low = 28000.0
+	s.final_drive = 4.88   # regeared for the 37s
 	s.build_body = GeraBody.build_trail
 	return s
 
@@ -122,10 +129,17 @@ static func _kuwarenta() -> RigSpec:
 	s.tire_width = 0.3
 	s.spring_stiffness = 46000.0
 	s.droop = 0.12
-	s.drive_force_high = 12500.0
-	s.speed_high = 25.0
-	s.drive_force_low = 27000.0
-	s.speed_low = 10.0
+	# the old 4.2 straight-six: torque low down, done by 3800
+	s.engine = "inline-6 petrol"
+	s.torque_nm = 300.0
+	s.peak_rpm = 1800.0
+	s.idle_rpm = 650.0
+	s.redline = 3800.0
+	s.gears = [4.92, 2.64, 1.53, 1.0]
+	s.reverse_ratio = 5.0
+	s.final_drive = 4.11
+	s.low_ratio = 2.31
+	s.drag_area = 2.4
 	s.max_steer = deg_to_rad(30.0)
 	s.axle_roll_stiffness = 21000.0
 	s.fairlead = Vector3(0, 0.72, -1.98)
@@ -152,10 +166,17 @@ static func _feroz() -> RigSpec:
 	s.tire_width = 0.27
 	s.spring_stiffness = 30000.0
 	s.droop = 0.14
-	s.drive_force_high = 9500.0
-	s.speed_high = 27.0
-	s.drive_force_low = 19000.0
-	s.speed_low = 11.0
+	# a small 16-valve four that wants revs, five speeds, short gearing
+	s.engine = "1.6 four petrol"
+	s.torque_nm = 140.0
+	s.peak_rpm = 4500.0
+	s.idle_rpm = 850.0
+	s.redline = 6500.0
+	s.gears = [3.93, 2.19, 1.33, 1.0, 0.81]
+	s.reverse_ratio = 3.9
+	s.final_drive = 5.57
+	s.low_ratio = 2.6
+	s.drag_area = 1.9
 	s.max_steer = deg_to_rad(34.0)
 	s.axle_roll_stiffness = 14000.0
 	s.fairlead = Vector3(0, 0.66, -1.88)
@@ -183,10 +204,17 @@ static func _ronda() -> RigSpec:
 	s.tire_width = 0.32
 	s.spring_stiffness = 52000.0
 	s.droop = 0.2
-	s.drive_force_high = 16000.0
-	s.speed_high = 28.0
-	s.drive_force_low = 34000.0
-	s.speed_low = 10.0
+	# the big 4.2 diesel: pulls from idle, out of breath by 4000
+	s.engine = "4.2 diesel"
+	s.torque_nm = 400.0
+	s.peak_rpm = 2000.0
+	s.idle_rpm = 700.0
+	s.redline = 4000.0
+	s.gears = [4.56, 2.6, 1.5, 1.0, 0.79]
+	s.reverse_ratio = 4.4
+	s.final_drive = 4.625
+	s.low_ratio = 2.02
+	s.drag_area = 2.8
 	s.max_steer = deg_to_rad(30.0)
 	s.axle_roll_stiffness = 26000.0
 	s.fairlead = Vector3(0, 0.74, -2.56)
@@ -214,10 +242,17 @@ static func _owner() -> RigSpec:
 	s.tire_width = 0.27
 	s.spring_stiffness = 33000.0
 	s.droop = 0.15
-	s.drive_force_high = 10500.0
-	s.speed_high = 25.0
-	s.drive_force_low = 21000.0
-	s.speed_low = 10.0
+	# a surplus Japanese truck diesel, five speeds
+	s.engine = "2.8 diesel"
+	s.torque_nm = 196.0
+	s.peak_rpm = 2000.0
+	s.idle_rpm = 700.0
+	s.redline = 4200.0
+	s.gears = [3.97, 2.34, 1.43, 1.0, 0.86]
+	s.reverse_ratio = 4.0
+	s.final_drive = 4.3
+	s.low_ratio = 2.48
+	s.drag_area = 2.0
 	s.max_steer = deg_to_rad(33.0)
 	s.axle_roll_stiffness = 16000.0
 	s.fairlead = Vector3(0, 0.66, -1.98)
@@ -245,10 +280,17 @@ static func _rubikon() -> RigSpec:
 	s.tire_width = 0.32
 	s.spring_stiffness = 42000.0
 	s.droop = 0.22
-	s.drive_force_high = 15000.0
-	s.speed_high = 30.0
-	s.drive_force_low = 32000.0
-	s.speed_low = 11.0
+	# modern 3.6 V6, six speeds, and the 4:1 transfer case it's known for
+	s.engine = "3.6 V6 petrol"
+	s.torque_nm = 353.0
+	s.peak_rpm = 4400.0
+	s.idle_rpm = 700.0
+	s.redline = 6400.0
+	s.gears = [4.71, 2.84, 1.84, 1.29, 1.0, 0.8]
+	s.reverse_ratio = 4.5
+	s.final_drive = 4.1
+	s.low_ratio = 4.0
+	s.drag_area = 2.5
 	s.max_steer = deg_to_rad(33.0)
 	s.axle_roll_stiffness = 12000.0
 	s.fairlead = Vector3(0, 0.74, -2.48)

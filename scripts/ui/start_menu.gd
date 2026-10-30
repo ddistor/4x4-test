@@ -110,7 +110,7 @@ func _ready() -> void:
 	_preview = UiKit.label("", 19, UiKit.DIM)
 	pv.add_child(_preview)
 
-	var help := UiKit.label("W/S drive   A/D steer   G low range   L diff lock   F winch   -/= tire pressure   Backspace recover   Esc pause", 16, UiKit.DIM)
+	var help := UiKit.label("W/S drive   A/D steer   E/Q shift (T auto)   G low range   L diff lock   F winch   1 dig  2 boards  3 jack   -/= tires   Backspace recover   Esc pause", 16, UiKit.DIM)
 	help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	help.position = Vector2(80, -60)
 	add_child(help)

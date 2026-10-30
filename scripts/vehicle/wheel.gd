@@ -42,6 +42,7 @@ var _lat_drift := 0.0         # sideways creep while near-stopped (static grip)
 var mesh: MeshInstance3D
 var tire_mat: ShaderMaterial
 var wheel_color := Color(0.03, 0.03, 0.032)   # the steel wheel's paint (RigSpec)
+var spin_omega := 0.0         # rad/s the engine would spin it at, set by the rig each step
 var spray: GPUParticles3D
 var splash: GPUParticles3D
 var mist: GPUParticles3D
@@ -294,6 +295,10 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		ground["wetness"] = 0.7 if level > hit.position.y - 0.25 else 0.2
 		ground["water_depth"] = maxf(0.0, level - hit.position.y)
 		ground["grip"] = 1.0
+		if (hit.collider as Node).is_in_group("boards"):
+			# traction boards: cleated plastic, it bites even wet
+			ground["wetness"] = 0.1
+			ground["grip"] = 1.35
 	var room: float = maxf(0.0, ground["thickness"] - ground["rut"])
 	var wet: float = ground["wetness"]
 	var water: float = ground["water_depth"]
@@ -447,7 +452,8 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	if slipping:
 		target_slip = clampf((absf(drive_force) - cap) / maxf(cap, 500.0), 0.0, 1.0)
 	slip = lerpf(slip, target_slip, delta * 8.0)
-	var free_omega := signf(drive_force) * 28.0 * (0.3 + 0.7 * slip)
+	# a spinning tire turns as fast as the engine drives it through the gears
+	var free_omega := spin_omega if spin_omega != 0.0 else signf(drive_force) * 28.0 * (0.3 + 0.7 * slip)
 	var rolling_omega := v_fwd / r
 	omega = lerpf(rolling_omega, free_omega, slip)
 

@@ -35,7 +35,12 @@ func _ready() -> void:
 		table.add_child(lip)
 	add_child(table)
 	table.global_position = Vector3(80, UP, 300)
-	if "--winch" in OS.get_cmdline_user_args():
+	var args := OS.get_cmdline_user_args()
+	if "--drive" in args or "--descend" in args:
+		box.size = Vector3(16, 0.4, 900)   # a long runway
+		table.global_position = Vector3(80, UP, 300)
+		_gears.call_deferred("--descend" in args)
+	elif "--winch" in args:
 		_winch.call_deferred()
 	else:
 		_tilt.call_deferred()
@@ -82,6 +87,42 @@ func _tilt() -> void:
 			get_tree().quit()
 			return
 	print("still on its wheels at 70 deg")
+	get_tree().quit()
+
+
+## --drive: full throttle in 4H on the flat, the auto box shifting up.
+## --descend: the slab pitched 30 deg nose down, 4L first, off the throttle:
+## engine braking should hold it to a crawl.
+func _gears(descend: bool) -> void:
+	if descend:
+		# tilt the slab first (nose-down for a rig facing -Z), then set the rig
+		# on it near the top, already tilted to match
+		await _wait(1.0)
+		var t := Transform3D(Basis(Vector3.RIGHT, deg_to_rad(-30.0)), table.global_position)
+		table.global_transform = t
+		await get_tree().physics_frame
+		var placed := Transform3D(t.basis, t * Vector3(0, 0.2 + 0.6, 400.0))
+		PhysicsServer3D.body_set_state(rig.get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM, placed)
+		rig.global_transform = placed
+		rig.linear_velocity = Vector3.ZERO
+		rig.angular_velocity = Vector3.ZERO
+		rig.driver.snap()
+		rig.low_range = true
+		for i in range(12):
+			await _wait(1.0)
+			print("t=%2d  %5.1f km/h  %s %s  %4.0f rpm  torque %5.0f" % [i + 1, rig.speed_kmh, "4L" if rig.low_range else "4H",
+				rig.gearbox.gear_name(), rig.gearbox.rpm, rig.gearbox.torque_out])
+	else:
+		await _drop_rig_on_table(690.0)
+		Input.action_press("throttle")
+		for i in range(30):
+			await _wait(1.0)
+			var fl := 0.0
+			for w in rig.wheels:
+				fl += w.load
+			print("t=%2d  %5.1f km/h  4H %s  %4.0f rpm  torque %4.0f  slip %.2f  loads %.0f  shifting %.2f" % [i + 1, rig.speed_kmh,
+				rig.gearbox.gear_name(), rig.gearbox.rpm, rig.gearbox.torque_out, rig.wheels[0].slip, fl, rig.gearbox.shifting])
+		Input.action_release("throttle")
 	get_tree().quit()
 
 
