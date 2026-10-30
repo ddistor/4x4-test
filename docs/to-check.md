@@ -510,6 +510,8 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
      rock instead of hanging on it, and later it keeps the oil pan and transfer
      case from damage (realism plan, item 3).
   Needs a garage page for parts. Wants the damage model to really pay off.
+  Research, full part list and a career-mode plan: `docs/upgrades.md`
+  (open questions at the bottom for you).
 - **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
      low range. **Built.**
