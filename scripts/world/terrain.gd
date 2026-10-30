@@ -20,13 +20,16 @@ const NO_WATER := -1000.0
 
 ## How much of each kind of land is forest (leaf litter, ferns, trees).
 const FOREST := {"paddy": 0.0, "clay": 1.0, "kanal": 0.9, "river": 0.7, "lahar": 0.0, "rocky": 0.6,
-	"gully": 1.0, "bog": 1.0, "cogon": 0.05, "niyog": 0.0, "end": 0.3}
+	"gully": 1.0, "bog": 1.0, "cogon": 0.05, "niyog": 0.0, "end": 0.3,
+	"pasture": 0.0, "ridge": 0.0, "sukal": 0.4}
 ## Broadleaf trees per metre of trail.
 const TREES := {"paddy": 0.0, "clay": 4.0, "kanal": 3.5, "river": 2.5, "lahar": 0.6, "rocky": 2.5,
-	"gully": 4.5, "bog": 5.0, "cogon": 0.35, "niyog": 0.2, "end": 1.0}
+	"gully": 4.5, "bog": 5.0, "cogon": 0.35, "niyog": 0.2, "end": 1.0,
+	"pasture": 1.4, "ridge": 0.12, "sukal": 1.2}
 ## How lumpy the trail floor is: humps, wallows and potholes (m).
 const LUMPS := {"paddy": 0.03, "clay": 0.16, "kanal": 0.1, "river": 0.12, "lahar": 0.12, "rocky": 0.0,
-	"gully": 0.12, "bog": 0.2, "cogon": 0.1, "niyog": 0.16, "end": 0.06}
+	"gully": 0.12, "bog": 0.2, "cogon": 0.1, "niyog": 0.16, "end": 0.06,
+	"pasture": 0.12, "ridge": 0.07, "sukal": 0.12}
 
 @export var seed_value: int = 7
 var plan: StagePlan
@@ -372,6 +375,25 @@ func _kind_height(s: Dictionary, x: float, z: float, sx: float, th: float) -> fl
 			else:
 				up = smoothstep(2.3, 5.5, dx) * (2.0 + hills * 2.0 + detail * 0.5) + smoothstep(5.5, 16.0, dx) * hills * 3.0
 			return th + 0.08 * cos(minf(dx, 2.2) * 1.4) + up
+		"pasture":
+			# open green hillside pasture, the trail barely cut into it: two
+			# wheel ruts worn in the grass, a grassy hump between them
+			var h := lerpf(th, th + hills * 4.5 + detail * 0.3, smoothstep(1.8, 20.0, dx))
+			h -= 0.13 * exp(-pow((dx - 0.8) / 0.28, 2.0))
+			return h
+		"ridge":
+			# along a ridge crest: the land falls away on both sides to the
+			# valleys, a low shoulder here and there; views all round
+			var fall := pow(smoothstep(3.5, 45.0, dx), 0.8) * (12.0 + hills * 9.0)
+			var shoulder := 0.6 * smoothstep(2.4, 5.0, dx) * (1.0 - smoothstep(5.0, 12.0, dx)) * (0.5 + hills)
+			return th - fall + shoulder + detail * 0.25 * smoothstep(3.0, 8.0, dx)
+		"sukal":
+			# a narrow shelf cut across a steep hillside: up one side, a drop
+			# on the other, the track no wider than a rig
+			var up_side := 1.0 if sin(float(s["phase"]) * 5.0) > 0.0 else -1.0
+			if sx * up_side > 0.0:
+				return th + smoothstep(1.7, 3.2, dx) * 0.9 + maxf(0.0, dx - 2.0) * (0.55 + 0.25 * hills) + detail * 0.3
+			return th - maxf(0.0, dx - 2.1) * (0.5 + 0.25 * hills) - smoothstep(2.1, 3.0, dx) * 0.4 + detail * 0.3 * smoothstep(3.0, 6.0, dx)
 		"bog":
 			# a sunken logging road with a chain of water-filled holes in it
 			var h := lerpf(th, th + 0.9 + hills * 3.0 + detail * 0.5, smoothstep(2.8, 6.0, dx))
@@ -514,7 +536,7 @@ func get_height(x: float, z: float) -> float:
 ## A churned mud hole at the foot of each steep pitch, where every rig has
 ## stopped, spun and dug before the climb. 0..1 along z.
 func _wallow(s: Dictionary, z: float) -> float:
-	if not s["kind"] in ["clay", "kanal", "gully", "cogon", "niyog", "lahar"]:
+	if not s["kind"] in ["clay", "kanal", "gully", "cogon", "niyog", "lahar", "pasture"]:
 		return 0.0
 	var up: bool = float(s["h1"]) >= float(s["h0"])
 	var best := 0.0
@@ -563,6 +585,27 @@ func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> 
 			return Vector4(thick, 0.75 + 0.25 * patchy, minf(thick, 0.18 * wheel_line), 1.0)
 		"cogon":
 			return Vector4(on * 0.03, 0.2, 0.0, 1.0)
+		"pasture":
+			# the wheel ruts are mud, churned and wet after every convoy; the
+			# grass between and beside them stays firm
+			var lines := exp(-pow((dx - 0.8) / 0.22, 2.0))
+			# on the climbs the water runs off: the ruts there are worn to firm,
+			# drier clay; the mud sits in the flats and hollows
+			var steep := smoothstep(0.08, 0.25, absf(plan.profile(z + 1.0) - plan.profile(z - 1.0)) * 0.5)
+			var thick := lines * (0.14 + 0.2 * patchy) * (0.6 + 0.6 * rain) * (1.0 - 0.7 * steep) + on * 0.02
+			return Vector4(thick, (0.45 + 0.3 * rain + 0.25 * lines) * (1.0 - 0.5 * steep), minf(thick, 0.1 * lines), 1.0)
+		"ridge":
+			# a hard, dry, stony dirt track: firm and gritty, slick after rain
+			# (thin, but enough soil that it reads as a dirt track, not grass)
+			var track := 1.0 - smoothstep(1.6, 2.4, dx)
+			return Vector4(track * (0.06 + 0.03 * patchy), 0.05 + 0.2 * rain, 0.0, 1.3 - 0.2 * rain)
+		"sukal":
+			# a narrow clay track under the overgrowth, damp in the shade
+			# (on the climbs it drains to firmer, grittier clay, roots in it)
+			var track := 1.0 - smoothstep(1.3, 2.2, dx)
+			var steep := smoothstep(0.08, 0.25, absf(plan.profile(z + 1.0) - plan.profile(z - 1.0)) * 0.5)
+			var thick := track * (0.08 + 0.16 * patchy) * (1.0 - 0.6 * steep)
+			return Vector4(thick, (0.3 + 0.2 * patchy + 0.25 * rain) * (1.0 - 0.5 * steep), minf(thick, 0.06 * wheel_line), 1.0 + 0.25 * steep)
 	# niyog, end: a rutted farm road, carabao-cart deep in the wheel lines,
 	# with standing puddles
 	var pud := on * smoothstep(0.5, 0.68, _detail.get_noise_2d(x * 0.5, z * 0.5) * 0.5 + 0.5)
@@ -921,6 +964,22 @@ func _place_rocks() -> void:
 						var side := 1.0 if rng.randf() < 0.5 else -1.0
 						add.call(trail_x_at(z) + side * rng.randf_range(5.0, maxf(6.0, _lahar_half(z) - 3.0)), z, rng.randf_range(1.6, 2.4), 0.4)
 				off_trail = 10
+			"ridge":
+				# loose stones on the track, a few bigger ones to pick round
+				var stones := RandomNumberGenerator.new()
+				stones.seed = seed_value + 37
+				for k in range(int(55 * plan.difficulty)):
+					var z := stones.randf_range(z0 + 6.0, z1 - 6.0)
+					add.call(trail_x_at(z) + stones.randfn(0.0, 1.3), z, stones.randf_range(0.12, 0.3), 0.45)
+				for k in range(int(10 * plan.difficulty)):
+					var z := stones.randf_range(z0 + 8.0, z1 - 8.0)
+					# the big ones sit on the level stretches, not halfway up the pitch
+					if absf(plan.profile(z + 1.0) - plan.profile(z - 1.0)) > 0.4:
+						continue
+					add.call(trail_x_at(z) + stones.randf_range(-1.6, 1.6), z, stones.randf_range(0.3, 0.5) * plan.difficulty, 0.4)
+				off_trail = 6
+			"pasture", "sukal":
+				off_trail = 3
 		for k in range(off_trail):
 			var z := rng.randf_range(z0, z1)
 			var side := 1.0 if rng.randf() < 0.5 else -1.0
@@ -969,6 +1028,12 @@ func _build_trees() -> void:
 				off = _lahar_half(z) + 8.0 + absf(rng.randfn(0.0, 1.0)) * 12.0
 			elif kind == "cogon":
 				off = rng.randf_range(6.0, 45.0)
+			elif kind == "pasture":
+				off = rng.randf_range(16.0, 55.0)   # the forest edge round the meadow
+			elif kind == "ridge":
+				off = rng.randf_range(10.0, 45.0)   # a lone tree down on the shoulders
+			elif kind == "sukal":
+				off = rng.randf_range(3.2, 22.0)
 			var x := tx + side * off / _across(z)
 			if x < 2.0 or x > WIDTH - 2.0:
 				continue

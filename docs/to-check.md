@@ -1,5 +1,29 @@
 # To check in Claude Code / by hand
 
+## Three new sections, a reworked lahar wash and rock steps
+
+- **Pastulan two-track** (Sampaloc, Tanay): open green hillside pasture, two
+  muddy wheel ruts with a grassy hump between, forest at the edges. The ruts
+  drain to firmer clay on the climb.
+- **Talahib ridge** (Mt. Balagbag, Rodriguez): along a crest, the land falling
+  away both sides, a firm stony dirt track, talahib in flower (white plumes)
+  crowding both edges, a lone tree on the shoulders.
+- **Overgrown trail** (Real, Quezon): a narrow shelf cut across a steep slope,
+  overgrown right to the wheel lines with ferns, shrubs and tall grass you push
+  through (no collision). `terrain.gd` / `vegetation.gd` / `stage_plan.gd`.
+  Adding them to the pool reshuffles every seed's sections. `tests/find_seed.gd`
+  finds seeds with given kinds; `tests/plan_dump.gd` prints a stage's grades.
+  Headless bot: no recoveries in them on seeds 7, 9, 63 (after easing their
+  climbs and drying the ruts on slopes; at first it slid back down the wet
+  pasture climb and sank in a wallow before the overgrown climb).
+- **Lahar wash** from Pinatubo/Porac trail accounts: a braided stream running
+  down it crossing the trail again and again, cobble bed, deeper pockets,
+  boulder clusters, one slot canyon where the walls close in, soft sodden sand
+  on the banks; rocks and tire spray take grey ash there. **Rock steps**: bare
+  bedrock (no grass on the rock), loose rubble. The chase camera stays out of
+  canyon walls. To check by driving: all of these, and how the talahib and the
+  overgrowth look from the seat camera.
+
 ## Gearbox and recovery kit
 
 - **Gearbox** (`scripts/vehicle/gearbox.gd`, numbers per rig in `rig_spec.gd`):

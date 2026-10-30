@@ -25,7 +25,7 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   and distance (no clock on purpose: it's a drive, not a race); `ui_kit.gd` — shared look.
 - `scripts/main.gd` — builds environment, terrain, rig, camera, HUD, pause menu.
 - `scripts/world/stage_plan.gd` — the seeded chain of sections: paddy road first,
-  then six of laterite climb, kanal ruts, boulder river, lahar wash, rock steps,
+  then six of laterite climb, kanal ruts, boulder river, lahar wash, rock steps, rock gully,
   rock gully, logging-road bog, cogon hills, niyogan farm road (always a river and kanal), then
   the finish clearing. Trail profile per section; the season (dry .. rainy).
 - `scripts/world/terrain.gd` — builds the stage as a 160 m wide strip along +Z:

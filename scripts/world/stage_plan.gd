@@ -22,6 +22,9 @@ const KINDS := {
 	"bog": {"name": "Logging-road bog", "place": "General Nakar, Quezon", "len": Vector2(100, 130), "rise": Vector2(0, 0), "wander": 5.0, "freq": 0.03, "pitch": [0, Vector2.ZERO]},
 	"cogon": {"name": "Cogon hills", "place": "San Felipe, Zambales", "len": Vector2(120, 150), "rise": Vector2(-6, 9), "wander": 12.0, "freq": 0.03, "pitch": [1, Vector2(0.38, 0.52)]},
 	"niyog": {"name": "Niyogan farm road", "place": "Lucban, Quezon", "len": Vector2(100, 125), "rise": Vector2(-5, 6), "wander": 10.0, "freq": 0.03, "pitch": [1, Vector2(0.3, 0.42)]},
+	"pasture": {"name": "Pastulan two-track", "place": "Sampaloc, Tanay", "len": Vector2(110, 140), "rise": Vector2(-4, 10), "wander": 13.0, "freq": 0.028, "pitch": [1, Vector2(0.22, 0.32)]},
+	"ridge": {"name": "Talahib ridge", "place": "Mt. Balagbag, Rodriguez", "len": Vector2(120, 150), "rise": Vector2(8, 16), "wander": 7.0, "freq": 0.025, "pitch": [1, Vector2(0.28, 0.38)]},
+	"sukal": {"name": "Overgrown trail", "place": "Real, Quezon", "len": Vector2(100, 130), "rise": Vector2(4, 10), "wander": 9.0, "freq": 0.04, "pitch": [1, Vector2(0.22, 0.32)], "jitter": 0.5},
 	"end": {"name": "Finish clearing", "place": "", "len": Vector2(35, 35), "rise": Vector2(0, 0), "wander": 4.0, "freq": 0.03, "pitch": [0, Vector2.ZERO]},
 }
 
@@ -65,7 +68,7 @@ static func generate(p_seed: int, weather := -1, level := 1) -> StagePlan:
 	elif weather == 1:
 		plan.rain = 0.72 + plan.rain * 0.28
 	var kinds: Array[String] = ["river", "kanal"]
-	var pool: Array[String] = ["clay", "lahar", "rocky", "gully", "bog", "cogon", "niyog"]
+	var pool: Array[String] = ["clay", "lahar", "rocky", "gully", "bog", "cogon", "niyog", "pasture", "ridge", "sukal"]
 	for i in range(4):
 		kinds.append(pool.pop_at(rng.randi() % pool.size()))
 	# shuffle, then nudge the river away from the very first slot so the
@@ -195,7 +198,7 @@ func profile(z: float) -> float:
 			# the climb unchanged on average
 			var u := fposmod(z + float(s["phase"]) * 3.0, 5.5) / 5.5
 			h += 0.7 * difficulty * (smoothstep(0.78, 1.0, u) - u + 0.39) * window
-		"cogon", "niyog", "lahar":
+		"cogon", "niyog", "lahar", "pasture", "ridge":
 			h += window * 1.6 * sin(z * 0.045 + float(s["phase"]))
 	return h
 

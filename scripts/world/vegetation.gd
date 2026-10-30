@@ -504,6 +504,72 @@ func _fern_mesh(seed_v: int) -> ArrayMesh:
 	return _finish([[st, _plant_mat]])
 
 
+## Talahib in flower: a head-high clump of blades with tall stalks carrying
+## the white feathery plumes that line the ridge trails late in the year.
+func _talahib_mesh(seed_v: int) -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	var st := MeshKit.begin()
+	for k in range(18):
+		var a := rng.randf() * TAU
+		var out := Vector3(cos(a), 0, sin(a))
+		var root := out * rng.randf_range(0.0, 0.2)
+		var h := rng.randf_range(0.9, 1.6)
+		var lean := rng.randf_range(0.2, 0.55)
+		var pts := PackedVector3Array()
+		var w := PackedFloat32Array()
+		var cols := PackedColorArray()
+		for i in range(4):
+			var f := i / 3.0
+			pts.append(root + Vector3.UP * h * (f - 0.25 * f * f) + out * h * lean * f * f)
+			w.append(lerpf(0.016, 0.002, f))
+			cols.append(Color(Color(0.16, 0.24, 0.07).lerp(Color(0.5, 0.52, 0.22), f), f))
+		_ribbon(st, pts, w, out.cross(Vector3.UP).normalized(), cols)
+	# the flowering stalks: thin and straight, a soft white plume nodding at the top
+	for k in range(rng.randi_range(2, 4)):
+		var a := rng.randf() * TAU
+		var out := Vector3(cos(a), 0, sin(a))
+		var h := rng.randf_range(1.8, 2.4)
+		var tilt := rng.randf_range(0.05, 0.22)
+		var top := Vector3.UP * h + out * h * tilt
+		var stalk := PackedVector3Array([out * 0.05, top * 0.55, top * 0.78])
+		_ribbon(st, stalk, PackedFloat32Array([0.006, 0.005, 0.004]), out.cross(Vector3.UP).normalized(),
+			PackedColorArray([Color(0.3, 0.32, 0.14, 0.0), Color(0.42, 0.4, 0.22, 0.6), Color(0.55, 0.52, 0.36, 0.8)]))
+		var plume := PackedVector3Array()
+		var pw := PackedFloat32Array()
+		var pc := PackedColorArray()
+		var droop := out * rng.randf_range(0.12, 0.3)
+		for i in range(6):
+			var f := i / 5.0
+			# a slim feathery spike ~35 cm long, silvery cream, nodding over
+			plume.append(top * 0.78 + top.normalized() * 0.35 * f + droop * f * f - Vector3.UP * 0.1 * f * f)
+			pw.append(0.028 * sin(PI * clampf(f * 0.9 + 0.08, 0.0, 1.0)))
+			pc.append(Color(Color(0.72, 0.7, 0.62).lerp(Color(0.9, 0.88, 0.82), f), 1.0))
+		_ribbon(st, plume, pw, out.cross(Vector3.UP).normalized(), pc, 0.2)
+	return _finish([[st, _plant_mat]])
+
+
+## A leafy shrub for the overgrowth: a dome of broad leaf cards, waist to
+## chest high on a rig, leaning out over the track.
+func _shrub_mesh(seed_v: int) -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	var st := MeshKit.begin()
+	for k in range(48):
+		var a := rng.randf() * TAU
+		var out := Vector3(cos(a), 0, sin(a))
+		var r := rng.randf_range(0.1, 0.75)
+		var h := rng.randf_range(0.35, 1.5)
+		var base := out * r * 0.3
+		var tip := out * r + Vector3.UP * h
+		var pts := PackedVector3Array([base, base.lerp(tip, 0.5) + Vector3.UP * 0.15, tip])
+		var g := rng.randf_range(0.0, 1.0)
+		var leaf := Color(0.1, 0.24, 0.05).lerp(Color(0.28, 0.42, 0.1), g)
+		_ribbon(st, pts, PackedFloat32Array([0.015, 0.08, 0.04]), out.cross(Vector3.UP).normalized(),
+			PackedColorArray([Color(leaf.darkened(0.3), 0.0), Color(leaf, 0.5), Color(leaf.lightened(0.15), 1.0)]), 0.4)
+	return _finish([[st, _plant_mat]])
+
+
 func _place_ground_cover() -> void:
 	var grass_meshes: Array[ArrayMesh] = [
 		_clump_mesh(9, 0.45, 0.12, Color(0.12, 0.2, 0.05), Color(0.36, 0.45, 0.14), 0.1, 1),
@@ -514,6 +580,10 @@ func _place_ground_cover() -> void:
 	var ferns: Array[ArrayMesh] = [_fern_mesh(7), _fern_mesh(8)]
 	# talahib / tall cogon, head-high on a rig: it hides what the trail is doing
 	var tall := _clump_mesh(16, 1.35, 0.22, Color(0.16, 0.22, 0.06), Color(0.62, 0.58, 0.32), 0.2, 5)
+	var talahib: Array[ArrayMesh] = [_talahib_mesh(11), _talahib_mesh(12)]
+	var shrubs: Array[ArrayMesh] = [_shrub_mesh(13), _shrub_mesh(14)]
+	# pasture grass: short, lush, bright after the rains
+	var lush := _clump_mesh(14, 0.32, 0.18, Color(0.14, 0.3, 0.06), Color(0.36, 0.58, 0.14), 0.08, 6)
 	var chunks := {}  # Vector2i -> {kind: Array[Transform3D]}
 
 	var add := func(kind: String, xf: Transform3D) -> void:
@@ -544,6 +614,52 @@ func _place_ground_cover() -> void:
 			var cell := cover.world_to_cell(Vector2(x, zz))
 			var thick := cover.thickness[cover.idx(cell.x, cell.y)]
 			var map := terrain._cover(x, zz)
+			var sdx := dx * terrain._across(zz)   # across the trail, not across the map
+			if kind == "pasture" and map.b <= 0.5:
+				# lush grass everywhere but the two muddy wheel ruts, the hump
+				# between them grassed over
+				if absf(sdx - 0.8) < 0.33:
+					continue
+				if absf(terrain.get_height(x + 0.5, zz) - terrain.get_height(x - 0.5, zz)) > 0.9:
+					continue
+				add.call("lush" if _rng.randf() < 0.75 else "grass0", _ground_xf(x, zz, _rng.randf_range(0.8, 1.4)))
+				if sdx > 2.6 and _rng.randf() < 0.03:
+					add.call("shrub%d" % (_rng.randi() % 2), _ground_xf(x, zz, _rng.randf_range(0.6, 1.0)))
+				continue
+			if kind == "ridge" and map.b <= 0.5:
+				# a stony track with grass down its middle, talahib in flower
+				# crowding both edges, open grass on the slopes below
+				if sdx < 1.5:
+					if sdx < 0.35 and _rng.randf() < 0.35:
+						add.call("grass2", _ground_xf(x, zz, _rng.randf_range(0.6, 1.0)))   # the grassy middle
+					continue
+				if sdx < 6.0 and _rng.randf() < 0.4:
+					add.call("talahib%d" % (_rng.randi() % 2), _ground_xf(x, zz, _rng.randf_range(0.8, 1.2)))
+				elif _rng.randf() < 0.7:
+					add.call("tall" if _rng.randf() < 0.4 else "grass1", _ground_xf(x, zz, _rng.randf_range(0.7, 1.2)))
+				continue
+			if kind == "sukal" and map.b <= 0.5:
+				# overgrown right to the wheel lines and leaning in: ferns, shrubs
+				# and tall grass you push through (no collision: they brush past)
+				if absf(sdx - 0.8) < 0.22:
+					continue
+				var r := _rng.randf()
+				if sdx < 0.5:
+					if r < 0.6:
+						add.call("grass1", _ground_xf(x, zz, _rng.randf_range(0.8, 1.2)))
+				elif sdx < 1.7:
+					if r < 0.45:
+						add.call("tall", _ground_xf(x, zz, _rng.randf_range(0.8, 1.3)))
+					elif r < 0.6:
+						add.call("fern%d" % (_rng.randi() % 2), _ground_xf(x, zz, _rng.randf_range(1.2, 1.8)))
+				elif sdx < 30.0:
+					if r < 0.25:
+						add.call("shrub%d" % (_rng.randi() % 2), _ground_xf(x, zz, _rng.randf_range(0.8, 1.5)))
+					elif r < 0.5:
+						add.call("fern%d" % (_rng.randi() % 2), _ground_xf(x, zz, _rng.randf_range(1.4, 2.4)))
+					elif r < 0.85:
+						add.call("tall", _ground_xf(x, zz, _rng.randf_range(1.0, 1.6)))
+				continue
 			if map.b > 0.5:
 				if dx < 4.3:
 					continue  # road
@@ -597,6 +713,7 @@ func _place_ground_cover() -> void:
 	var kinds := {
 		"grass0": grass_meshes[0], "grass1": grass_meshes[1], "grass2": grass_meshes[2],
 		"rice": rice, "fern0": ferns[0], "fern1": ferns[1], "tall": tall,
+		"talahib0": talahib[0], "talahib1": talahib[1], "shrub0": shrubs[0], "shrub1": shrubs[1], "lush": lush,
 	}
 	for key: Vector2i in chunks:
 		var centre := Vector3((key.x + 0.5) * CHUNK, 0.0, (key.y + 0.5) * CHUNK)
