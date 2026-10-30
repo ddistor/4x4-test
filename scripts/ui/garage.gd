@@ -29,6 +29,7 @@ var _rig_act: Button
 var _repair_pick: Button
 var _repair_act: Button
 var _sell: Button
+var _sell_armed := ""   # slot + id of a part one press from being sold
 var _fix_part := "all"   # what the repairs row fixes: "all" or one part
 var _drive_btn: Button
 
@@ -154,16 +155,21 @@ func _career_panel(col: VBoxContainer) -> void:
 			continue
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
-		var pick := _small("", 300)
-		var act := _small("", 150)
+		var pick := _small("", 280)
+		var act := _small("", 110)
 		act.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var sell := _small("Sell", 50)
+		sell.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sell.add_theme_font_size_override("font_size", 15)
 		pick.pressed.connect(_cycle_part.bind(slot))
 		act.pressed.connect(_part_action.bind(slot))
+		sell.pressed.connect(_sell_part.bind(slot))
 		row.add_child(pick)
 		row.add_child(act)
+		row.add_child(sell)
 		var on := "Drivetrain" if Parts.DRIVETRAIN.has(slot) else ("Kit" if Parts.KIT_SLOTS.has(slot) else "Armor")
 		(pages[on] as VBoxContainer).add_child(row)
-		_part_rows[slot] = [pick, act]
+		_part_rows[slot] = [pick, act, sell]
 	_look_rows(pages["Look"])
 	(pages["Look"] as VBoxContainer).add_child(_flex_button())
 	# start over: press twice, it's every rig and peso gone
@@ -400,6 +406,27 @@ func _cycle_part(slot: String) -> void:
 	_rebuild()
 
 
+## Sell the part shown in `slot`'s row (press twice: the first says for how much).
+func _sell_part(slot: String) -> void:
+	var c := Game.career
+	var id := _try_id if _try_slot == slot else c.fitted_id(slot)
+	var why := c.cant_sell(slot, id)
+	if why != "":
+		_desc.text = "Can't sell the %s: %s." % [Parts.label(slot, id).to_lower(), why]
+		return
+	if _sell_armed != slot + id:
+		_sell_armed = slot + id
+		_show_career()
+		_desc.text = "Sell the %s for %s? Press Sell again." % [Parts.label(slot, id).to_lower(),
+			Career.pesos_text(int(Parts.price(slot, id) * Career.SELL_PART))]
+		return
+	_sell_armed = ""
+	c.sell_part(slot, id)
+	_try_slot = ""
+	_show_career()
+	_rebuild()
+
+
 ## Fit the part being tried (buying it first if it isn't yours yet).
 func _part_action(slot: String) -> void:
 	var c := Game.career
@@ -441,11 +468,15 @@ func _show_career() -> void:
 	for slot: String in _part_rows:
 		var pick: Button = _part_rows[slot][0]
 		var act: Button = _part_rows[slot][1]
+		var sell_btn: Button = _part_rows[slot][2]
 		var trying := _try_slot == slot
 		var id := _try_id if trying else c.fitted_id(slot)
 		pick.text = "%s: %s" % [Parts.SLOT_NAMES[slot], Parts.label(slot, id)]
 		var why := Parts.blocked(stock, c.fitted, slot, id)
 		var cost := Parts.price(slot, id)
+		# only what you bought can go: the stock part stays
+		sell_btn.modulate.a = 1.0 if (c.owned.get(slot, []) as Array).has(id) else 0.0
+		sell_btn.disabled = sell_btn.modulate.a == 0.0
 		act.disabled = true
 		if id == c.fitted_id(slot):
 			act.text = "Fitted"

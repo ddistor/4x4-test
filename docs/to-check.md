@@ -1,6 +1,18 @@
 # To check in Claude Code / by hand
 
-## Career polish (branch `career-polish`, off main)
+## Dents, a crooked steering wheel, selling parts (branch `career-wear`)
+
+- **Dents**: each knock that hurts the body leaves one where it hit (up to
+  8): darkened, crumpled, scraped through to bare steel at the middle. They
+  stay with the rig and a body repair beats them out. To check by eye: do
+  they read as dents (they show far better on a light paint than gloss
+  black), and are they where the rig actually hit?
+- **Bent tie rod**: the steering wheel's spokes sit off-centre by the bend.
+- **Sell a part**: the small Sell button on a part row (press twice), half
+  what it cost; a fitted one comes off and the stock part goes back, unless
+  something else needs it there (the lift under bigger tires).
+
+## Career polish (on main)
 
 - **New career**: Look page, "Start a new career" (press twice).
 - **Restart / New stage** in the pause menu now pays the entry fee again.
@@ -28,8 +40,7 @@
   sliders); slide into one and the front tire slams it (tie rods). Straddle
   rocks now really stand 0.5 to 0.72 m (the rock mesh is squashed).
 - **Damage you can hear and see**: a bang when a knock does damage, a deep
-  crack when something breaks, steam off the nose when it boils. Dents in
-  the body aren't modelled yet.
+  crack when something breaks, steam off the nose when it boils.
 - **First visit**: a card in the career garage explains how it works.
 
 ## Career mode: parts, armor, damage, more rigs (on main)

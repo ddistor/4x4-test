@@ -126,6 +126,16 @@ func _run() -> void:
 	t.switch_rig("gera")
 	t.sell_rig()
 	_check("can't sell your last rig", not t.sell_rig() and t.rigs.size() == 1)
+	t.switch_rig("owner")
+	t.buy("lift", "4")
+	var mid := t.pesos
+	_check("the lift holding up the 37s can't go", t.cant_sell("lift", "4") != "")
+	t.fit("tires", "31_mt")
+	_check("sell a part for half", t.sell_part("lift", "4") and t.pesos == mid + 42500 and t.fitted_id("lift") == "stock" and not t.owns("lift", "4"))
+	_check("the stock part isn't for sale", t.cant_sell("tires", "31_mt") != "")
+	t.bank_damage({"body": 0.5, "dents": [[0.8, 0.6, 0.1, 0.7]]})
+	t.repair_part("body")
+	_check("a body repair beats the dents out", not t.damage.has("dents"))
 	var p0 := t.purse(4)
 	t.finishes = [3, 3, 3, 3, 0]
 	var won := t.finish(4, 0)

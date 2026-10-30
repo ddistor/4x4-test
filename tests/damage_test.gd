@@ -64,6 +64,16 @@ func _run() -> void:
 	rig.place_on_trail(30.0)
 	await _wait(4.0)
 	_check("settling on the road breaks nothing", Damage.repair_cost(rig.damage.to_dict()) == 0, rig.damage.to_dict())
+	# a sill knock leaves a dent where it hit, kept in the save, and the
+	# sliders' share is a shallower one
+	rig.damage._hit_at["sill"] = Vector3(0.8, 0.6, 0.1)
+	rig.damage._knock("sill", 3.0, 1.5, 0.05, "body", "")
+	var saved := rig.damage.to_dict()
+	_check("a knock leaves a dent", rig.damage.dents.size() == 1 and (saved["dents"] as Array).size() == 1, rig.damage.dents)
+	var again := Damage.new()
+	again.setup(rig, saved, false)
+	_check("the dent comes back with the rig", again.dents.size() == 1 and again.dents[0].distance_to(rig.damage.dents[0]) < 0.001)
+	_check("the steering wheel sits straight with a sound tie rod", is_zero_approx(rig.damage.steer_offset()))
 
 	# --- high-centred: dropped belly-first onto a rock ---
 	for skid: bool in [false, true]:

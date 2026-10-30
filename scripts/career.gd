@@ -30,6 +30,7 @@ const CLEAN_BONUS := 0.25    # finished without the marshals
 const MIN_PAY := 0.25        # of the purse, whatever the fees
 const SEASON_RAISE := 0.2    # purses and fees, each season won
 const SELL_BACK := 0.6       # what a rig and its parts fetch, sold on
+const SELL_PART := 0.5       # a part off the shelf, sold on its own
 ## name; trail level (StagePlan.DIFFICULTY); purse; entry fee, paid when you
 ## set off; the event before it and how many finishes of it open this one;
 ## weather (-1 the seed decides, 1 rainy season); what the scrutineers want:
@@ -264,6 +265,31 @@ func sell_rig() -> bool:
 	return true
 
 
+## Can part `id` in `slot` be sold off the current rig? "" if it can, else why not.
+func cant_sell(slot: String, id: String) -> String:
+	if not (owned.get(slot, []) as Array).has(id):
+		return "not yours to sell"
+	if fitted_id(slot) == id:
+		var stock := Parts.stock_option(stock_spec(), slot)
+		var why := Parts.blocked(stock_spec(), fitted, slot, stock)
+		if why != "":
+			return "it's holding the rest up (" + why + ")"
+	return ""
+
+
+## Sell a part you bought for this rig, half what it cost. Fitted, it comes
+## off and the rig goes back to what it came with there.
+func sell_part(slot: String, id: String) -> bool:
+	if cant_sell(slot, id) != "":
+		return false
+	pesos += int(Parts.price(slot, id) * SELL_PART)
+	(owned[slot] as Array).erase(id)
+	if fitted.get(slot, "") == id:
+		fitted.erase(slot)
+	save_file()
+	return true
+
+
 ## What fixing the current rig would cost.
 func repair_cost() -> int:
 	return Damage.repair_cost(damage)
@@ -279,6 +305,8 @@ func repair_part(part: String) -> bool:
 	d.erase(part)
 	if part == "steering":
 		d.erase("pull")
+	if part == "body":
+		d.erase("dents")   # beaten out
 	damage = d
 	save_file()
 	return true

@@ -36,6 +36,9 @@ uniform mat4 part_xform = mat4(1.0);
 uniform vec3 cabin_lo = vec3(0.0);
 uniform vec3 cabin_hi = vec3(0.0);
 uniform bool cabin_open = false;
+// where the body's been hit (rig space xyz, depth 0..1 in w; 0 = none):
+// crumpled metal, the paint scraped through to bare steel at the middle
+uniform vec4 dents[8];
 
 varying vec3 rig_pos;
 
@@ -133,13 +136,25 @@ void fragment() {
 
 	// lifting flake edges catch shadow; stained paint is dull and clay-tinted
 	mud_col *= 1.0 - 0.18 * curl;
+
+	// dents: a crumpled bowl round each hit, scraped bare along streaks at its middle
+	float dent = 0.0;
+	for (int i = 0; i < 8; i++) {
+		float r = 0.12 + 0.2 * dents[i].w;
+		dent = max(dent, dents[i].w * (1.0 - smoothstep(0.0, r, distance(p, dents[i].xyz))));
+	}
+	float scrape = smoothstep(0.35, 0.6, dent) * step(0.45, mud_noise(vec3(p.x * 3.0, p.y * 40.0, p.z * 3.0)));
 	vec3 stained = mix(paint.rgb, vec3(0.5, 0.3, 0.18), 0.35 * stain);
+	stained = mix(stained, vec3(0.42, 0.41, 0.4), scrape);
+	stained *= 1.0 - 0.25 * dent;
 	ALBEDO = mix(stained, mud_col, mud);
-	ROUGHNESS = mix(mix(paint_roughness, 0.75, stain), mud_rough, mud);
-	METALLIC = mix(paint_metallic, 0.0, mud);
+	ROUGHNESS = mix(mix(mix(paint_roughness, 0.75, stain), 0.45, scrape), mud_rough, mud);
+	METALLIC = mix(mix(paint_metallic, 0.85, scrape), 0.0, mud);
 	SPECULAR = mix(0.35, mud_spec, mud);
-	CLEARCOAT = clearcoat * 0.6 * (1.0 - mud) * (1.0 - 0.8 * stain);
+	CLEARCOAT = clearcoat * 0.6 * (1.0 - mud) * (1.0 - 0.8 * stain) * (1.0 - scrape);
 	CLEARCOAT_ROUGHNESS = 0.08;
 	mat3 to_view = mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX);
+	// crumpled: big soft folds (the same noise bump as mud, stretched out)
+	NORMAL = mud_bump(NORMAL, p * 0.35, dent * 1.6, to_view);
 	NORMAL = mud_bump(NORMAL, p, mud * (0.4 + thick), to_view);
 }

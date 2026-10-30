@@ -56,6 +56,7 @@ var wheel_status: Array[Dictionary] = []
 var drive_per_wheel: Array[float] = [0.0, 0.0, 0.0, 0.0]
 ## what breaks (damage.gd): on in career mode, off in free play
 var damage := Damage.new()
+var _dents_shown := -1
 var psi_target := 35.0
 var airing := 0          # -1 letting air out, +1 compressor running, 0 idle
 
@@ -124,6 +125,7 @@ func _ready() -> void:
 	add_child(kit)
 	kit.setup(self)
 	damage.setup(self, Game.rig_damage(), not preview and Game.damage_on())
+	_push_dents()
 	_build_wheels()
 	_build_axles()
 	_build_cable()
@@ -145,6 +147,23 @@ func _build_body() -> void:
 func paint_mat(rough: float, coat: float) -> ShaderMaterial:
 	var metal := Game.paint_metal()
 	return _body_mat(Game.paint_color(), lerpf(rough, 0.24, metal), metal, coat * (1.0 - metal))
+
+
+## The body's dents (damage.gd), padded to the shader's eight.
+func _dent_list() -> PackedVector4Array:
+	var out := PackedVector4Array()
+	for v in damage.dents:
+		out.append(v)
+	while out.size() < Damage.MAX_DENTS:
+		out.append(Vector4.ZERO)
+	return out
+
+
+func _push_dents() -> void:
+	var list := _dent_list()
+	for m in _body_mats:
+		m.set_shader_parameter("dents", list)
+	_dents_shown = damage.dent_version
 
 
 func _body_mat(col: Color, rough: float, metal: float, coat: float) -> ShaderMaterial:
@@ -593,6 +612,8 @@ func _physics_process(delta: float) -> void:
 		for i in range(corners.size()):
 			m.set_shader_parameter(CORNER_PARAMS[i], corners[i])
 		m.set_shader_parameter("cake", cake)
+		if _dents_shown != damage.dent_version:
+			m.set_shader_parameter("dents", _dent_list())
 		m.set_shader_parameter("dryness", dryness)
 		m.set_shader_parameter("flaked", flaked)
 		m.set_shader_parameter("wash_y", wash_y)
@@ -605,6 +626,7 @@ func _physics_process(delta: float) -> void:
 		spare_mat.set_shader_parameter("tire_mud", minf(1.0, (corner_mud[2] + corner_mud[3]) * 0.25))
 		spare_mat.set_shader_parameter("dryness", dryness)
 
+	_dents_shown = damage.dent_version
 	damage.step(delta)
 	_stir_water(delta)
 	terrain.mud.flush()

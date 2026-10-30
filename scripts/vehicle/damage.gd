@@ -51,6 +51,13 @@ var _note_t := 0.0
 var knocks := 0
 var breaks := 0
 var _steam: GPUParticles3D
+## Where the body's been hit: up to MAX_DENTS of (rig-space point, depth
+## 0..1), drawn as crumpled, scraped metal by the body shader. Kept with
+## the rest; a body repair beats them out.
+const MAX_DENTS := 8
+var dents: Array[Vector4] = []
+var dent_version := 0   # bumped on every change, for the rig to pass on
+var _hit_at := {}
 
 
 func setup(r: Rig, saved: Dictionary, on: bool) -> void:
@@ -59,6 +66,9 @@ func setup(r: Rig, saved: Dictionary, on: bool) -> void:
 	for k: String in PARTS:
 		cond[k] = clampf(float(saved.get(k, 1.0)), 0.0, 1.0)
 	pull = float(saved.get("pull", 0.0))
+	for v in saved.get("dents", []):
+		var a: Array = v
+		dents.append(Vector4(a[0], a[1], a[2], a[3]))
 	_sill = Armor.sill(rig)
 	if enabled:
 		rig.contact_monitor = true
@@ -70,6 +80,11 @@ func setup(r: Rig, saved: Dictionary, on: bool) -> void:
 func to_dict() -> Dictionary:
 	var d := cond.duplicate()
 	d["pull"] = pull
+	if not dents.is_empty():
+		var list := []
+		for v in dents:
+			list.append([v.x, v.y, v.z, v.w])
+		d["dents"] = list
 	return d
 
 
@@ -195,7 +210,9 @@ func _contacts(delta: float) -> void:
 			belly_rock = belly_rock or hard >= 1.0
 		elif p.y < _sill.y + 0.4 and absf(p.x) >= _sill.x - 0.15:
 			zone = "sill"
-		hit[zone] = maxf(hit[zone], into)
+		if into > hit[zone]:
+			hit[zone] = into
+			_hit_at[zone] = p
 	var speed := rig.linear_velocity.length()
 	if OS.get_environment("DAMAGE_DEBUG") != "":
 		for k: String in hit:
@@ -246,6 +263,26 @@ func _knock(zone: String, speed: float, floor: float, rate: float, part: String,
 		return
 	_cool[zone] = 0.3
 	_hurt(part, (speed - floor) * rate, note)
+	if part == "body" and _hit_at.has(zone):
+		dent_version += 1
+		# armor takes the hit for the panel behind it: a shallower dent
+		_dent(_hit_at[zone], clampf((speed - floor) * 0.6, 0.25, 1.0) * clampf(rate / 0.05, 0.3, 1.0))
+
+
+## A dent at `p` (rig space), `depth` 0..1. One close to an old one deepens
+## it; past MAX_DENTS the shallowest goes.
+func _dent(p: Vector3, depth: float) -> void:
+	for i in dents.size():
+		if Vector3(dents[i].x, dents[i].y, dents[i].z).distance_to(p) < 0.3:
+			dents[i].w = minf(1.0, dents[i].w + depth * 0.5)
+			return
+	dents.append(Vector4(p.x, p.y, p.z, depth))
+	if dents.size() > MAX_DENTS:
+		var low := 0
+		for i in dents.size():
+			if dents[i].w < dents[low].w:
+				low = i
+		dents.remove_at(low)
 
 
 ## A tire that was spinning and suddenly bites shock-loads its axle shaft.

@@ -613,6 +613,11 @@ func _cushion() -> void:
 
 func _place_steering() -> void:
 	var steer: float = rig.get("steer")
+	# a bent tie rod: the spokes sit off-centre (where you'd hold them to go
+	# straight), so you can see it from the seat
+	var dmg = rig.get("damage")
+	if dmg:
+		steer -= (dmg as Damage).steer_offset()
 	steering_wheel.transform = Transform3D(Basis(Vector3.RIGHT, WHEEL_TILT) * Basis(Vector3.UP, steer * STEER_RATIO), WHEEL_AT)
 
 
