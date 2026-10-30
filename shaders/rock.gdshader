@@ -12,9 +12,11 @@ uniform vec3 stone_a : source_color = vec3(0.50, 0.48, 0.45);
 uniform vec3 stone_b : source_color = vec3(0.33, 0.31, 0.29);
 uniform vec3 lichen : source_color = vec3(0.45, 0.47, 0.32);
 uniform vec3 stain : source_color = vec3(0.45, 0.24, 0.11);
+uniform vec3 ash_stain : source_color = vec3(0.6, 0.58, 0.53);   // grey lahar ash
 
 varying vec3 wp;
 varying float coat;   // how much clay this stone wears (per instance)
+varying float ashy;   // and whether that's red clay or grey lahar ash
 varying vec3 wn;
 varying float base_y;
 
@@ -63,6 +65,7 @@ void vertex() {
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	base_y = (MODEL_MATRIX * vec4(0.0, -0.45, 0.0, 1.0)).y;
 	coat = INSTANCE_CUSTOM.r;
+	ashy = INSTANCE_CUSTOM.g;
 }
 
 void fragment() {
@@ -80,7 +83,8 @@ void fragment() {
 	float scrub = smoothstep(0.45, 0.75, fbm(p * 2.2 + 7.0));
 	float mud_line = base_y + 0.45 + coat * 0.9 * (0.75 + 0.5 * n);
 	float smear = (1.0 - smoothstep(mud_line - 0.08, mud_line, wp.y)) * mix(0.55, 0.92 * (1.0 - 0.7 * scrub), coat);
-	col = mix(col, mix(stain, stain * 0.55, coat), smear);
+	vec3 st = mix(stain, ash_stain, ashy);
+	col = mix(col, mix(st, st * 0.55, coat), smear);
 
 	float level = texture(soil_tex, wp.xz / world_size).b;
 	float wet = 1.0 - smoothstep(level - 0.05, level + 0.25, wp.y);

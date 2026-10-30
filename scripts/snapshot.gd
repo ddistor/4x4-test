@@ -124,14 +124,17 @@ func _section_shots(terrain: Terrain, kind: String) -> void:
 		for c in terrain.crossings:
 			if c["zc"] > s["z0"] and c["zc"] < s["z1"]:
 				spots = [float(c["zc"]) - float(c["half_w"]) * 0.5, float(c["zc"])]
+		# a lahar wash's slot canyon too
+		for pz in terrain._pinches:
+			if pz > s["z0"] and pz < s["z1"]:
+				spots.append(pz)
 		for k in range(spots.size()):
 			var z: float = spots[k]
-			var t := 0.35 if k == 0 else 0.7
 			_rig.place_on_trail(z)
 			for f in range(SETTLE_FRAMES):
 				await get_tree().physics_frame
 				_cam.snap_behind()
-			var tag := "%02d_%s_%d" % [i + 1, kind, int(t * 100)]
+			var tag := "%02d_%s_%d" % [i + 1, kind, int(100.0 * (z - float(s["z0"])) / (float(s["z1"]) - float(s["z0"])))]
 			_cam.make_current()
 			for f in range(3):
 				await RenderingServer.frame_post_draw

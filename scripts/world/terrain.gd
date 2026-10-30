@@ -42,6 +42,8 @@ var trail_floor: PackedFloat32Array    # trail floor height every 1 m
 var tree_anchors: Array[Vector3] = []
 var crossings: Array[Dictionary] = []  # rivers and creeks running across the trail
 var pits: Array[Dictionary] = []       # holes hidden in the cogon
+var streams: Array[Dictionary] = []    # streams running down a section (the lahar's), crossing the trail
+var _pinches: Array[float] = []        # z where a lahar wash closes in to a slot canyon
 var water_bodies: Array[Dictionary] = []
 var rock_spots: Array[Vector4] = []    # xyz centre, w radius
 var palm_spots: Array[Transform3D] = []
@@ -155,12 +157,10 @@ func _plan_features() -> void:
 					"tint": Color(0.16, 0.27, 0.24, 0.85), "clarity": 1.0, "stones": true,
 					"flow": 1.4 * (1.0 if rng.randf() < 0.5 else -1.0), "ford": true}, rng)
 			"lahar":
-				# a braided channel of milky grey water across the ash: it wanders,
-				# swells and pinches, and sand bars split it into threads
-				_add_crossing(zc, {
-					"half_w": 4.5, "bank": 4.0, "drop": 0.6, "depth": 0.32 * d, "amp": 5.0,
-					"tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "stones": false, "flow": 0.8,
-					"braided": true}, rng)
+				# the stream that cut the wash runs down it, braiding round sand
+				# bars and crossing the trail again and again (one draw, as the
+				# old single crossing took, so the rest of the stage is unchanged)
+				_add_stream(s, rng.randf() * TAU)
 			"clay":
 				if s["cross_t"] >= 0.0:
 					# the brown creek at the bottom of the climb
@@ -208,6 +208,83 @@ func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void
 		"tint": c["tint"], "clarity": c["clarity"], "flow": c["flow"], "crossing": c})
 
 
+## A lahar wash's stream, as the accounts of Pinatubo and Porac trails have
+## it: shallow, milky grey, braided round sand bars, its bed cobbles and
+## boulders, crossing the route over and over; a couple of deeper pockets
+## that catch you out, and where the wash drops steeply it runs dry over a
+## cascade of stones. One slot canyon pinch per wash, where the crumbly walls
+## close in and the trail runs up the stream bed itself.
+func _add_stream(s: Dictionary, ph: float) -> void:
+	var d := plan.difficulty
+	var z0 := float(s["z0"]) + 6.0
+	var z1 := float(s["z1"]) - 6.0
+	var st := {
+		"z0": z0, "z1": z1, "phase": ph, "freq": TAU / 68.0, "amp": 13.0, "width": 1.9,
+		"cut": 0.5 * d, "depth": 0.3 * d, "flow": 0.7,
+		"deep": [lerpf(z0 + 15.0, z1 - 15.0, fposmod(ph * 2.9, 1.0)), lerpf(z0 + 15.0, z1 - 15.0, fposmod(ph * 4.3, 1.0))],
+	}
+	if z1 - z0 > 80.0:
+		_pinches.append(lerpf(z0 + 30.0, z1 - 30.0, fposmod(ph * 1.37, 1.0)))
+	streams.append(st)
+	# its water: a run of short level pools stepping down with the wash (each
+	# sheet flat, 3 m long), none over the steep drop: that's a dry cascade
+	var z := z0
+	while z < z1:
+		var zb := minf(z + 3.0, z1)
+		if absf(trail_floor_at(z) - trail_floor_at(zb)) < 0.3:
+			var zm := (z + zb) * 0.5
+			var cx := trail_x_at(zm)
+			var half := _lahar_half(zm)
+			water_bodies.append({"z_lo": z, "z_hi": zb, "level": trail_floor_at(zm) - float(st["cut"]) + float(st["depth"]),
+				"tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "flow": st["flow"], "along_z": true,
+				"stream": st, "x_lo": cx - half - 4.0, "x_hi": cx + half + 4.0})
+		z = zb
+
+
+## Where the stream runs across the wash at `z`: it swings from wall to wall,
+## less where the wash is narrow, so in a slot it follows the trail itself.
+func _stream_x(st: Dictionary, z: float) -> float:
+	var a := clampf(_lahar_half(z) - 7.0, 0.0, float(st["amp"]))
+	return trail_x_at(z) + a * sin(z * float(st["freq"]) + float(st["phase"])) + minf(a, 1.6) * sin(z * 0.23 + float(st["phase"]) * 2.1)
+
+
+## 0..1 how far into the stream's channel (x, z) is: one thread or, where a
+## sand bar splits it, two; fading in and out at the ends of the wash.
+func _stream_k(st: Dictionary, x: float, z: float) -> float:
+	var z0: float = st["z0"]
+	var z1: float = st["z1"]
+	if z <= z0 or z >= z1:
+		return 0.0
+	var fade := smoothstep(z0, z0 + 10.0, z) * (1.0 - smoothstep(z1 - 10.0, z1, z))
+	var cx := _stream_x(st, z)
+	var w: float = float(st["width"]) * (0.75 + 0.5 * (_detail.get_noise_1d(z * 0.06 + 400.0) * 0.5 + 0.5))
+	var bank := 0.8 + 1.4 * (_detail.get_noise_1d(z * 0.11 + 90.0) * 0.5 + 0.5)
+	var split := 3.4 * smoothstep(0.15, 0.5, _detail.get_noise_1d(z * 0.03 + float(st["phase"]) * 10.0))
+	var k: float
+	if split > 0.4:
+		var w2 := w * 0.7
+		k = maxf(1.0 - smoothstep(w2, w2 + bank, absf(x - cx + split * 0.5)), 1.0 - smoothstep(w2, w2 + bank, absf(x - cx - split * 0.5)))
+	else:
+		k = 1.0 - smoothstep(w, w + bank, absf(x - cx))
+	return k * fade
+
+
+## How much deeper than usual the stream's bed is at `z`: its deep pockets.
+func _stream_pocket(st: Dictionary, z: float) -> float:
+	var p := 0.0
+	for zp: float in st["deep"]:
+		p = maxf(p, exp(-pow((z - zp) / 4.0, 2.0)))
+	return float(st["depth"]) * 1.3 * p
+
+
+## 0..1 how far into a lahar wash's slot canyon `z` is.
+func _pinch(z: float) -> float:
+	var k := 0.0
+	for pz in _pinches:
+		k = maxf(k, exp(-pow((z - pz) / 10.0, 2.0)))
+	return k
+
+
 ## x: how far into the channel (1 in it, 0 past the bank), y: distance from
 ## the channel's middle in half-widths.
 func _channel(c: Dictionary, x: float, z: float) -> Vector2:
@@ -242,7 +319,7 @@ func water_level_at(z: float) -> float:
 # --- heights --------------------------------------------------------------------------
 
 func _lahar_half(z: float) -> float:
-	return 30.0 + 8.0 * _noise.get_noise_1d(z * 0.5 + 77.0)
+	return lerpf(30.0 + 8.0 * _noise.get_noise_1d(z * 0.5 + 77.0), 6.5, _pinch(z))
 
 
 ## The two kanal ruts: deep V-ish trenches worn where every rig's wheels go,
@@ -274,7 +351,8 @@ func _kind_height(s: Dictionary, x: float, z: float, sx: float, th: float) -> fl
 			# a wide flat valley floor of ash and sand between grey cliffs
 			var half := _lahar_half(z)
 			var floor_h := th + 0.22 * _detail.get_noise_2d(x * 0.35, z * 0.35) * smoothstep(1.5, 4.0, dx)
-			return lerpf(floor_h, th + 7.0 + hills * 7.0, smoothstep(half, half + 9.0, dx))
+			# in the slot the crumbly walls stand near vertical
+			return lerpf(floor_h, th + 7.0 + hills * 7.0, smoothstep(half, half + lerpf(9.0, 3.0, _pinch(z)), dx))
 		"cogon":
 			# open rolling grassland; the trail is two faint tracks over it
 			return lerpf(th, th + hills * 5.0 + detail * 0.35, smoothstep(1.5, 16.0, dx))
@@ -381,6 +459,12 @@ func _height_at(x: float, z: float, bl: Array, th: float, tx: float, inv: float,
 		if d < r:
 			var f := 1.0 - (d / r) * (d / r)
 			h -= float(p["depth"]) * f * f
+	for st in streams:
+		var k := _stream_k(st, x, z)
+		if k > 0.0:
+			# cut into the ash, its bed cobbly, deeper in the pockets
+			var bed := th - float(st["cut"]) - _stream_pocket(st, z) + 0.05 * _detail.get_noise_2d(x * 1.6, z * 1.6)
+			h = lerpf(h, minf(h, bed), k)
 	return h
 
 
@@ -542,6 +626,19 @@ func _author_mud() -> void:
 				var hk := 1.0 - smoothstep(float(p["r"]) * 0.5, float(p["r"]), d)
 				thick = maxf(thick, 0.45 * hk)
 				wet = maxf(wet, 0.9 * hk)
+			for st in streams:
+				var sk := _stream_k(st, x, z)
+				if sk <= 0.0:
+					continue
+				# in the stream: wet cobbles; on its banks, here and there, sodden
+				# sand that swallows a tire (the soft spots in the accounts)
+				var inside := smoothstep(0.3, 0.8, sk)
+				thick = lerpf(thick, 0.03, inside)
+				m.w = lerpf(m.w, 0.8, inside)
+				var bank := smoothstep(0.02, 0.25, sk) * (1.0 - smoothstep(0.45, 0.8, sk))
+				var soft := bank * smoothstep(0.55, 0.78, patchy)
+				thick = maxf(thick, 0.55 * soft * plan.difficulty)
+				wet = maxf(wet, maxf(inside, soft))
 			var i := mud.idx(cx, cy)
 			mud.thickness[i] = thick
 			mud.wetness[i] = clampf(wet, 0.0, 1.0)
@@ -575,7 +672,7 @@ func _build_maps() -> void:
 		# creeks only in their own channel (soil A is that mask)
 		var band_water := 0.0
 		for b in water_bodies:
-			if not b.has("crossing") and zf > b["z_lo"] and zf < b["z_hi"]:
+			if not b.has("crossing") and not b.has("stream") and zf > b["z_lo"] and zf < b["z_hi"]:
 				band_water = 1.0
 		var near_cross := _near(crossings, zf, "zc", "reach", 1.0)
 		var tx := trail_x_at(zf)
@@ -597,6 +694,11 @@ func _build_maps() -> void:
 					wet_mask = 1.0
 				if c["stones"]:
 					cobble = maxf(cobble, smoothstep(0.2, 0.7, k))
+			for st in streams:
+				var sk := _stream_k(st, xf, zf)
+				if sk > 0.05:
+					wet_mask = 1.0
+				cobble = maxf(cobble, smoothstep(0.25, 0.75, sk))
 			cover_image.set_pixel(x, z, Color(minf(dx / 32.0, 1.0), forest, paddy_k, ash_k))
 			var bedrock := rock_k * (0.9 * on + 0.3 * (1.0 - on))
 			if gully_k > 0.0 and (xf - tx) * wall_side > 0.0:
@@ -713,14 +815,17 @@ func _build_water() -> void:
 	# banks, so it only shows where the ground dips under it.
 	for b in water_bodies:
 		var plane := PlaneMesh.new()
-		plane.size = Vector2(WIDTH, float(b["z_hi"]) - float(b["z_lo"]))
+		# a stream's pools only span the wash they run down
+		var x_lo: float = b.get("x_lo", 0.0)
+		var x_hi: float = b.get("x_hi", WIDTH)
+		plane.size = Vector2(x_hi - x_lo, float(b["z_hi"]) - float(b["z_lo"]))
 		var mi := MeshInstance3D.new()
 		mi.mesh = plane
 		var mat := ShaderMaterial.new()
 		mat.shader = shader
 		mat.set_shader_parameter("tint", b["tint"])
 		mat.set_shader_parameter("clarity", b["clarity"])
-		mat.set_shader_parameter("flow", Vector2(b["flow"], 0.0))
+		mat.set_shader_parameter("flow", Vector2(0.0, b["flow"]) if b.get("along_z", false) else Vector2(b["flow"], 0.0))
 		mat.set_shader_parameter("use_mask", true)
 		mat.set_shader_parameter("soil_tex", soil_texture)
 		mat.set_shader_parameter("world_size", Vector2(WIDTH, length))
@@ -728,7 +833,7 @@ func _build_water() -> void:
 		water_mats.append(mat)
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.position = Vector3(WIDTH * 0.5, b["level"], (float(b["z_lo"]) + float(b["z_hi"])) * 0.5)
+		mi.position = Vector3((x_lo + x_hi) * 0.5, b["level"], (float(b["z_lo"]) + float(b["z_hi"])) * 0.5)
 		mi.name = "Water"
 		add_child(mi)
 
@@ -788,7 +893,27 @@ func _place_rocks() -> void:
 					add.call(trail_x_at(z) + side * rng.randf_range(2.1, 3.2), z, rng.randf_range(0.7, 1.4), 0.4)
 				off_trail = 20
 			"lahar":
-				off_trail = 14
+				# what the flows carried down from Pinatubo: cobbles and boulders
+				# in clusters in and along the stream, some right on the line you
+				# want, and a few big ones stranded out on the sand
+				for st in streams:
+					if float(st["z0"]) < z0 or float(st["z0"]) > z1:
+						continue
+					for k in range(int(26 * plan.difficulty)):
+						var z := rng.randf_range(float(st["z0"]) + 4.0, float(st["z1"]) - 4.0)
+						var x := _stream_x(st, z) + rng.randfn(0.0, 2.6)
+						for j in range(rng.randi_range(1, 4)):
+							var r := 0.25 + pow(rng.randf(), 1.8) * 0.9
+							var xj := x + rng.randf_range(-1.3, 1.3)
+							var zj := z + rng.randf_range(-1.3, 1.3)
+							if absf(xj - trail_x_at(zj)) < 2.4 and r > 0.5:
+								r = rng.randf_range(0.3, 0.55) * plan.difficulty   # crawlable on the line
+							add.call(xj, zj, r, 0.35)
+					for k in range(5):
+						var z := rng.randf_range(z0 + 8.0, z1 - 8.0)
+						var side := 1.0 if rng.randf() < 0.5 else -1.0
+						add.call(trail_x_at(z) + side * rng.randf_range(5.0, maxf(6.0, _lahar_half(z) - 3.0)), z, rng.randf_range(1.6, 2.4), 0.4)
+				off_trail = 10
 		for k in range(off_trail):
 			var z := rng.randf_range(z0, z1)
 			var side := 1.0 if rng.randf() < 0.5 else -1.0
@@ -938,6 +1063,7 @@ func ground_sample(world_pos: Vector3) -> Dictionary:
 	s["surface_y"] = surface
 	var c := mud.world_to_cell(xz)
 	s["grip"] = grip[mud.idx(c.x, c.y)]
+	s["ash"] = _cover(world_pos.x, world_pos.z).a   # grey lahar ash rather than red clay
 	return s
 
 
@@ -957,6 +1083,12 @@ func current_at(x: float, z: float) -> Vector3:
 			var k := _channel(c, x, z).x
 			if k > 0.0:
 				return Vector3(float(c["flow"]) * k, 0.0, 0.0)
+	for st in streams:
+		var sk := _stream_k(st, x, z)
+		if sk > 0.1:
+			# down the wash, the way the ground falls
+			var down := signf(trail_floor_at(z) - trail_floor_at(z + 2.0))
+			return Vector3(0.0, 0.0, float(st["flow"]) * sk * down)
 	return Vector3.ZERO
 
 

@@ -30,10 +30,28 @@ func _ready() -> void:
 
 
 ## Jump straight to the chase position (no lag). Used by snapshot mode.
+## Keep a camera spot out of the ground: never sunk into the hillside, nor
+## behind a wall (in a slot canyon or a gully, if the ground is in the way
+## between the rig and the camera, come in to this side of it).
+func _keep_clear(desired: Vector3) -> Vector3:
+	var t := get_parent().get_node_or_null("Terrain") as Terrain
+	if t == null:
+		return desired
+	desired.y = maxf(desired.y, t.get_height(desired.x, desired.z) + 1.2)
+	var eye := target.global_position + Vector3(0, look_height, 0)
+	var q := PhysicsRayQueryParameters3D.create(eye, desired)
+	if target is CollisionObject3D:
+		q.exclude = [(target as CollisionObject3D).get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if not hit.is_empty() and (hit.collider as Node).name == "TerrainBody":
+		desired = eye.lerp(hit.position, 0.85)
+	return desired
+
+
 func snap_behind() -> void:
 	var back := target.global_transform.basis.z
 	back.y = 0.0
-	_pos = target.global_position + (back.normalized() * cos(elevation) + Vector3.UP * sin(elevation)) * distance
+	_pos = _keep_clear(target.global_position + (back.normalized() * cos(elevation) + Vector3.UP * sin(elevation)) * distance)
 	global_position = _pos
 	look_at(target.global_position + Vector3(0, look_height, 0), Vector3.UP)
 
@@ -82,12 +100,7 @@ func _physics_process(delta: float) -> void:
 	var back := target.global_transform.basis.z
 	back.y = 0.0
 	back = back.normalized().rotated(Vector3.UP, _yaw)
-	var desired := target.global_position + (back * cos(elev) + Vector3.UP * sin(elev)) * distance
-	# don't sink the camera into the hillside
-	var t := get_parent().get_node_or_null("Terrain") as Terrain
-	if t:
-		var ground := t.get_height(desired.x, desired.z)
-		desired.y = maxf(desired.y, ground + 1.2)
+	var desired := _keep_clear(target.global_position + (back * cos(elev) + Vector3.UP * sin(elev)) * distance)
 	# follow lazily when driving, snappily when the player is steering the view
 	var k := 1.0 if _dragging else clampf(follow_speed * delta, 0.0, 1.0)
 	_pos = _pos.lerp(desired, k)

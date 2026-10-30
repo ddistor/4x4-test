@@ -42,6 +42,8 @@ func build(t: Terrain, spots: Array[Vector4]) -> void:
 		var coat := clampf(float(g["thickness"]) * 2.6, 0.0, 1.0) * clampf(float(g["wetness"]) * 1.4, 0.0, 1.0)
 		var cl: PackedFloat32Array = coats[key]
 		cl.append(coat)
+		# what it's coated in: laterite clay, or grey lahar ash
+		cl.append(t._cover(s.x, s.z).a)
 		coats[key] = cl
 		var shape := ConvexPolygonShape3D.new()
 		var pts := PackedVector3Array()
@@ -67,7 +69,7 @@ func build(t: Terrain, spots: Array[Vector4]) -> void:
 			var x := list[k]
 			x.origin -= centre
 			mm.set_instance_transform(k, x)
-			mm.set_instance_custom_data(k, Color(cl[k], 0, 0, 0))
+			mm.set_instance_custom_data(k, Color(cl[k * 2], cl[k * 2 + 1], 0, 0))
 		var mmi := MultiMeshInstance3D.new()
 		mmi.name = "Rocks_%d_%d" % [key.x, key.y]
 		mmi.multimesh = mm

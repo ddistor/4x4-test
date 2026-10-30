@@ -490,6 +490,9 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	spray.position = Vector3(0, -(contact_dist - r) + r * 0.1, throw_dir * r * 0.75)
 	var spm := spray.process_material as ParticleProcessMaterial
 	spm.direction = Vector3(0, 0.7, throw_dir)
+	# red laterite clods, or grey ash on the lahar
+	var clod := ((spray.draw_pass_1 as SphereMesh).material as StandardMaterial3D)
+	clod.albedo_color = Color(0.4, 0.17, 0.07).lerp(Color(0.5, 0.48, 0.44), float(ground.get("ash", 0.0)))
 	spm.initial_velocity_max = clampf(surf_speed * 0.9, 4.0, 14.0)
 	spray.amount_ratio = clampf(0.15 + slip * 1.2 + surf_speed * 0.04, 0.0, 1.0)
 	spray.emitting = soft > 0.3 and (slip > 0.2 or surf_speed > 2.5)
