@@ -47,7 +47,8 @@ func _physics_process(delta: float) -> void:
 	elif cross < -0.05:
 		Input.action_press("steer_right")
 	# off the road, set up like a driver would: stop, air down, 4L, lockers in
-	if t > 12.0 and not rig.low_range:
+	# (with the transfer case broken there's no low range: carry on in 4H)
+	if t > 12.0 and not rig.low_range and rig.damage.low_range_ok():
 		if airing_from < 0.0:
 			airing_from = t
 			rig.psi_target = 15.0
