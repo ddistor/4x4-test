@@ -563,7 +563,8 @@ func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> 
 		"paddy":
 			# compacted gravel road, blending into the saturated paddy
 			var pk := smoothstep(3.0, 4.5, dx)
-			return Vector4(lerpf(0.04 * on, 0.25, pk), lerpf(0.15, 1.0, pk), 0.0, 1.0)
+			# (the road itself goes greasy in the rains: wet packed gravel ~0.55)
+			return Vector4(lerpf(0.04 * on, 0.25, pk), lerpf(0.12 + 0.5 * rain, 1.0, pk), 0.0, 1.0)
 		"clay":
 			var thick := on * (0.24 + 0.4 * patchy)
 			return Vector4(thick, 0.3 + 0.25 * patchy + 0.3 * rain, minf(thick, 0.12 * wheel_line * (0.6 + 0.4 * patchy)), 1.0)
@@ -604,7 +605,8 @@ func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> 
 			# a hard, dry, stony dirt track: firm and gritty, slick after rain
 			# (thin, but enough soil that it reads as a dirt track, not grass)
 			var track := 1.0 - smoothstep(1.6, 2.4, dx)
-			return Vector4(track * (0.06 + 0.03 * patchy), 0.05 + 0.2 * rain, 0.0, 1.3 - 0.2 * rain)
+			# (dirt over loose stones: ~0.73 dry, ~0.5 after rain, like the real thing)
+			return Vector4(track * (0.06 + 0.03 * patchy), 0.05 + 0.45 * rain, 0.0, 0.82)
 		"sukal":
 			# a narrow clay track under the overgrowth, damp in the shade
 			# (on the climbs it drains to firmer, grittier clay, roots in it)

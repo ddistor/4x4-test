@@ -578,7 +578,7 @@ func _physics_process(_delta: float) -> void:
 	_place_arms()
 	# in an open tub what the tires throw at the rig lands on him too; behind
 	# glass all round it doesn't
-	var closed: bool = (rig.get("spec") as RigSpec).cabin_hi.x > 0.0
+	var closed: bool = (rig.get("spec") as RigSpec).closed()
 	for m: ShaderMaterial in [_mat, _shirt_mat]:
 		m.set_shader_parameter("mud", 0.0 if closed else rig.call("mud_amount"))
 		m.set_shader_parameter("dryness", rig.get("dryness"))

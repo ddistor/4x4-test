@@ -38,7 +38,10 @@ static func wheel_houses(st: SurfaceTool, spec: RigSpec, zc: float, x_out: float
 				Vector3(xo, hub + p1.y, zc + p1.x), Vector3(xi, hub + p1.y, zc + p1.x)]
 			MeshKit._quad(st, Transform3D.IDENTITY, roof, [n0, n0, n1, n1], col)
 			var lift := Vector3(0, 0.012, 0)
-			MeshKit._quad(st, Transform3D.IDENTITY, [roof[0] + lift, roof[1] + lift, roof[2] + lift, roof[3] + lift], [-n0, -n0, -n1, -n1], col)
+			# (the top skin runs in to meet the inner wall's cabin skin: no slit
+			# along the hump's edge)
+			var reach_in := Vector3(-sx * 0.012, 0, 0)
+			MeshKit._quad(st, Transform3D.IDENTITY, [roof[0] + lift + reach_in, roof[1] + lift, roof[2] + lift, roof[3] + lift + reach_in], [-n0, -n0, -n1, -n1], col)
 			# the inner wall, a fan from the hub height down to the bottom edge,
 			# again on both faces: the tire side and the cabin side
 			var wn := Vector3(sx, 0, 0)
@@ -47,7 +50,8 @@ static func wheel_houses(st: SurfaceTool, spec: RigSpec, zc: float, x_out: float
 			var wall: Array[Vector3] = [b0, b1, Vector3(xi, hub + p1.y, zc + p1.x), Vector3(xi, hub + p0.y, zc + p0.x)]
 			MeshKit._quad(st, Transform3D.IDENTITY, wall, [wn, wn, wn, wn], col)
 			var inset := -wn * 0.012
-			MeshKit._quad(st, Transform3D.IDENTITY, [wall[0] + inset, wall[1] + inset, wall[2] + inset, wall[3] + inset], [-wn, -wn, -wn, -wn], col)
+			var up := Vector3(0, 0.012, 0)   # up to the lifted top skin
+			MeshKit._quad(st, Transform3D.IDENTITY, [wall[0] + inset, wall[1] + inset, wall[2] + inset + up, wall[3] + inset + up], [-wn, -wn, -wn, -wn], col)
 
 
 ## A floor from z0 to z1 at height y, `half_w` wide, narrowed to inboard of
@@ -58,7 +62,11 @@ static func floor_panel(st: SurfaceTool, spec: RigSpec, z0: float, z1: float, ha
 	MeshKit.rounded_box(st, Vector3(inner * 2.0, 0.04, z1 - z0), 0.01, Transform3D(Basis.IDENTITY, Vector3(0, y, (z0 + z1) * 0.5)), col)
 	if half_w <= inner:
 		return
-	for seg in _clear_of_wheels(spec, z0, z1, r):
+	# outboard of the tires the floor runs right up to the foot of each wheel
+	# well: at floor height the well is narrower than its radius, and stopping
+	# a radius short left a strip of open ground beside every arch
+	var foot := sqrt(maxf(0.0, r * r - pow(y - RigSpec.RIDE_HUB_Y, 2.0)))
+	for seg in _clear_of_wheels(spec, z0, z1, foot - 0.01):
 		var a: float = seg[0]
 		var b: float = seg[1]
 		for sx: float in [-1.0, 1.0]:

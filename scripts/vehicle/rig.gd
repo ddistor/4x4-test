@@ -139,6 +139,7 @@ func _body_mat(col: Color, rough: float, metal: float, coat: float) -> ShaderMat
 	if spec.cabin_hi.x > 0.0:
 		m.set_shader_parameter("cabin_lo", spec.cabin_lo)
 		m.set_shader_parameter("cabin_hi", spec.cabin_hi)
+		m.set_shader_parameter("cabin_open", spec.cabin_open)
 	_body_mats.append(m)
 	return m
 
@@ -440,10 +441,19 @@ func _physics_process(delta: float) -> void:
 	var body_water := 0.0
 	for w in wheels:
 		body_water = maxf(body_water, w.ground.get("water_depth", 0.0))
+	if body_water > 0.1:
+		# pushing water: ½ρ·Cd·A·v², A the submerged front of the rig, so it
+		# bites hard as you speed up (the bow wave); walking pace is cheap
+		var v_plan := Vector3(linear_velocity.x, 0.0, linear_velocity.z)
+		var area := minf(body_water, 1.2) * (spec.track * 2.0 + spec.tire_width)
+		apply_central_force(-v_plan * v_plan.length() * 0.5 * 1000.0 * 0.9 * area)
 	if body_water > 0.4:
+		# the body floats once it's in: a closed cab holds air and lifts about
+		# half the rig; an open tub just fills with water
 		var submerged := clampf((body_water - 0.4) / 0.9, 0.0, 1.0)
-		apply_central_force(Vector3.UP * mass * 9.8 * 0.55 * submerged)
-		apply_central_force(-linear_velocity * 1400.0 * submerged)
+		var lift := 0.55 if spec.closed() else 0.2
+		apply_central_force(Vector3.UP * mass * 9.8 * lift * submerged)
+		apply_central_force(-linear_velocity * 600.0 * submerged)
 
 	# --- winch -----------------------------------------------------------------
 	_winch_step(delta)

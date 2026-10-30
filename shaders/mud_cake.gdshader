@@ -30,10 +30,12 @@ uniform float body_bottom = -0.1;
 uniform float body_top = 1.3;
 // mesh space -> rig space, for parts that move on their own (axles)
 uniform mat4 part_xform = mat4(1.0);
-// a closed cab (glass all round): nothing inside this rig-space box gets mud
-// (seats, dash, floor, the inside of the doors); empty box = an open tub
+// the cab, rig space: closed (glass all round), nothing inside it gets mud;
+// an open tub only catches flecks thrown over the sides, never the solid
+// coat or the belly-cake (empty box = no cab)
 uniform vec3 cabin_lo = vec3(0.0);
 uniform vec3 cabin_hi = vec3(0.0);
+uniform bool cabin_open = false;
 
 varying vec3 rig_pos;
 
@@ -113,9 +115,10 @@ void fragment() {
 	stain = max(stain, mud * chipped);
 	mud *= 1.0 - chipped;
 
-	// inside a closed cab nothing reaches
+	// inside a closed cab nothing reaches; inside an open tub, scattered flecks
 	if (cabin_hi.x > 0.0 && abs(p.x) < cabin_hi.x && p.y > cabin_lo.y && p.y < cabin_hi.y && p.z > cabin_lo.z && p.z < cabin_hi.z) {
-		mud = 0.0;
+		mud = cabin_open ? speck * step(0.55, mud_noise(p * 23.0)) : 0.0;
+		thick = min(thick, 0.15);
 		stain = 0.0;
 		curl = 0.0;
 	}

@@ -436,7 +436,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# behind it, growing with depth
 	if water > 0.1:
 		rig.apply_force(terrain.current_at(contact_point.x, contact_point.z) * water * 700.0, contact_point - rig.global_position)
-	var drag_c := sink * 1500.0 * (0.6 + 0.6 * wet) + water * 900.0 + (400.0 if debeaded else 0.0)
+	var drag_c := sink * 1500.0 * (0.6 + 0.6 * wet) + water * 350.0 + (400.0 if debeaded else 0.0)
 	var f_drag := -planar * drag_c
 	# suction: hard to get moving from a stop in deep mud
 	if planar.length() < 0.6 and sink > 0.08:

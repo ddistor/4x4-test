@@ -58,10 +58,17 @@ var seat := Vector3(-0.33, 0.8, 0.27)       # the driver's hips
 var wheel_at := Vector3(-0.33, 1.2, -0.1)   # steering wheel hub
 var build_body: Callable
 ## A closed cab (glass all round): the box inside it, rig space, that mud
-## doesn't reach (x of cabin_hi is the inner half-width; zero = open tub).
+## doesn't reach: just inside the body skin, so the outside of a panel takes
+## mud and its inside face doesn't (zero = no box).
 ## The driver in it stays clean too.
 var cabin_lo := Vector3.ZERO
 var cabin_hi := Vector3.ZERO
+## An open tub: the box is its tub, and only flecks land in it.
+var cabin_open := false
+
+
+func closed() -> bool:
+	return cabin_hi.x > 0.0 and not cabin_open
 
 
 static func kinds() -> Array[RigSpec]:
@@ -91,6 +98,9 @@ static func _gera() -> RigSpec:
 	# engine up front, and high: lifted on 35s puts it ~0.8 m off the ground,
 	# so it rolls on an off-camber before it slides (tilt-table ~40 deg)
 	s.center_of_mass = Vector3(0, 0.5, -0.1)
+	s.cabin_lo = Vector3(0, 0.55, -0.32)   # open tub: only flecks land in it
+	s.cabin_hi = Vector3(0.695, 2.2, 1.57)
+	s.cabin_open = true
 	s.build_body = GeraBody.build
 	return s
 
@@ -112,6 +122,9 @@ static func _gerilya() -> RigSpec:
 	s.wheel_color = Color(0.6, 0.61, 0.6)   # silver steelies
 	s.droop = 0.18
 	s.final_drive = 4.88   # regeared for the 37s
+	s.cabin_lo = Vector3(0, 0.55, -0.32)   # open tub: only flecks land in it
+	s.cabin_hi = Vector3(0.695, 2.2, 1.57)
+	s.cabin_open = true
 	s.build_body = GeraBody.build_trail
 	return s
 
@@ -150,6 +163,9 @@ static func _kuwarenta() -> RigSpec:
 	s.fairlead = Vector3(0, 0.72, -1.98)
 	s.seat = Vector3(-0.36, 0.82, 0.3)
 	s.wheel_at = Vector3(-0.36, 1.22, -0.07)
+	s.cabin_lo = Vector3(0, 0.49, -0.455)   # open tub: only flecks land in it
+	s.cabin_hi = Vector3(0.79, 2.0, 1.735)
+	s.cabin_open = true
 	s.build_body = KuwarentaBody.build
 	return s
 
@@ -187,8 +203,8 @@ static func _feroz() -> RigSpec:
 	s.fairlead = Vector3(0, 0.66, -1.88)
 	s.seat = Vector3(-0.34, 0.78, 0.2)
 	s.wheel_at = Vector3(-0.34, 1.16, -0.17)
-	s.cabin_lo = Vector3(0, 0.5, -0.47)   # closed cab: glass all round
-	s.cabin_hi = Vector3(0.68, 1.68, 1.59)
+	s.cabin_lo = Vector3(0, 0.49, -0.495)   # closed cab: glass all round
+	s.cabin_hi = Vector3(0.73, 1.69, 1.615)
 	s.build_body = FerozBody.build
 	return s
 
@@ -227,8 +243,8 @@ static func _ronda() -> RigSpec:
 	s.fairlead = Vector3(0, 0.74, -2.56)
 	s.seat = Vector3(-0.42, 0.88, 0.02)
 	s.wheel_at = Vector3(-0.42, 1.28, -0.38)
-	s.cabin_lo = Vector3(0, 0.55, -0.75)   # closed cab: glass all round
-	s.cabin_hi = Vector3(0.86, 1.95, 2.21)
+	s.cabin_lo = Vector3(0, 0.54, -0.775)   # closed cab: glass all round
+	s.cabin_hi = Vector3(0.91, 1.97, 2.235)
 	s.build_body = RondaBody.build
 	return s
 
@@ -267,6 +283,9 @@ static func _owner() -> RigSpec:
 	s.fairlead = Vector3(0, 0.66, -1.98)
 	s.seat = Vector3(-0.34, 0.74, 0.12)
 	s.wheel_at = Vector3(-0.34, 1.13, -0.23)
+	s.cabin_lo = Vector3(0, 0.49, -0.495)   # open tub: only flecks land in it
+	s.cabin_hi = Vector3(0.75, 1.9, 1.715)
+	s.cabin_open = true
 	s.build_body = OwnerBody.build
 	return s
 
@@ -305,7 +324,7 @@ static func _rubikon() -> RigSpec:
 	s.fairlead = Vector3(0, 0.74, -2.48)
 	s.seat = Vector3(-0.4, 0.88, 0.0)
 	s.wheel_at = Vector3(-0.4, 1.28, -0.4)
-	s.cabin_lo = Vector3(0, 0.55, -0.73)   # closed cab: glass all round
-	s.cabin_hi = Vector3(0.82, 1.93, 2.17)
+	s.cabin_lo = Vector3(0, 0.54, -0.755)   # closed cab: glass all round
+	s.cabin_hi = Vector3(0.87, 1.95, 2.195)
 	s.build_body = RubikonBody.build
 	return s
