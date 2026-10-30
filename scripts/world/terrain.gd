@@ -146,13 +146,14 @@ func _plan_features() -> void:
 		var zc := lerpf(z0, z1, s["cross_t"])
 		match s["kind"]:
 			"river":
-				# wide and clear over river stones; deep enough in places to
-				# choke the engine, so pick the line
+				# wide and clear over river stones, a ford: a shallow gravel riffle
+				# near where the trail crosses, deep pools up and downstream that
+				# choke the engine, so read the water and pick the line
 				_add_crossing(zc, {
 					"half_w": rng.randf_range(10.0, 14.0), "bank": 7.0, "drop": 1.6,
 					"depth": rng.randf_range(0.5, 0.72) * d, "amp": 5.0,
 					"tint": Color(0.16, 0.27, 0.24, 0.85), "clarity": 1.0, "stones": true,
-					"flow": 1.4 * (1.0 if rng.randf() < 0.5 else -1.0)}, rng)
+					"flow": 1.4 * (1.0 if rng.randf() < 0.5 else -1.0), "ford": true}, rng)
 			"lahar":
 				# a braided channel of milky grey water across the ash
 				_add_crossing(zc, {
@@ -189,6 +190,14 @@ func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void
 		var k := 1.0 - smoothstep(flat, flat + 30.0, absf(z - zc))
 		trail_floor[z] = lerpf(trail_floor[z], c["ref_h"], k)
 	c["level"] = float(c["ref_h"]) - float(c["drop"]) + float(c["depth"])
+	if c.get("ford", false):
+		# the riffle sits a little off the trail line (from the phase, so the
+		# rest of the stage keeps its random draws): the shallow line is there
+		# to be found, not handed over
+		c["ford_x"] = trail_x_at(zc) + 2.5 * sin(float(c["phase"]) * 3.1)
+		c["ford_w"] = 4.5
+		c["shallow"] = 0.42 * plan.difficulty * (0.85 + 0.3 * absf(cos(float(c["phase"]) * 1.7)))
+		c["pool"] = float(c["depth"]) * 1.3
 	c["reach"] = float(c["amp"]) + float(c["half_w"]) + float(c["bank"]) + 1.0
 	crossings.append(c)
 	water_bodies.append({"z_lo": zc - float(c["reach"]), "z_hi": zc + float(c["reach"]), "level": c["level"],
@@ -341,6 +350,12 @@ func _height_at(x: float, z: float, bl: Array, th: float, tx: float, inv: float,
 		var ch := _channel(c, x, z)
 		if ch.x > 0.0:
 			var bed: float = float(c["ref_h"]) - float(c["drop"]) + 0.35 * float(c["depth"]) * minf(ch.y * ch.y, 1.0)
+			if c.get("ford", false):
+				# water this deep mid-channel: the riffle's gravel bar, falling
+				# away into the pools either side of it along the river
+				var r := exp(-pow((x - float(c["ford_x"])) / float(c["ford_w"]), 2.0))
+				var deep := lerpf(float(c["pool"]), float(c["shallow"]), r)
+				bed = float(c["level"]) - deep * (1.0 - 0.35 * minf(ch.y * ch.y, 1.0))
 			if c["stones"]:
 				bed += 0.1 * _detail.get_noise_2d(x * 1.6, z * 1.6)
 			h = lerpf(h, minf(h, bed), ch.x)

@@ -1,5 +1,18 @@
 # To check in Claude Code / by hand
 
+## River ford, ground without squares
+
+- **Fords**: the stony river used to be equally deep all along, right at the
+  engine-choke depth, so there was no line to pick. Now a gravel riffle ~4.5 m
+  wide sits a couple of metres off the trail line, 0.42-0.50 m deep on Hard,
+  falling away to pools of 0.75-0.90 m up and downstream (`terrain.gd`,
+  `"ford"` crossings). `tests/ford_test.tscn` prints the depth along each
+  river. To check by driving: can you read the riffle from the water (paler,
+  rippled) and find it; the pools should choke the engine.
+- **Ground squares**: the noise hash in the terrain, water and rock shaders
+  ran out of float precision a few hundred metres up the stage, so the
+  ground broke into blocks with dark seams. It now hashes the float's bits.
+
 ## Graphics settings
 
 *Graphics* in the start menu and the Esc menu (`scripts/ui/settings_menu.gd`,
@@ -417,10 +430,6 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
      rock instead of hanging on it, and later it keeps the oil pan and transfer
      case from damage (realism plan, item 3).
   Needs a garage page for parts. Wants the damage model to really pay off.
-- **River ford** (proposed, waiting on a yes): the river is equally deep all the
-  way across, right at the engine-choke depth on Hard, so there's no better line
-  to find. Make it a ford: shallow riffle (~0.35-0.5 m on Hard) where the trail
-  crosses, deep pools up and downstream. In `terrain.gd::_height_at` (crossing bed).
 - **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in
      low range.
