@@ -61,7 +61,12 @@ static func build(rig: Rig) -> void:
 			_flare(plastic, x + sx * 0.035, zc, arch, c)
 		# door shut lines and handles
 		for z: float in [COWL_Z + 0.02, B_Z, C_Z]:
-			rb.call(chassis, Vector3(0.006, BELT - SILL - 0.08, 0.008), 0.002, at.call(Vector3(x + sx * 0.004, (BELT + SILL) * 0.5 + 0.02, z)))
+			# the line stops at the arch: never across the wheel opening
+			var y0 := SILL + 0.06
+			for zc: float in [fz, rz]:
+				if absf(z - zc) < arch:
+					y0 = maxf(y0, KuwarentaBody.HUB_Y + sqrt(arch * arch - (z - zc) * (z - zc)) + 0.03)
+			rb.call(chassis, Vector3(0.006, BELT - 0.04 - y0, 0.008), 0.002, at.call(Vector3(x + sx * 0.004, (BELT - 0.04 + y0) * 0.5, z)))
 		for z: float in [B_Z - 0.16, C_Z - 0.16]:
 			rb.call(plastic, Vector3(0.025, 0.03, 0.14), 0.01, at.call(Vector3(x + sx * 0.012, BELT - 0.1, z)))
 		# side step between the arches
@@ -216,7 +221,7 @@ static func build(rig: Rig) -> void:
 ## A big rounded-square flare round an arch on the side at `x`.
 static func _flare(st: SurfaceTool, x: float, zc: float, r: float, col: Color) -> void:
 	var low := SILL + 0.02
-	var top := HUB_Y + r * 0.95
+	var top := HUB_Y + r + 0.04   # the tube's underside clears the tire at the bump stop
 	var pts := PackedVector3Array([
 		Vector3(x, low, zc - r * 1.04), Vector3(x, HUB_Y + r * 0.6, zc - r * 1.0),
 		Vector3(x, top - 0.03, zc - r * 0.72), Vector3(x, top, zc - r * 0.3), Vector3(x, top, zc + r * 0.3),

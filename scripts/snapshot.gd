@@ -179,6 +179,14 @@ func _rig_shots() -> void:
 			["96_gap_rr", Vector3(1.6, 1.5, tail + 1.4), Vector3(0.6, 1.0, tail - 0.3)],
 			["96_gap_roof", Vector3(-1.8, 2.9, -0.6), Vector3(-0.4, 1.7, 0.4)],
 			["96_gap_low", Vector3(-2.4, 0.35, 0.0), Vector3(0, 0.7, 0.0)]]
+		# every wheel well from outside: square on, and from low behind the
+		# wheel looking up into the arch, where panels leave holes
+		var t := _rig.spec.track
+		for c: Array in [["fl", -1.0, _rig.spec.front_z], ["fr", 1.0, _rig.spec.front_z], ["rl", -1.0, _rig.spec.rear_z], ["rr", 1.0, _rig.spec.rear_z]]:
+			var sx: float = c[1]
+			var hub := Vector3(sx * t, 0.35, float(c[2]))
+			views.append(["96_well_%s" % c[0], hub + Vector3(sx * 1.6, 0.35, 0.0), hub + Vector3(0, 0.25, 0)])
+			views.append(["96_wellup_%s" % c[0], hub + Vector3(sx * 1.1, -0.1, 0.9), hub + Vector3(-sx * 0.2, 0.55, -0.1)])
 	for v: Array in views:
 		cam.global_position = r * (v[1] as Vector3)
 		cam.look_at(r * (v[2] as Vector3 if v.size() > 2 else Vector3(0, 0.95, 0)), r.basis.y)

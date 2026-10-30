@@ -58,7 +58,12 @@ static func build(rig: Rig) -> void:
 		MeshKit.tube(paint, Vector3(x, STEP_TOP, COWL_Z + 0.02), Vector3(x, STEP_TOP, OPEN_Z), 0.02, Transform3D.IDENTITY, c, 8)
 		MeshKit.sweep(paint, PackedVector3Array([Vector3(x, STEP_TOP, OPEN_Z), Vector3(x, BELT - 0.04, OPEN_Z + 0.12), Vector3(x, BELT, OPEN_Z + 0.24), Vector3(x, BELT, TAIL_Z)]),
 			PackedFloat32Array([0.02, 0.02, 0.02, 0.02]), Transform3D.IDENTITY, c, 8)
-		rb.call(chrome, Vector3(0.012, 0.025, TAIL_Z - NOSE_Z - 0.2), 0.006, at.call(Vector3(x + sx * 0.02, 0.7, (TAIL_Z + NOSE_Z) * 0.5 + 0.1)))
+		# the chrome strip down the side, broken at each wheel opening
+		var half_chord := sqrt(maxf(0.0, arch * arch - pow(0.7 - RigSpec.RIDE_HUB_Y, 2.0))) + 0.04
+		var cuts: Array[float] = [NOSE_Z + 0.1, spec.front_z - half_chord, spec.front_z + half_chord, rz - half_chord, rz + half_chord, TAIL_Z - 0.1]
+		for k in range(0, cuts.size(), 2):
+			if cuts[k + 1] - cuts[k] > 0.05:
+				rb.call(chrome, Vector3(0.012, 0.025, cuts[k + 1] - cuts[k]), 0.006, at.call(Vector3(x + sx * 0.02, 0.7, (cuts[k] + cuts[k + 1]) * 0.5)))
 		# a chrome step under the opening
 		rb.call(chrome, Vector3(0.12, 0.025, 0.36), 0.008, at.call(Vector3(x + sx * 0.05, SILL - 0.04, -0.1)))
 	rb.call(paint, Vector3(HALF_W * 2.0, BELT - SILL, 0.04), 0.02, at.call(Vector3(0, (BELT + SILL) * 0.5, TAIL_Z)))
@@ -115,8 +120,10 @@ static func build(rig: Rig) -> void:
 	for sx: float in [-1.0, 1.0]:
 		rb.call(trim, Vector3(0.44, 0.12, 0.44), 0.05, at.call(Vector3(sx * absf(seat.x), seat.y - 0.12, seat.z - 0.06)))
 		rb.call(trim, Vector3(0.42, 0.52, 0.1), 0.045, Transform3D(Basis(Vector3.RIGHT, 0.15), Vector3(sx * absf(seat.x), seat.y + 0.18, seat.z + 0.2)))
-		rb.call(trim, Vector3(0.3, 0.1, TAIL_Z - OPEN_Z - 0.35), 0.03, at.call(Vector3(sx * (HALF_W - 0.2), 0.74, (TAIL_Z + OPEN_Z) * 0.5 + 0.1)))
-		rb.call(trim, Vector3(0.06, 0.28, TAIL_Z - OPEN_Z - 0.35), 0.025, at.call(Vector3(sx * (HALF_W - 0.06), 0.86, (TAIL_Z + OPEN_Z) * 0.5 + 0.1)))
+		# (up on top of the rear wheel well, not sunk into it)
+		var bench_y := maxf(0.74, RigSpec.RIDE_HUB_Y + arch + 0.07)
+		rb.call(trim, Vector3(0.3, 0.1, TAIL_Z - OPEN_Z - 0.35), 0.03, at.call(Vector3(sx * (HALF_W - 0.2), bench_y, (TAIL_Z + OPEN_Z) * 0.5 + 0.1)))
+		rb.call(trim, Vector3(0.06, 0.28, TAIL_Z - OPEN_Z - 0.35), 0.025, at.call(Vector3(sx * (HALF_W - 0.06), bench_y + 0.12, (TAIL_Z + OPEN_Z) * 0.5 + 0.1)))
 	MeshKit.tube(chassis, Vector3(seat.x, BELT - 0.08, COWL_Z + 0.04), spec.wheel_at, 0.022, Transform3D.IDENTITY, c)
 	MeshKit.tube(chassis, Vector3(0.02, 0.55, -0.22), Vector3(0.0, 0.93, -0.12), 0.012, Transform3D.IDENTITY, c, 6)
 	MeshKit.tube(chassis, Vector3(0.1, 0.55, -0.22), Vector3(0.12, 0.87, -0.14), 0.01, Transform3D.IDENTITY, c, 6)

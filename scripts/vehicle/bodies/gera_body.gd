@@ -173,7 +173,9 @@ static func _build(rig: Rig, trail: bool) -> void:
 
 	# bumpers and winch: plain black, or army green with D-rings on the trail build
 	var bumper := drab if trail else steel
-	rb.call(bumper, Vector3(1.75, 0.14, 0.13), 0.025, at.call(Vector3(0, 0.6, -1.74)))
+	# (far enough forward that the tires clear it at the bump stop)
+	var bumper_z := rig.spec.front_z - sqrt(pow(rig.spec.tire_radius + 0.02, 2.0) - 0.04) - 0.065
+	rb.call(bumper, Vector3(1.75, 0.14, 0.13), 0.025, at.call(Vector3(0, 0.6, bumper_z)))
 	rb.call(bumper, Vector3(1.5, 0.12, 0.11), 0.025, at.call(Vector3(0, 0.58, 1.68)))
 	MeshKit.cylinder(chassis, 0.085, 0.46, Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(0, 0.75, -1.74)), c, 16)
 	for sx: float in [-1.0, 1.0]:

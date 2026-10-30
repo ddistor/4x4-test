@@ -115,6 +115,41 @@ func carve(world_xz: Vector2, radius: float, amount: float) -> float:
 	return carved
 
 
+## Press a tire's footprint to `depth` below the original surface: every cell
+## under it (`radius` across, a softened edge) is cut down to at least that
+## depth, never past the soft layer. Nothing happens where it's already that
+## deep, so a tire sitting still doesn't keep digging. Returns the deepest
+## amount it had to cut this time (what gets shoved into the berms).
+func carve_to(world_xz: Vector2, radius: float, depth: float) -> float:
+	if depth <= 0.0:
+		return 0.0
+	var centre := world_to_cell(world_xz)
+	var r_cells := maxi(1, int(ceil(radius / cell_size)))
+	var cut := 0.0
+	for dy in range(-r_cells, r_cells + 1):
+		for dx in range(-r_cells, r_cells + 1):
+			var c := centre + Vector2i(dx, dy)
+			if not in_bounds(c):
+				continue
+			var cell_world := origin + (Vector2(c) + Vector2(0.5, 0.5)) * cell_size
+			var d := cell_world.distance_to(world_xz)
+			# full depth under the tread, rounding off over the shoulder
+			var shape := 1.0 - smoothstep(radius * 0.5, radius + cell_size * 1.5, d)   # walls slump, not sheer
+			if shape <= 0.0:
+				continue
+			var i := idx(c.x, c.y)
+			var want := minf(depth * shape, thickness[i])
+			if want > rut[i] + 0.001:
+				cut = maxf(cut, want - maxf(rut[i], 0.0))
+				rut[i] = want
+				# a tire working the cell brings water up into it
+				wetness[i] = minf(1.0, wetness[i] + 0.02)
+				image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i]))
+	if cut > 0.0:
+		_dirty = true
+	return cut
+
+
 ## Pile displaced mud on the surface round a point: the berms a tire shoves
 ## up beside its rut, and clods a spinning tire throws behind it. Stored as
 ## negative rut (mud above the original surface), so the terrain shader

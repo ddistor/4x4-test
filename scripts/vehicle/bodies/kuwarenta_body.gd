@@ -105,8 +105,9 @@ static func build(rig: Rig) -> void:
 	for sx: float in [-1.0, 1.0]:
 		_fender(paint, sx, fz, arch, c)
 		_arch_lip(paint, sx * (FX_OUT + 0.02), fz, arch, F_FRONT, c)
-		# inner fender apron beside the engine
-		rb.call(paint, Vector3(0.03, F_TOP - 0.62, COWL_Z - NOSE_Z), 0.01, at.call(Vector3(sx * FX_IN, (F_TOP + 0.62) * 0.5, (COWL_Z + NOSE_Z) * 0.5)))
+		# inner fender apron beside the engine: inboard of the tire, cut round
+		# the arch (the wheel well's own inner wall closes it there)
+		_side_panel(paint, sx * (rig.spec.tire_inner() - 0.005), NOSE_Z + 0.02, COWL_Z, 0.62, F_TOP, [[fz, arch]], 0.03, c)
 		# mirror on the cowl
 		MeshKit.tube(steel, Vector3(sx * (HALF_W + 0.02), BELT + 0.05, COWL_Z + 0.05), Vector3(sx * (HALF_W + 0.16), BELT + 0.25, COWL_Z - 0.02), 0.01, Transform3D.IDENTITY, c, 6)
 		MeshKit.cylinder(steel, 0.075, 0.025, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * (HALF_W + 0.17), BELT + 0.27, COWL_Z - 0.03)), c, 16)
@@ -163,8 +164,9 @@ static func build(rig: Rig) -> void:
 		rb.call(trim, Vector3(0.46, 0.13, 0.46), 0.05, at.call(Vector3(sx * absf(seat.x), seat.y - 0.12, seat.z - 0.07)))
 		var back := Transform3D(Basis(Vector3.RIGHT, 0.16), Vector3(sx * absf(seat.x), seat.y + 0.2, seat.z + 0.2))
 		rb.call(trim, Vector3(0.44, 0.58, 0.1), 0.045, back)
-	rb.call(trim, Vector3(1.3, 0.13, 0.42), 0.05, at.call(Vector3(0, 0.7, 1.3)))
-	rb.call(trim, Vector3(1.3, 0.45, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.98, 1.56)))
+	var bench_w := minf(1.3, rig.spec.tire_inner() * 2.0 - 0.04)   # between the wheel wells
+	rb.call(trim, Vector3(bench_w, 0.13, 0.42), 0.05, at.call(Vector3(0, 0.7, 1.3)))
+	rb.call(trim, Vector3(bench_w, 0.45, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.98, 1.56)))
 	MeshKit.tube(chassis, Vector3(seat.x, BELT - 0.06, COWL_Z + 0.02), rig.spec.wheel_at, 0.022, Transform3D.IDENTITY, c)
 	MeshKit.tube(chassis, Vector3(0.02, 0.6, -0.12), Vector3(0.0, 1.0, -0.02), 0.012, Transform3D.IDENTITY, c, 6)
 	MeshKit.tube(chassis, Vector3(0.1, 0.6, -0.12), Vector3(0.12, 0.94, -0.04), 0.01, Transform3D.IDENTITY, c, 6)
@@ -363,6 +365,7 @@ static func _side_panel(st: SurfaceTool, x: float, z0: float, z1: float, bottom:
 	var xi := x - out.x * thick
 	var prev_top: Array[Vector3] = []
 	var prev_bot: Array[Vector3] = []
+	var prev_cut := false
 	for i in range(n + 1):
 		var z := lerpf(z0, z1, float(i) / n)
 		var yb := bottom
@@ -373,10 +376,15 @@ static func _side_panel(st: SurfaceTool, x: float, z0: float, z1: float, bottom:
 			var r: float = a[1]
 			if absf(dz) < r:
 				yb = maxf(yb, HUB_Y + sqrt(r * r - dz * dz))
+		# where the arch reaches past the panel's top, the panel is cut away
+		# entirely there (it used to leave a 2 cm sliver across the opening)
+		var cut := yb >= top_y - 0.02
 		yb = minf(yb, top_y - 0.02)
 		var t: Array[Vector3] = [Vector3(x, top_y, z), Vector3(xi, top_y, z)]
 		var b: Array[Vector3] = [Vector3(x, yb, z), Vector3(xi, yb, z)]
-		if i > 0:
+		var skip := cut and prev_cut
+		prev_cut = cut
+		if i > 0 and not skip:
 			for k in range(2):
 				var nn := out if k == 0 else -out
 				MeshKit._quad(st, Transform3D.IDENTITY, [prev_bot[k], b[k], t[k], prev_top[k]], [nn, nn, nn, nn], col)

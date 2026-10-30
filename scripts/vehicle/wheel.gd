@@ -300,11 +300,24 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 			# traction boards: cleated plastic, it bites even wet
 			ground["wetness"] = 0.1
 			ground["grip"] = 1.35
-	var room: float = maxf(0.0, ground["thickness"] - ground["rut"])
+	var thick: float = ground["thickness"]
+	var rut_here: float = ground["rut"]
+	var room: float = maxf(0.0, thick - rut_here)
 	var wet: float = ground["wetness"]
 	var water: float = ground["water_depth"]
-	# Soft surface the tire would rest on if it didn't sink: firm + room.
-	var surface_dist: float = (hit.position - top).dot(down) - room
+	# How deep the tire sits below the ground as it was before anyone drove
+	# here (the collider is the firm floor under the soft layer): its own
+	# sinkage from load and wetness, or deeper if it's in an old rut, never
+	# past the firm floor. Spinning digs it deeper.
+	# aired down = longer footprint = lower ground pressure = floats more
+	var load_k := clampf(load / NOMINAL_LOAD, 0.4, 1.6) / (1.0 + 0.6 * aired())
+	var target_sink: float = thick * clampf((0.25 + 0.75 * wet) * load_k + 0.35 * slip, 0.0, 1.0)
+	var yield_rate := 3.0 + 8.0 * slip  # churning mud gives way faster
+	sink = minf(move_toward(sink, target_sink, yield_rate * delta * maxf(thick, 0.05)), thick)
+	var depth := clampf(maxf(rut_here, sink), -0.3, thick)
+	# fresh mud the tire is pushing through (rolling in an old rut is easier)
+	var fresh := maxf(0.0, depth - maxf(rut_here, 0.0))
+	var surface_dist: float = (hit.position - top).dot(down) - thick + depth
 	# A tire is round: an edge ahead or behind (a curb, a ledge, a rock) lifts
 	# it as it rolls up to it, not all at once when the centre ray reaches the
 	# top. Sample the ground fore and aft and take the highest the circle sits.
@@ -317,14 +330,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		if not sh.is_empty() and (sh.normal as Vector3).dot(-down) > 0.0:
 			var dist_f: float = (sh.position - top - along * d).dot(down)
 			surface_dist = minf(surface_dist, dist_f - sqrt(r * r - d * d) + r)
-	# How far it wants to sink: wetter + heavier + spinning = deeper, capped by room.
-	# aired down = longer footprint = lower ground pressure = floats more
-	var load_k := clampf(load / NOMINAL_LOAD, 0.4, 1.6) / (1.0 + 0.6 * aired())
-	var target_sink: float = room * clampf((0.25 + 0.75 * wet) * load_k + 0.35 * slip, 0.0, 1.0)
-	var yield_rate := 2.5 + 6.0 * slip  # churning mud gives way faster
-	sink = move_toward(sink, target_sink, yield_rate * delta * maxf(room, 0.05))
-	sink = minf(sink, room)
-	var contact_dist: float = surface_dist + sink
+	var contact_dist: float = surface_dist
 	contact = contact_dist <= rest_length + max_travel + r
 	contact_point = top + down * contact_dist
 	contact_normal = hit.normal
@@ -333,7 +339,15 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var compression: float = (rest_length + r) - contact_dist
 	var spring := 0.0
 	if contact:
-		var comp_vel := (compression - _last_compression) / delta
+		# The shock damps the body's own motion toward the ground: the rig's
+		# velocity at the mount, along the strut. Not the frame-to-frame change
+		# in the ray reading (sinking, rut carving and the fore/aft samples make
+		# that jump every step; the damper read it as violent motion, cancelled
+		# the spring and left wheels carrying nothing on flat ground), nor the
+		# slope under the tire times speed (on the face of a hump that spikes
+		# and the damper slammed the rig like a wall). The spring rides bumps.
+		var mount_vel := rig.linear_velocity + rig.angular_velocity.cross(top - rig.global_position)
+		var comp_vel := mount_vel.dot(down)
 		# shocks valve rebound much stiffer than bump: the body settles back
 		# onto the axle instead of leaping off the unloaded side
 		var damp := damping * (rebound_ratio if comp_vel < 0.0 else 1.0)
@@ -370,7 +384,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var soft := smoothstep(0.03, 0.2, room + ground["rut"])
 	var mu := lerpf(0.92, 0.3, wet)                      # slick when wet: greasy clay is barely 0.3
 	mu *= 1.0 - 0.15 * soft                              # soup has less to push on
-	var sink_ratio := sink / maxf(room, 0.05)
+	var sink_ratio := clampf(depth / maxf(thick, 0.05), 0.0, 1.0)
 	mu += 0.22 * sink_ratio * (1.0 - wet * 0.5) * (1.0 - 0.7 * packing)  # bite once the tire is in
 	mu += aired() * (0.06 + 0.16 * soft)                 # bigger footprint, lugs wrap the ground
 	mu *= 1.0 - 0.3 * packing                            # tread full of clay: a slick
@@ -436,11 +450,11 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# behind it, growing with depth
 	if water > 0.1:
 		rig.apply_force(terrain.current_at(contact_point.x, contact_point.z) * water * 700.0, contact_point - rig.global_position)
-	var drag_c := sink * 1500.0 * (0.6 + 0.6 * wet) + water * 350.0 + (400.0 if debeaded else 0.0)
+	var drag_c := fresh * 1500.0 * (0.6 + 0.6 * wet) + water * 350.0 + (400.0 if debeaded else 0.0)
 	var f_drag := -planar * drag_c
 	# suction: hard to get moving from a stop in deep mud
-	if planar.length() < 0.6 and sink > 0.08:
-		f_drag -= planar.normalized() * sink * 1800.0 * (planar.length() / 0.6)
+	if planar.length() < 0.6 and depth > 0.08:
+		f_drag -= planar.normalized() * depth * 1800.0 * (planar.length() / 0.6)
 
 	rig.apply_force(fwd * f_long + f_drag, contact_point - rig.global_position)
 	# side force goes into the body through the axle's links, part way up to
@@ -458,12 +472,13 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var rolling_omega := v_fwd / r
 	omega = lerpf(rolling_omega, free_omega, slip)
 
-	# Carve: settling into the mud makes a rut; spinning flings it out faster.
-	var press := maxf(0.0, sink - ground["rut"]) * 0.8 * delta
-	var dig := slip * 0.35 * delta * soft
-	if press + dig > 0.001:
+	# Carve: the rut is where the tire is. The footprint is pressed to the
+	# tire's depth right away, so the tire never sits sunk in untouched ground;
+	# a spinning tire's depth keeps growing (target_sink above), so it digs.
+	if depth > rut_here + 0.002:
 		var at := Vector2(contact_point.x, contact_point.z)
-		var carved := terrain.mud.carve(at, width * 0.5, press + dig)
+		var carved := terrain.mud.carve_to(at, width * 0.5, depth)
+		var dig := slip
 		# The clay has to go somewhere: the tire shoves it up into a berm on
 		# either side of the rut, and a spinning tire flings clods out behind
 		# it (behind = the way the tread is moving at the bottom).
@@ -472,7 +487,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 			var wet_here: float = ground["wetness"]
 			for s: float in [-1.0, 1.0]:
 				terrain.mud.deposit(at + side * s, 0.24, carved * 0.3, wet_here)
-			var flung := carved * dig / (press + dig)
+			var flung := carved * dig
 			if flung > 0.0005:
 				var back := -Vector2(fwd.x, fwd.z).normalized() * signf(omega if absf(omega) > 0.1 else 1.0)
 				var reach := randf_range(0.8, 1.2 + 0.18 * absf(omega) * radius)
@@ -508,7 +523,10 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		# the tread takes on what it's rolling in: red clay, or grey lahar ash
 		mud_ash = move_toward(mud_ash, float(ground.get("ash", 0.0)), delta * soft * (0.5 + 1.5 * slip))
 	else:
-		tire_mud = move_toward(tire_mud, 0.2 * tire_mud, delta * 0.01 * surf_speed)
+		# on firm ground the tread faces shed their clay, but the sidewalls and
+		# the wheel keep what's packed on: it settles at about half, only water
+		# washes it off from there
+		tire_mud = move_toward(tire_mud, minf(tire_mud, 0.5), delta * 0.01 * surf_speed)
 	if water > 0.15:
 		tire_mud = move_toward(tire_mud, 0.0, delta * 0.15 * planar.length())
 	# Packing: crawling slowly through sticky clay (wet, but not soup) fills

@@ -51,7 +51,12 @@ static func build(rig: Rig) -> void:
 		var x := sx * HALF_W
 		KuwarentaBody._side_panel(paint, x, COWL_Z, TAIL_Z, SILL, BELT, [[rz, arch]], 0.035, c)
 		for z: float in [COWL_Z + 0.02, B_Z, C_Z]:
-			rb.call(chassis, Vector3(0.006, BELT - SILL - 0.06, 0.008), 0.002, at.call(Vector3(x + sx * 0.004, (BELT + SILL) * 0.5, z)))
+			# the line stops at the arch: never across the wheel opening
+			var y0 := SILL + 0.03
+			for zc: float in [fz, rz]:
+				if absf(z - zc) < arch:
+					y0 = maxf(y0, RigSpec.RIDE_HUB_Y + sqrt(arch * arch - (z - zc) * (z - zc)) + 0.03)
+			rb.call(chassis, Vector3(0.006, BELT - 0.03 - y0, 0.008), 0.002, at.call(Vector3(x + sx * 0.004, (BELT - 0.03 + y0) * 0.5, z)))
 		# exposed hinges at the front edge of each door, handles at the back
 		for z: float in [COWL_Z + 0.06, B_Z + 0.06]:
 			for y: float in [0.78, 1.08]:
@@ -191,7 +196,7 @@ static func build(rig: Rig) -> void:
 static func _flare(st: SurfaceTool, x: float, zc: float, r: float, col: Color) -> void:
 	var hub := RigSpec.RIDE_HUB_Y
 	var low := SILL + 0.03
-	var top := hub + r * 0.97
+	var top := hub + r + 0.05   # the tube's underside clears the tire at the bump stop
 	var pts := PackedVector3Array([
 		Vector3(x, low, zc - r * 1.12), Vector3(x, top - 0.02, zc - r * 0.62),
 		Vector3(x, top, zc - r * 0.5), Vector3(x, top, zc + r * 0.5),

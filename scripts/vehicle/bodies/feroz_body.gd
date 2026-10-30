@@ -128,8 +128,9 @@ static func build(rig: Rig) -> void:
 	for sx: float in [-1.0, 1.0]:
 		rb.call(trim, Vector3(0.44, 0.13, 0.44), 0.05, at.call(Vector3(sx * absf(seat.x), seat.y - 0.12, seat.z - 0.06)))
 		rb.call(trim, Vector3(0.42, 0.58, 0.1), 0.045, Transform3D(Basis(Vector3.RIGHT, 0.17), Vector3(sx * absf(seat.x), seat.y + 0.2, seat.z + 0.2)))
-	rb.call(trim, Vector3(1.24, 0.12, 0.4), 0.05, at.call(Vector3(0, 0.66, 1.15)))
-	rb.call(trim, Vector3(1.24, 0.45, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.95, 1.4)))
+	var bench_w := minf(1.24, rig.spec.tire_inner() * 2.0 - 0.04)   # between the wheel wells
+	rb.call(trim, Vector3(bench_w, 0.12, 0.4), 0.05, at.call(Vector3(0, 0.66, 1.15)))
+	rb.call(trim, Vector3(bench_w, 0.45, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.95, 1.4)))
 	MeshKit.tube(chassis, Vector3(seat.x, BELT - 0.08, COWL_Z + 0.05), rig.spec.wheel_at, 0.022, Transform3D.IDENTITY, c)
 	MeshKit.tube(chassis, Vector3(0.02, 0.58, -0.18), Vector3(0.0, 0.96, -0.08), 0.012, Transform3D.IDENTITY, c, 6)
 	MeshKit.tube(chassis, Vector3(0.1, 0.58, -0.18), Vector3(0.12, 0.9, -0.1), 0.01, Transform3D.IDENTITY, c, 6)
@@ -212,7 +213,7 @@ static func build(rig: Rig) -> void:
 ## legs and a flat top, standing proud of the body.
 static func _flare(st: SurfaceTool, x: float, zc: float, r: float, col: Color) -> void:
 	var hub := KuwarentaBody.HUB_Y
-	var top := hub + r * 0.92
+	var top := hub + r + 0.03   # the tube's underside clears the tire at the bump stop
 	var low := SILL + 0.02
 	var pts := PackedVector3Array([
 		Vector3(x, low, zc - r * 1.02), Vector3(x, hub + r * 0.55, zc - r * 0.98),
