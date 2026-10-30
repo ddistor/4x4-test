@@ -1,0 +1,208 @@
+class_name Parts
+extends RefCounted
+## Career-mode upgrades: what you can bolt on, what it costs and what it
+## changes on the rig's RigSpec. A fitted set is a Dictionary slot -> option
+## id; Parts.apply() turns the stock spec into the one you drive. Free play
+## fits nothing and drives the rigs as built.
+##
+## Every part is a trade, not a strict upgrade (see docs/upgrades.md): bigger
+## tires and a lift clear more and float more, but put the weight higher and
+## gear the rig taller; deeper gears crawl but run out of top speed.
+##
+## Prices are rough Philippine shop prices, installed, for a set of four tires
+## or both axles.
+
+const SLOTS := ["tires", "lift", "gears", "low"]
+const SLOT_NAMES := {"tires": "Tires", "lift": "Lift", "gears": "Axle gears", "low": "Low range"}
+
+## Tire sizes, inches: [radius m, width m, price for a set of mud-terrains].
+## All-terrains are 80% of that.
+const TIRE_SIZES := {31: [0.395, 0.27, 48000], 33: [0.42, 0.3, 60000], 35: [0.445, 0.32, 76000], 37: [0.47, 0.33, 96000]}
+const AT_PRICE := 0.8
+## A whole tire and wheel, kg, for a 35 x 12.5 (scaled by size).
+const TIRE_KG := 50.0
+
+## Lifts: [name, lift m, extra droop m, extra bump m, kg, price].
+const LIFTS := {
+	"stock": ["Stock height", 0.0, 0.0, 0.0, 0.0, 0],
+	"2.5": ["2.5 in lift", 0.0635, 0.02, 0.0, 15.0, 55000],
+	"4": ["4 in lift", 0.1016, 0.03, 0.0, 25.0, 85000],
+	"lt": ["4 in long-travel", 0.1016, 0.09, 0.04, 45.0, 165000]}
+
+## Ring and pinion ratios on offer, both axles.
+const GEARS := [4.1, 4.56, 4.88, 5.13, 5.38]
+const GEAR_PRICE := 70000
+## A 4:1 low-range transfer case.
+const LOW_4 := 4.0
+const LOW_PRICE := 120000
+const LOW_KG := 12.0
+
+
+## The option ids for `slot` on this rig, cheapest/stock first.
+static func options(stock: RigSpec, slot: String) -> Array[String]:
+	var out: Array[String] = []
+	match slot:
+		"tires":
+			for size: int in TIRE_SIZES:
+				out.append("%d_mt" % size)
+				out.append("%d_at" % size)
+		"lift":
+			for k: String in LIFTS:
+				out.append(k)
+		"gears":
+			var ratios := GEARS.duplicate()
+			if not ratios.has(stock.final_drive):
+				ratios.append(stock.final_drive)
+			ratios.sort()
+			for g: float in ratios:
+				out.append(_ratio_id(g))
+		"low":
+			out.append(_ratio_id(stock.low_ratio))
+			if stock.low_ratio < LOW_4:
+				out.append(_ratio_id(LOW_4))
+	return out
+
+
+## What the rig comes with in `slot`: owned from the start.
+static func stock_option(stock: RigSpec, slot: String) -> String:
+	match slot:
+		"tires":
+			var best := 35
+			for size: int in TIRE_SIZES:
+				if absf(TIRE_SIZES[size][0] - stock.tire_radius) < absf(TIRE_SIZES[best][0] - stock.tire_radius):
+					best = size
+			return "%d_%s" % [best, "mt" if stock.tread == 1 else "at"]
+		"lift":
+			return "stock"
+		"gears":
+			return _ratio_id(stock.final_drive)
+		"low":
+			return _ratio_id(stock.low_ratio)
+	return ""
+
+
+static func label(slot: String, id: String) -> String:
+	match slot:
+		"tires":
+			var p := id.split("_")
+			return "%s in %s" % [p[0], "mud-terrain" if p[1] == "mt" else "all-terrain"]
+		"lift":
+			return LIFTS[id][0]
+		"gears":
+			return "%s:1" % id
+		"low":
+			return "%s:1" % id
+	return id
+
+
+static func price(slot: String, id: String) -> int:
+	match slot:
+		"tires":
+			var p := id.split("_")
+			var base: int = TIRE_SIZES[int(p[0])][2]
+			return base if p[1] == "mt" else int(base * AT_PRICE)
+		"lift":
+			return LIFTS[id][5]
+		"gears":
+			return GEAR_PRICE
+		"low":
+			return LOW_PRICE
+	return 0
+
+
+## One line on what the option does on this rig.
+static func describe(stock: RigSpec, slot: String, id: String) -> String:
+	match slot:
+		"tires":
+			var p := id.split("_")
+			var tread := "Open lugs: bite in mud, shed clay at speed." if p[1] == "mt" \
+				else "Cheaper, grips firm ground a little better, packs with clay fast."
+			var r: float = TIRE_SIZES[int(p[0])][0]
+			var d := 2.0 * (r - stock.tire_radius) * 39.37
+			var size := "Same size as stock." if absf(d) < 0.5 \
+				else "%+.0f in taller: %s clearance, floats more, gears the rig taller." % [d, "more" if d > 0 else "less"]
+			return size + " " + tread
+		"lift":
+			if id == "stock":
+				return "As built."
+			var l: Array = LIFTS[id]
+			var s := "Body sits %.0f cm higher: belly clearance and room for bigger tires, but it tips sooner." % (l[1] * 100.0)
+			if id == "lt":
+				s += " Long shocks: much more droop and bump, the axles keep the tires down."
+			return s
+		"gears":
+			var g := float(id)
+			var crawl := stock.gears[0] * g * stock.low_ratio
+			return "Crawl ratio %.0f:1 in 4L (stock %.0f:1). Deeper pulls bigger tires and crawls slower, less top speed." % [
+				crawl, stock.gears[0] * stock.final_drive * stock.low_ratio]
+		"low":
+			var lo := float(id)
+			return "Crawl ratio %.0f:1 in 1st low (stock %.0f:1). For rock steps and steep clay." % [
+				stock.gears[0] * stock.final_drive * lo, stock.gears[0] * stock.final_drive * stock.low_ratio]
+	return ""
+
+
+## "" if `id` can go in `slot` with the rest of `fit`, else why it can't.
+## Bigger tires need lift to clear the wells: about 1 in of lift per inch of
+## extra tire (they grow out and sweep wider when the axle flexes and steers),
+## and long-travel shocks reach higher into the wells.
+static func blocked(stock: RigSpec, fit: Dictionary, slot: String, id: String) -> String:
+	var trial := fit.duplicate()
+	trial[slot] = id
+	var tires: String = trial.get("tires", stock_option(stock, "tires"))
+	var lift_id: String = trial.get("lift", "stock")
+	var r: float = TIRE_SIZES[int(tires.split("_")[0])][0]
+	var l: Array = LIFTS[lift_id]
+	var lift: float = l[1]
+	var grow := r - stock.tire_radius
+	if 2.0 * grow - lift > 0.006 or grow + l[3] - lift > 0.001:
+		var need := ""
+		for k: String in LIFTS:
+			var lk: Array = LIFTS[k]
+			if 2.0 * grow - lk[1] <= 0.006 and grow + lk[3] - lk[1] <= 0.001:
+				need = lk[0]
+				break
+		if slot == "lift":
+			return "the %s tires need more lift than that" % tires.split("_")[0]
+		if need == "":
+			return "too big for this body"
+		return "needs a %s" % need.to_lower()
+	return ""
+
+
+## Turn the stock spec into the rig with `fit` bolted on. The body is still
+## built round the stock wheel wells (fender_top).
+static func apply(s: RigSpec, fit: Dictionary) -> RigSpec:
+	s.fender_top = s.max_tire_top()
+	if fit.has("tires"):
+		var p: PackedStringArray = (fit["tires"] as String).split("_")
+		var t: Array = TIRE_SIZES[int(p[0])]
+		var r0 := s.tire_radius
+		var w0 := s.tire_width
+		s.tire_radius = t[0]
+		s.tire_width = t[1]
+		s.tread = 1 if p[1] == "mt" else 0
+		# a longer, wider contact patch: lower ground pressure
+		s.footprint = (s.tire_width / w0) * sqrt(s.tire_radius / r0)
+		s.mass += 4.0 * TIRE_KG * (_tire_bulk(s.tire_radius, s.tire_width) - _tire_bulk(r0, w0))
+	if fit.has("lift"):
+		var l: Array = LIFTS[fit["lift"]]
+		s.lift = l[1]
+		s.wheel_mount_y -= s.lift
+		s.droop += l[2]
+		s.bump += l[3]
+		s.mass += l[4]
+	if fit.has("gears"):
+		s.final_drive = float(fit["gears"])
+	if fit.has("low") and float(fit["low"]) != s.low_ratio:
+		s.low_ratio = float(fit["low"])
+		s.mass += LOW_KG
+	return s
+
+
+static func _tire_bulk(r: float, w: float) -> float:
+	return (r * r * w) / (0.445 * 0.445 * 0.32)
+
+
+static func _ratio_id(g: float) -> String:
+	return str(g)

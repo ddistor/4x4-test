@@ -18,6 +18,8 @@ const RAY_LIFT := 0.4
 @export var rebound_ratio := 2.6    # rebound damping = damping * this
 @export var steerable := false
 @export var left_side := false
+@export var tread := 1              # 0 all-terrain, 1 mud-terrain (RigSpec)
+@export var footprint := 1.0        # contact patch against the rig's stock tires
 
 # Runtime state
 var contact := false
@@ -311,7 +313,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# sinkage from load and wetness, or deeper if it's in an old rut, never
 	# past the firm floor. Spinning digs it deeper.
 	# aired down = longer footprint = lower ground pressure = floats more
-	var load_k := clampf(load / NOMINAL_LOAD, 0.4, 1.6) / (1.0 + 0.6 * aired())
+	var load_k := clampf(load / NOMINAL_LOAD, 0.4, 1.6) / (1.0 + 0.6 * aired()) / footprint
 	var target_sink: float = thick * clampf((0.25 + 0.75 * wet) * load_k + 0.35 * slip, 0.0, 1.0)
 	var yield_rate := 3.0 + 8.0 * slip  # churning mud gives way faster
 	sink = minf(move_toward(sink, target_sink, yield_rate * delta * maxf(thick, 0.05)), thick)
@@ -386,7 +388,12 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var mu := lerpf(0.92, 0.3, wet)                      # slick when wet: greasy clay is barely 0.3
 	mu *= 1.0 - 0.15 * soft                              # soup has less to push on
 	var sink_ratio := clampf(depth / maxf(thick, 0.05), 0.0, 1.0)
-	mu += 0.22 * sink_ratio * (1.0 - wet * 0.5) * (1.0 - 0.7 * packing)  # bite once the tire is in
+	# bite once the tire is in: big open mud-terrain lugs dig, all-terrain
+	# tread is closer and bites less, but has more rubber on firm dry ground
+	var lugs := 0.22 if tread == 1 else 0.14
+	mu += lugs * sink_ratio * (1.0 - wet * 0.5) * (1.0 - 0.7 * packing)
+	if tread == 0:
+		mu += 0.05 * (1.0 - soft) * (1.0 - wet)
 	# aired down: a longer footprint and the lugs wrap the ground; on rock the
 	# soft carcass moulds over the edges and grips far better (why you air down)
 	var rocky := 1.0 if on_rock else smoothstep(1.0, 1.1, float(ground.get("grip", 1.0)))
@@ -543,6 +550,10 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	var sticky := clampf(1.0 - absf(wet - 0.55) * 1.8, 0.15, 1.0)
 	var fill := soft * sticky * (1.0 - smoothstep(3.0, 8.0, surf_speed)) * 0.3
 	var clear := smoothstep(4.0, 11.0, surf_speed) * 0.7 + (0.02 * surf_speed if soft < 0.3 else 0.0)
+	if tread == 0:
+		# small closed voids: they fill sooner and fling it out less
+		fill *= 1.7
+		clear *= 0.6
 	packing = clampf(packing + (fill - clear) * delta, 0.0, 1.0)
 	if water > 0.15:
 		packing = move_toward(packing, 0.0, delta * 0.3 * (0.5 + planar.length()))

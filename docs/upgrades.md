@@ -1,6 +1,8 @@
 # Career and upgrades — research and plan
 
-Status: research, nothing built. Builds on the three upgrades already queued in
+Status: step 1 built on branch `career-parts` (tires, lift, gearing, low
+range), with a first career loop (events, pesos, payout, garage parts page),
+so the parts live in career mode from day one. Builds on the three upgrades already queued in
 `to-check.md` (wheels and tires, roll cage, skid plate).
 
 ## What real builders do

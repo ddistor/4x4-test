@@ -25,14 +25,32 @@ var wheel_color := Color(0.03, 0.03, 0.032)  # black beadlocks; silver for steel
 var spring_stiffness := 38000.0             # N/m per corner (see wheel.gd)
 var droop := 0.15                           # extra travel below rest, m
 var bump := 0.2                             # up-travel from ride height to the bump stop, m
+var tread := 1                              # 0 all-terrain, 1 mud-terrain
+## A suspension lift (career parts): the hubs ride this much further below
+## the body, m. The body and its wheel wells stay where they were built.
+var lift := 0.0
+## Contact patch against the stock tires (career parts): >1 floats more.
+var footprint := 1.0
+## Set by Parts.apply: the tire top at the bump stop the body was built for,
+## so wells keep their stock size whatever is fitted under them (0 = follow
+## the tires).
+var fender_top := 0.0
 
-## Where the hubs ride (rig space y) when the rig sits on level ground.
+## Where the hubs ride (rig space y) on level ground on stock suspension;
+## the bodies build their wheel wells round this.
 const RIDE_HUB_Y := 0.13
+
+
+## Where the hubs ride with any lift fitted.
+func ride_hub_y() -> float:
+	return RIDE_HUB_Y - lift
 
 
 ## Highest the top of a tire reaches, at the bump stop: wheel wells clear this.
 func max_tire_top() -> float:
-	return RIDE_HUB_Y + bump + tire_radius
+	if fender_top > 0.0:
+		return fender_top
+	return ride_hub_y() + bump + tire_radius
 
 
 ## Inner face of the tires, with a little room: floors and tubs stay inboard of it.

@@ -15,6 +15,15 @@ var _yaw := 2.3
 var _spin := 0.12      # rad/s while nobody is dragging
 var _dragging := false
 var _flex := false
+var _panel: PanelContainer
+## Career: the part being tried on the pad (not bought or fitted yet)
+var _try_slot := ""
+var _try_id := ""
+var _pesos: Label
+var _desc: Label
+var _part_rows := {}   # slot -> [cycle button, action button]
+var _event_btn: Button
+var _drive_btn: Button
 
 
 func _ready() -> void:
@@ -32,54 +41,18 @@ func _ready() -> void:
 	_build_stage()
 	_rebuild()
 
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UiKit.box(Color(0.05, 0.04, 0.03, 0.72), 10))
-	panel.position = Vector2(60, 60)
-	panel.custom_minimum_size = Vector2(430, 0)
-	add_child(panel)
+	_panel = PanelContainer.new()
+	_panel.add_theme_stylebox_override("panel", UiKit.box(Color(0.05, 0.04, 0.03, 0.72), 10))
+	_panel.position = Vector2(60, 24)
+	_panel.custom_minimum_size = Vector2(500, 0)
+	add_child(_panel)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
-	panel.add_child(col)
-	col.add_child(UiKit.label("GARAGE", 46))
-	_name = UiKit.label("", 30)
-	col.add_child(_name)
-	_blurb = UiKit.label("", 18, UiKit.DIM)
-	_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_blurb.custom_minimum_size = Vector2(400, 0)
-	col.add_child(_blurb)
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 8)
-	col.add_child(gap)
-	var rigs := []
-	for k in RigSpec.kinds():
-		rigs.append([k.name, Color(0, 0, 0, 0)])
-	var prints := []
-	for l: Array in Game.LOGOS:
-		prints.append([l[0], Color(0, 0, 0, 0)])
-	col.add_child(_choice("Rig", rigs, "rig_kind"))
-	col.add_child(_choice("Paint", Game.PAINTS, "paint"))
-	col.add_child(_choice("Shirt", Game.SHIRTS, "shirt"))
-	col.add_child(_choice("Jorts", Game.SHORTS, "shorts"))
-	col.add_child(_choice("Print", prints, "logo"))
-	var flex := UiKit.button("Suspension: at ride height", 400)
-	flex.pressed.connect(func() -> void:
-		_flex = not _flex
-		flex.text = "Suspension: flexed (bump and droop)" if _flex else "Suspension: at ride height"
-		_rig.flex = _flex)
-	col.add_child(flex)
-	if "--flex" in OS.get_cmdline_user_args():
-		flex.pressed.emit()
-	var gap2 := Control.new()
-	gap2.custom_minimum_size = Vector2(0, 8)
-	col.add_child(gap2)
-	var drive := UiKit.button("Drive stage %d" % Game.stage_seed, 400)
-	drive.pressed.connect(_drive)
-	col.add_child(drive)
-	var back := UiKit.button("Back", 400)
-	back.pressed.connect(Game.to_menu)
-	col.add_child(back)
-	drive.grab_focus()
-	_show_names()
+	col.add_theme_constant_override("separation", 8 if Game.in_career else 10)
+	_panel.add_child(col)
+	if Game.in_career:
+		_career_panel(col)
+	else:
+		_free_panel(col)
 
 	var hint := UiKit.label("Drag to turn the rig", 16, UiKit.DIM)
 	hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -98,6 +71,230 @@ func _ready() -> void:
 
 	if "--snap-garage" in OS.get_cmdline_user_args():
 		_snap.call_deferred()
+
+
+## Free play: any rig, its look, and drive.
+func _free_panel(col: VBoxContainer) -> void:
+	_header(col, "GARAGE")
+	col.add_child(_choice("Rig", _rig_names(), "rig_kind"))
+	_look_rows(col)
+	col.add_child(_flex_button())
+	_gap(col)
+	_drive_btn = UiKit.button("Drive stage %d" % Game.stage_seed, 460)
+	_drive_btn.pressed.connect(_drive)
+	col.add_child(_drive_btn)
+	var back := UiKit.button("Back", 460)
+	back.pressed.connect(Game.to_menu)
+	col.add_child(back)
+	_drive_btn.grab_focus()
+	_show_names()
+
+
+## Career: pick a rig to start with, or work on the one you have: parts on
+## one page, the look on the other, then the event to enter.
+func _career_panel(col: VBoxContainer) -> void:
+	var c := Game.career
+	_header(col, "CAREER")
+	if not c.started:
+		var hint := UiKit.label("Pick the rig you'll build up. You start with %s for parts; club events pay for the rest." % Career.pesos_text(Career.START_PESOS), 18, UiKit.DIM)
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hint.custom_minimum_size = Vector2(460, 0)
+		col.add_child(hint)
+		col.add_child(_choice("Rig", _rig_names(), "rig_kind"))
+		_look_rows(col)
+		_gap(col)
+		_drive_btn = UiKit.button("", 460)
+		_drive_btn.pressed.connect(func() -> void:
+			c.start(Game.rig_kind)
+			Game.use_career_rig()
+			Game.to_garage(Game.stage_seed))
+		col.add_child(_drive_btn)
+		var back := UiKit.button("Back", 460)
+		back.pressed.connect(Game.to_menu)
+		col.add_child(back)
+		_drive_btn.grab_focus()
+		_show_names()
+		return
+	_pesos = UiKit.label("", 28, UiKit.CLAY.lightened(0.35))
+	col.add_child(_pesos)
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 10)
+	var parts_tab := UiKit.button("Parts", 225)
+	var look_tab := UiKit.button("Look", 225)
+	tabs.add_child(parts_tab)
+	tabs.add_child(look_tab)
+	col.add_child(tabs)
+	var parts_box := VBoxContainer.new()
+	parts_box.add_theme_constant_override("separation", 8)
+	col.add_child(parts_box)
+	var look_box := VBoxContainer.new()
+	look_box.add_theme_constant_override("separation", 8)
+	look_box.visible = false
+	col.add_child(look_box)
+	parts_tab.pressed.connect(func() -> void:
+		parts_box.visible = true
+		look_box.visible = false)
+	look_tab.pressed.connect(func() -> void:
+		parts_box.visible = false
+		look_box.visible = true)
+	for slot: String in Parts.SLOTS:
+		if Parts.options(c.stock_spec(), slot).size() < 2:
+			continue
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var pick := UiKit.button("", 300)
+		var act := UiKit.button("", 150)
+		act.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		pick.pressed.connect(_cycle_part.bind(slot))
+		act.pressed.connect(_part_action.bind(slot))
+		row.add_child(pick)
+		row.add_child(act)
+		parts_box.add_child(row)
+		_part_rows[slot] = [pick, act]
+	_desc = UiKit.label("", 17, UiKit.DIM)
+	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_desc.custom_minimum_size = Vector2(460, 48)
+	parts_box.add_child(_desc)
+	parts_box.add_child(_flex_button())
+	_look_rows(look_box)
+	_event_btn = UiKit.button("", 460)
+	_event_btn.pressed.connect(func() -> void:
+		c.event = (c.event + 1) % Career.EVENTS.size()
+		c.save_file()
+		_show_career())
+	col.add_child(_event_btn)
+	_drive_btn = UiKit.button("", 460)
+	_drive_btn.pressed.connect(_drive)
+	col.add_child(_drive_btn)
+	var back := UiKit.button("Back to the start menu", 460)
+	back.pressed.connect(Game.to_menu)
+	col.add_child(back)
+	_drive_btn.grab_focus()
+	_show_names()
+	_show_career()
+
+
+## The name and blurb of the rig on the pad, under a heading.
+func _header(col: VBoxContainer, title: String) -> void:
+	col.add_child(UiKit.label(title, 46))
+	_name = UiKit.label("", 30)
+	col.add_child(_name)
+	_blurb = UiKit.label("", 18, UiKit.DIM)
+	_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_blurb.custom_minimum_size = Vector2(460, 0)
+	col.add_child(_blurb)
+	if not (Game.in_career and Game.career.started):
+		_gap(col)
+
+
+func _rig_names() -> Array:
+	var rigs := []
+	for k in RigSpec.kinds():
+		rigs.append([k.name, Color(0, 0, 0, 0)])
+	return rigs
+
+
+func _look_rows(col: VBoxContainer) -> void:
+	var prints := []
+	for l: Array in Game.LOGOS:
+		prints.append([l[0], Color(0, 0, 0, 0)])
+	col.add_child(_choice("Paint", Game.PAINTS, "paint"))
+	col.add_child(_choice("Shirt", Game.SHIRTS, "shirt"))
+	col.add_child(_choice("Jorts", Game.SHORTS, "shorts"))
+	col.add_child(_choice("Print", prints, "logo"))
+
+
+func _flex_button() -> Button:
+	var flex := UiKit.button("Suspension: at ride height", 460)
+	flex.pressed.connect(func() -> void:
+		_flex = not _flex
+		flex.text = "Suspension: flexed (bump and droop)" if _flex else "Suspension: at ride height"
+		_rig.flex = _flex)
+	if "--flex" in OS.get_cmdline_user_args():
+		flex.pressed.emit.call_deferred()
+	return flex
+
+
+func _gap(col: VBoxContainer) -> void:
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 8)
+	col.add_child(gap)
+
+
+## Show the next option for `slot` on the pad, before you pay for it.
+func _cycle_part(slot: String) -> void:
+	var c := Game.career
+	var opts := Parts.options(c.stock_spec(), slot)
+	var cur := _try_id if _try_slot == slot else c.fitted_id(slot)
+	_try_slot = slot
+	_try_id = opts[(opts.find(cur) + 1) % opts.size()]
+	_show_career()
+	_rebuild()
+
+
+## Fit the part being tried (buying it first if it isn't yours yet).
+func _part_action(slot: String) -> void:
+	var c := Game.career
+	var id := _try_id if _try_slot == slot else c.fitted_id(slot)
+	if Parts.blocked(c.stock_spec(), c.fitted, slot, id) != "" or id == c.fitted_id(slot):
+		return
+	if c.owns(slot, id):
+		c.fit(slot, id)
+	elif not c.buy(slot, id):
+		return
+	_try_slot = ""
+	_show_career()
+	_rebuild()
+
+
+## Refresh the career panel: pesos, each part row, the event and the drive button.
+func _show_career() -> void:
+	var c := Game.career
+	var stock := c.stock_spec()
+	_pesos.text = Career.pesos_text(c.pesos)
+	_desc.text = "Click a part to try the next one on the rig, then fit it."
+	for slot: String in _part_rows:
+		var pick: Button = _part_rows[slot][0]
+		var act: Button = _part_rows[slot][1]
+		var trying := _try_slot == slot
+		var id := _try_id if trying else c.fitted_id(slot)
+		pick.text = "%s: %s" % [Parts.SLOT_NAMES[slot], Parts.label(slot, id)]
+		var why := Parts.blocked(stock, c.fitted, slot, id)
+		var cost := Parts.price(slot, id)
+		act.disabled = true
+		if id == c.fitted_id(slot):
+			act.text = "Fitted"
+		elif why != "":
+			act.text = "Won't fit"
+		elif c.owns(slot, id):
+			act.text = "Fit"
+			act.disabled = false
+		else:
+			act.text = Career.pesos_text(cost)
+			act.disabled = cost > c.pesos
+		if trying:
+			_desc.text = Parts.describe(stock, slot, id)
+			if why != "":
+				_desc.text = "Won't fit: %s. %s" % [why, _desc.text]
+			elif not c.owns(slot, id) and cost > c.pesos:
+				_desc.text = "Not enough pesos yet. " + _desc.text
+	var e: Array = Career.EVENTS[c.event]
+	var open := c.unlocked(c.event)
+	_event_btn.text = "Event: %s, %s  %s" % [e[0], StagePlan.DIFFICULTY[e[1]][0],
+		("pays " + Career.pesos_text(e[2])) if open else "(" + c.lock_reason(c.event) + ")"]
+	_drive_btn.text = ("Drive the " + (e[0] as String).to_lower()) if open else "Locked"
+	_drive_btn.disabled = not open
+
+
+## What goes on the pad: the fitted parts, plus the one being tried if it fits.
+func _preview_parts() -> Variant:
+	if not (Game.in_career and Game.career.started):
+		return null
+	var c := Game.career
+	var fit := c.fitted.duplicate()
+	if _try_slot != "" and Parts.blocked(c.stock_spec(), c.fitted, _try_slot, _try_id) == "":
+		fit[_try_slot] = _try_id
+	return fit
 
 
 ## Light, sky and a clay pad for the rig to stand on.
@@ -159,9 +356,10 @@ func _rebuild() -> void:
 		_rig.queue_free()
 	_rig = Rig.new()
 	_rig.name = "PreviewRig"
+	_rig.parts = _preview_parts()
 	_view.add_child(_rig)
-	# hubs ride ~0.05 m above the body origin in the preview pose
-	_rig.position = Vector3(0, _rig.spec.tire_radius - 0.05, 0)
+	# hubs ride ~0.05 m above the body origin in the preview pose (lower on a lift)
+	_rig.position = Vector3(0, _rig.spec.tire_radius - 0.05 + _rig.spec.lift, 0)
 	_rig.driver.snap()
 	_rig.flex = _flex
 
@@ -170,6 +368,8 @@ func _show_names() -> void:
 	var s := RigSpec.get_kind(Game.rig_kind)
 	_name.text = s.name
 	_blurb.text = s.blurb
+	if Game.in_career and not Game.career.started:
+		_drive_btn.text = "Start the career in the " + s.name
 
 
 func _choice(what: String, choices: Array, key: String) -> HBoxContainer:
@@ -203,7 +403,7 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	var mb := event as InputEventMouseButton
 	if mb and mb.button_index == MOUSE_BUTTON_LEFT:
-		var over_ui: bool = mb.position.x < 520.0   # the choices panel
+		var over_ui: bool = _panel.get_global_rect().has_point(mb.position)
 		_dragging = mb.pressed and not over_ui
 	var mm := event as InputEventMouseMotion
 	if mm and _dragging:
@@ -211,6 +411,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _drive() -> void:
+	if Game.in_career:
+		Game.use_career_rig()
 	_loading.visible = true
 	# let the card draw before the main thread goes off to build the world
 	await get_tree().process_frame
@@ -222,7 +424,7 @@ func _snap() -> void:
 	_spin = 0.0
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://snaps"))
 	# the usual view, then (with --flex) round the rig to check the tires clear
-	var yaws := [[_yaw, "95_garage"]]
+	var yaws := [[_yaw, "95_career" if Game.in_career else "95_garage"]]
 	if _flex:
 		var id := RigSpec.get_kind(Game.rig_kind).id
 		yaws = [[2.3, "95_flex_front_" + id], [1.57, "95_flex_side_" + id], [-2.3, "95_flex_rear_" + id]]

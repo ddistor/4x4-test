@@ -15,6 +15,11 @@ var _gfx: Button
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if "--career" in OS.get_cmdline_user_args() and not Game.career_flag_used:
+		# once, at launch (`--career`): straight into the career garage
+		Game.career_flag_used = true
+		Game.to_career.call_deferred()
+		return
 	if "--snap-garage" in OS.get_cmdline_user_args():
 		Game.to_garage.call_deferred(Game.stage_seed)
 		return
@@ -44,6 +49,9 @@ func _ready() -> void:
 	_drive = UiKit.button("Pick your rig and drive")
 	_drive.pressed.connect(_start)
 	left.add_child(_drive)
+	var career := UiKit.button("Career mode")
+	career.pressed.connect(Game.to_career)
+	left.add_child(career)
 	var reroll := UiKit.button("Reroll the stage")
 	reroll.pressed.connect(func() -> void: _show_seed(Game.random_seed()))
 	left.add_child(reroll)

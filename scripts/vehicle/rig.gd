@@ -75,6 +75,11 @@ var preview := false
 ## In the preview: front-left and rear-right at the bump stop, the others at
 ## full droop, to check every body clears its tires.
 var flex := false
+## Career parts to build with (slot -> option id), set before it enters the
+## tree: the garage tries parts on with this. null: what Game says is fitted.
+var parts: Variant = null
+## Times the marshals put it back on the trail this stage (career pay).
+var recoveries := 0
 
 
 func _ready() -> void:
@@ -82,7 +87,7 @@ func _ready() -> void:
 	if not preview:
 		terrain = get_node(terrain_path) as Terrain
 	freeze = preview
-	spec = RigSpec.get_kind(Game.rig_kind)
+	spec = Parts.apply(RigSpec.get_kind(Game.rig_kind), parts if parts != null else Game.fitted_parts())
 	mass = spec.mass
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = spec.center_of_mass
@@ -215,10 +220,12 @@ func _build_wheels() -> void:
 		w.radius = spec.tire_radius
 		w.width = spec.tire_width
 		w.wheel_color = spec.wheel_color
+		w.tread = spec.tread
+		w.footprint = spec.footprint
 		w.stiffness = spec.spring_stiffness
 		w.max_travel = spec.droop
 		# bump stop where the hub has risen `bump` above ride height
-		w.bump_limit = RigSpec.RIDE_HUB_Y + spec.bump - spec.wheel_mount_y + w.rest_length
+		w.bump_limit = spec.ride_hub_y() + spec.bump - spec.wheel_mount_y + w.rest_length
 		w.position = entry[0]
 		w.steerable = entry[1]
 		w.left_side = entry[2]
@@ -308,6 +315,7 @@ func reset_to_spawn() -> void:
 ## Back on the trail where you are, a couple of metres behind: the marshal's
 ## recovery, not a trip back to the start of the stage.
 func recover() -> void:
+	recoveries += 1
 	place_on_trail(clampf(global_position.z - 2.0, 6.0, terrain.length - 5.0))
 
 

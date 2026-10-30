@@ -67,6 +67,22 @@ func _process(_delta: float) -> void:
 	_stage_step(_delta)
 
 
+## Career: bank the event's pay less the marshals' fees, and say so.
+func _career_pay() -> String:
+	var c := Game.career
+	var e: Array = Career.EVENTS[c.event]
+	var pay := c.finish(c.event, rig.recoveries)
+	_finish.add_theme_font_size_override("font_size", 34)
+	_finish.position = Vector2(-700, -120)
+	_finish.size = Vector2(1400, 160)
+	var fees := ""
+	if rig.recoveries > 0:
+		fees = "  less %d marshal recover%s %s" % [rig.recoveries, "y" if rig.recoveries == 1 else "ies",
+			Career.pesos_text(rig.recoveries * Career.RECOVERY_FEE)]
+	return "%s: you made it to the end.\n%s%s  =  %s\nIn the bank: %s  ·  Esc for the garage" % [
+		e[0], Career.pesos_text(e[2]), fees, Career.pesos_text(pay), Career.pesos_text(c.pesos)]
+
+
 ## Which section you're in and how far up the trail; no clock, it's a drive.
 func _stage_step(_delta: float) -> void:
 	var plan := rig.terrain.plan
@@ -74,6 +90,8 @@ func _stage_step(_delta: float) -> void:
 	if not _finished and z > plan.finish_z:
 		_finished = true
 		_finish.text = "You made it to the end of the trail.\nStage %d  ·  Esc for the menu" % plan.seed_value
+		if Game.in_career and Game.career.started:
+			_finish.text = _career_pay()
 		_finish.visible = true
 		get_tree().create_timer(8.0).timeout.connect(func() -> void: _finish.visible = false)
 	var i := plan.index_at(z)

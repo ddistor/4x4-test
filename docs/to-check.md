@@ -1,5 +1,28 @@
 # To check in Claude Code / by hand
 
+## Career mode: first parts (branch `career-parts`, not on main yet)
+
+- **Career mode** on the start menu: pick a rig (any stock one), ₱60,000 to
+  start. Club events: Sunday club run (Moderate, ₱30,000), Club challenge
+  (Hard, ₱55,000, after 1 club run), Invitational (Extreme, ₱95,000, after 2
+  challenges). Marshal recoveries cost ₱4,000 each off the pay. Saved in
+  `user://career.cfg`; free play is unchanged and never uses parts.
+- **Parts page** in the career garage: tires (31 to 37 in, mud-terrain or
+  all-terrain), lift (2.5 in, 4 in, 4 in long-travel), axle gears (4.10 to
+  5.38), 4:1 low range. Click a part to try it on the pad, then buy/fit. The
+  body keeps its stock wheel wells, so bigger tires need lift (about 1 in per
+  inch of tire): the Gera takes 37s on 2.5 in, the 31-in rigs top out at 35s.
+  Bought parts stay yours when swapped out.
+- To check by driving: a Gera on 37s and 4 in should clear rocks and float
+  better in the bog but tip sooner on the off-cambers; 5.13s and 4:1 should
+  crawl the rock steps much slower and steadier. All-terrains should pack up
+  in sticky clay sooner than mud-terrains.
+- To check by eye: the garage panel at your screen size (`-- --career
+  --snap-garage` saves `snaps/95_career.png`), the payout card at the finish.
+- Tests: `tests/parts_test.tscn` (fits, money, ride height on a stage),
+  `tests/well_test.tscn` now also checks every lift with the biggest tires.
+  `--parts lift=4,tires=37_mt` drives parts in free play for tests.
+
 ## Tire pressure, water, ruts, the test bot
 
 - **Airing down** (`-` / `=`, stopped) now matters on rock: the soft carcass
@@ -510,7 +533,8 @@ coefficient (`1500.0` in `wheel.gd`), low-range force (`26000` N).
      rock instead of hanging on it, and later it keeps the oil pan and transfer
      case from damage (realism plan, item 3).
   Needs a garage page for parts. Wants the damage model to really pay off.
-  Research, full part list and a career-mode plan: `docs/upgrades.md`
+  Research, full part list and a career-mode plan: `docs/upgrades.md`.
+  **Started:** wheels and tires built (career parts, see the top of this file).
   (open questions at the bottom for you).
 - **After that, the realism plan:**
   1. Real gearbox: torque curve, gears, engine braking on descents, stalling in

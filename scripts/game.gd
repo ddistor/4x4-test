@@ -3,7 +3,8 @@ extends Node
 ## menu and a stage. `--seed N` (and `--weather dry|rain`, `--level 0|1|2`) after `--` on the command line pick the
 ## stage; otherwise every launch starts with a fresh random one. `--rig ID` picks
 ## the rig (RigSpec ids), `--look P,S,J` the paint, shirt and jorts colours by index,
-## `--logo N` the shirt print.
+## `--logo N` the shirt print. `--career` goes straight to the career garage;
+## `--parts lift=4,tires=37_mt` drives career parts in free play (for tests).
 
 const MENU := "res://scenes/menu.tscn"
 const STAGE := "res://scenes/main.tscn"
@@ -45,6 +46,14 @@ var shirt := 0
 var shorts := 0
 ## Graphics settings (user://graphics.cfg): the settings screen changes them.
 var gfx := GraphicsSettings.new()
+## Career mode (user://career.cfg): on while you're in it, from the start
+## menu's Career button until you go back to the start menu.
+var career := Career.new()
+var in_career := false
+## `--parts slot=id,...`: drive with career parts outside the career (tests)
+var test_parts := {}
+var career_flag_used := false   # `--career` on the command line: done once
+var _free_rig := -1   # the free-play pick, put back when you leave the career
 
 
 func _ready() -> void:
@@ -75,6 +84,12 @@ func _ready() -> void:
 		for k in RigSpec.kinds().size():
 			if RigSpec.kinds()[k].id == args[ri + 1]:
 				rig_kind = k
+	var pi := args.find("--parts")
+	if pi >= 0 and pi + 1 < args.size():
+		for kv in args[pi + 1].split(","):
+			var p := kv.split("=")
+			if p.size() == 2:
+				test_parts[p[0]] = p[1]
 	var gi := args.find("--logo")
 	if gi >= 0 and gi + 1 < args.size():
 		logo = clampi(int(args[gi + 1]), 0, LOGOS.size() - 1)
@@ -88,9 +103,41 @@ func _ready() -> void:
 			shorts = clampi(int(v[2]), 0, SHORTS.size() - 1)
 
 
+## Enter career mode: the garage, where a new career picks its rig.
+func to_career() -> void:
+	career.load_file()
+	in_career = true
+	if career.started:
+		use_career_rig()
+	to_garage(random_seed())
+
+
+## The career rig and its event's trail, for the garage and the stage.
+func use_career_rig() -> void:
+	if _free_rig < 0:
+		_free_rig = rig_kind
+	rig_kind = career.rig_kind()
+	level = Career.EVENTS[career.event][1]
+
+
+## Parts on the rig you're about to drive: the career's, none in free play.
+func fitted_parts() -> Dictionary:
+	if in_career and career.started:
+		return career.fitted
+	return test_parts
+
+
+## Out of a stage from the pause menu: the garage in career, else the menu.
+func leave_stage() -> void:
+	if in_career:
+		to_garage(random_seed())
+	else:
+		to_menu()
+
+
 func save_look() -> void:
 	var cfg := ConfigFile.new()
-	cfg.set_value("look", "rig", rig_kind)
+	cfg.set_value("look", "rig", _free_rig if _free_rig >= 0 else rig_kind)
 	cfg.set_value("look", "paint", paint)
 	cfg.set_value("look", "shirt", shirt)
 	cfg.set_value("look", "shorts", shorts)
@@ -138,6 +185,10 @@ func to_garage(seed_v: int) -> void:
 
 
 func to_menu() -> void:
+	in_career = false
+	if _free_rig >= 0:
+		rig_kind = _free_rig
+		_free_rig = -1
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().change_scene_to_file(MENU)
