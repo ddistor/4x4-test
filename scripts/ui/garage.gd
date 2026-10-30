@@ -28,6 +28,7 @@ var _rig_pick: Button
 var _rig_act: Button
 var _repair_pick: Button
 var _repair_act: Button
+var _fix_part := "all"   # what the repairs row fixes: "all" or one part
 var _drive_btn: Button
 
 
@@ -172,11 +173,16 @@ func _career_panel(col: VBoxContainer) -> void:
 	_repair_pick = _small("", 300)
 	_repair_act = _small("", 150)
 	_repair_act.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# click through: everything, then each worn part on its own
 	_repair_pick.pressed.connect(func() -> void:
+		var list := _worn()
+		_fix_part = "" if list.is_empty() else list[(list.find(_fix_part) + 1) % list.size()]
+		_show_career()
 		var what := Damage.summary(c.damage)
-		_desc.text = ("Worn or broken: " + what + ".") if what != "" else "Nothing on this rig needs fixing.")
+		_desc.text = ("Worn or broken: " + what + ". Click again to fix one part at a time.") if what != "" else "Nothing on this rig needs fixing.")
 	_repair_act.pressed.connect(func() -> void:
-		if c.repair():
+		if (c.repair() if _fix_part == "all" else c.repair_part(_fix_part)):
+			_fix_part = "all"
 			_show_career())
 	fix_row.add_child(_repair_pick)
 	fix_row.add_child(_repair_act)
@@ -185,7 +191,8 @@ func _career_panel(col: VBoxContainer) -> void:
 	_event_btn.pressed.connect(func() -> void:
 		c.event = (c.event + 1) % Career.EVENTS.size()
 		c.save_file()
-		_show_career())
+		_show_career()
+		_desc.text = _event_text(c.event))
 	col.add_child(_event_btn)
 	_drive_btn = _small("", 460)
 	_drive_btn.pressed.connect(_drive)
@@ -350,9 +357,16 @@ func _show_career() -> void:
 	_pesos.text = Career.pesos_text(c.pesos)
 	_desc.text = "Click a part to try the next one on the rig, then fit it."
 	_show_rig_row()
-	var fix := c.repair_cost()
-	_repair_pick.text = "Repairs: %s" % ("nothing to fix" if fix == 0 else Career.pesos_text(fix))
-	_repair_act.text = "Fix it all" if fix > 0 else "Sound"
+	if not _worn().has(_fix_part):
+		_fix_part = "all"
+	var fix := c.repair_cost() if _fix_part == "all" else Damage.part_cost(c.damage, _fix_part)
+	if c.repair_cost() == 0:
+		_repair_pick.text = "Repairs: nothing to fix"
+	elif _fix_part == "all":
+		_repair_pick.text = "Repairs: all"
+	else:
+		_repair_pick.text = "Repair: " + (Damage.PARTS[_fix_part][0] as String).to_lower()
+	_repair_act.text = Career.pesos_text(fix) if fix > 0 else "Sound"
 	_repair_act.disabled = fix == 0 or fix > c.pesos
 	for slot: String in _part_rows:
 		var pick: Button = _part_rows[slot][0]
@@ -379,12 +393,56 @@ func _show_career() -> void:
 				_desc.text = "Won't fit: %s. %s" % [why, _desc.text]
 			elif not c.owns(slot, id) and cost > c.pesos:
 				_desc.text = "Not enough pesos yet. " + _desc.text
-	var e: Array = Career.EVENTS[c.event]
+	var e: Dictionary = Career.EVENTS[c.event]
 	var open := c.unlocked(c.event)
-	_event_btn.text = "Event: %s, %s  %s" % [e[0], StagePlan.DIFFICULTY[e[1]][0],
-		("pays " + Career.pesos_text(e[2])) if open else "(" + c.lock_reason(c.event) + ")"]
-	_drive_btn.text = ("Drive the " + (e[0] as String).to_lower()) if open else "Locked"
-	_drive_btn.disabled = not open
+	var gear := c.gear_missing(c.event)
+	var tag := ("pays " + Career.pesos_text(e["pay"])) if open else "locked"
+	_event_btn.text = "Event: %s, %s  %s" % [e["name"], StagePlan.DIFFICULTY[e["level"]][0], tag]
+	var idle := _try_slot == "" and (_try_rig == "" or _try_rig == c.rig_id)
+	if not open:
+		_drive_btn.text = "Locked"
+		if idle:
+			_desc.text = "To enter the %s: %s." % [(e["name"] as String).to_lower(), c.lock_reason(c.event)]
+	elif gear != "":
+		_drive_btn.text = "Not passed by the scrutineers"
+		if idle:
+			_desc.text = "Competition rules: the scrutineers say this rig %s (Armor page)." % gear
+	elif c.pesos < int(e["fee"]):
+		_drive_btn.text = "Entry %s: not enough pesos" % Career.pesos_text(e["fee"])
+		if idle:
+			_desc.text = "Run an easier event for the entry money."
+	else:
+		_drive_btn.text = "Drive the " + (e["name"] as String).to_lower()
+		if int(e["fee"]) > 0:
+			_drive_btn.text += " (entry %s)" % Career.pesos_text(e["fee"])
+	_drive_btn.disabled = not c.can_enter(c.event)
+
+
+## The worn parts of the current rig, with "all" first.
+func _worn() -> Array:
+	var out := []
+	for k: String in Damage.PARTS:
+		if Damage.part_cost(Game.career.damage, k) > 0:
+			out.append(k)
+	if not out.is_empty():
+		out.push_front("all")
+	return out
+
+
+## One event, for the line under the parts.
+func _event_text(e: int) -> String:
+	var c := Game.career
+	var ev: Dictionary = Career.EVENTS[e]
+	var t := "%s trail, %s. Pays %s, +%d%% the first time you finish it, +%d%% with no marshals." % [
+		StagePlan.DIFFICULTY[ev["level"]][0], "rainy season" if ev["weather"] == 1 else "dry or wet as it comes",
+		Career.pesos_text(ev["pay"]), roundi(Career.FIRST_BONUS * 100.0), roundi(Career.CLEAN_BONUS * 100.0)]
+	if int(ev["fee"]) > 0:
+		t += " Entry %s." % Career.pesos_text(ev["fee"])
+	if ev.has("cage"):
+		t += " Run under competition rules: %s%s." % ["a full cage" if ev["cage"] >= 2 else "a roll bar",
+			" and a snorkel" if ev.get("snorkel", false) else ""]
+	t += " Finished %d times." % c.finishes[e]
+	return t
 
 
 ## What goes on the pad: the fitted parts, plus the one being tried if it fits.
@@ -525,6 +583,8 @@ func _input(event: InputEvent) -> void:
 
 func _drive() -> void:
 	if Game.in_career:
+		if Game.career.started and not Game.career.enter(Game.career.event):
+			return
 		Game.use_career_rig()
 	_loading.visible = true
 	# let the card draw before the main thread goes off to build the world

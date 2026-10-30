@@ -89,6 +89,8 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   thin blades otherwise makes NaNs that glow turns into white blobs).
 - `tests/mud_test.tscn` — mud on the rig: build-up, drying to crust, flaking on
   knocks, washing in a river (`--pictures --close` with a window renders the stages).
+- `tests/career_test.tscn` — the career ladder's pacing by sum, then garage → stage →
+  finish → pay → garage through the real scenes.
 - `tests/parts_test.tscn` — career parts, rigs and money, and the ride height on a stage;
   `tests/damage_test.tscn` — each way a rig breaks, with and without the part that saves it.
 - `tests/drive_test.tscn` — headless smoke test that drives a whole stage with a

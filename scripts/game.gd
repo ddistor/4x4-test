@@ -56,6 +56,8 @@ var test_parts := {}
 var test_damage := false
 var career_flag_used := false   # `--career` on the command line: done once
 var _free_rig := -1   # the free-play pick, put back when you leave the career
+var _free_weather := -2   # and the free-play weather and trail
+var _free_level := 1
 
 
 func _ready() -> void:
@@ -120,7 +122,12 @@ func use_career_rig() -> void:
 	if _free_rig < 0:
 		_free_rig = rig_kind
 	rig_kind = career.rig_kind()
-	level = Career.EVENTS[career.event][1]
+	var ev: Dictionary = Career.EVENTS[career.event]
+	if _free_weather == -2:
+		_free_weather = weather
+		_free_level = level
+	weather = ev["weather"]
+	level = ev["level"]
 
 
 ## Parts on the rig you're about to drive: the career's, none in free play.
@@ -226,6 +233,10 @@ func to_menu() -> void:
 	if _free_rig >= 0:
 		rig_kind = _free_rig
 		_free_rig = -1
+	if _free_weather != -2:
+		weather = _free_weather
+		level = _free_level
+		_free_weather = -2
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().change_scene_to_file(MENU)

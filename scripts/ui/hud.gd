@@ -67,23 +67,32 @@ func _process(_delta: float) -> void:
 	_stage_step(_delta)
 
 
-## Career: bank the event's pay less the marshals' fees, and say so.
+## Career: bank the event's pay (bonuses, less the marshals' fees) and say
+## so, with any event it opened and the repairs waiting.
 func _career_pay() -> String:
 	var c := Game.career
-	var e: Array = Career.EVENTS[c.event]
-	var pay := c.finish(c.event, rig.recoveries)
+	var e: Dictionary = Career.EVENTS[c.event]
+	var r := c.finish(c.event, rig.recoveries)
 	c.bank_damage(rig.damage.to_dict())
 	var fix := c.repair_cost()
-	_finish.add_theme_font_size_override("font_size", 34)
-	_finish.position = Vector2(-700, -120)
-	_finish.size = Vector2(1400, 160)
-	var fees := ""
-	if rig.recoveries > 0:
-		fees = "  less %d marshal recover%s %s" % [rig.recoveries, "y" if rig.recoveries == 1 else "ies",
-			Career.pesos_text(rig.recoveries * Career.RECOVERY_FEE)]
-	var bill := "  ·  repairs waiting %s" % Career.pesos_text(fix) if fix > 0 else ""
-	return "%s: you made it to the end.\n%s%s  =  %s\nIn the bank: %s%s  ·  Esc for the garage" % [
-		e[0], Career.pesos_text(e[2]), fees, Career.pesos_text(pay), Career.pesos_text(c.pesos), bill]
+	_finish.add_theme_font_size_override("font_size", 32)
+	_finish.position = Vector2(-700, -150)
+	_finish.size = Vector2(1400, 220)
+	var sums := Career.pesos_text(r["base"])
+	if r["first"] > 0:
+		sums += "  + first finish " + Career.pesos_text(r["first"])
+	if r["clean"] > 0:
+		sums += "  + clean run " + Career.pesos_text(r["clean"])
+	if r["fees"] > 0:
+		sums += "  - %d marshal recover%s %s" % [rig.recoveries, "y" if rig.recoveries == 1 else "ies",
+			Career.pesos_text(r["fees"])]
+	sums += "  =  " + Career.pesos_text(r["pay"])
+	var lines := ["%s: you made it to the end." % e["name"], sums]
+	if not (r["opened"] as Array).is_empty():
+		lines.append("Now open: " + ", ".join(r["opened"]))
+	lines.append("In the bank: %s%s  ·  Esc for the garage" % [Career.pesos_text(c.pesos),
+		("  ·  repairs waiting " + Career.pesos_text(fix)) if fix > 0 else ""])
+	return "\n".join(lines)
 
 
 ## Which section you're in and how far up the trail; no clock, it's a drive.

@@ -58,14 +58,16 @@ func _run() -> void:
 	_check("swap back to stock, still own it", c.fitted_id("lift") == "stock" and c.owns("lift", "2.5"))
 	_check("only the first event open", c.unlocked(0) and not c.unlocked(1))
 	var before := c.pesos
-	var pay := c.finish(0, 2)
-	_check("pay less two recoveries", pay == 30000 - 2 * Career.RECOVERY_FEE and c.pesos == before + pay, pay)
-	_check("challenge opens", c.unlocked(1) and not c.unlocked(2))
-	_check("fees never take you below nothing", c.finish(0, 99) == 0)
+	var r := c.finish(0, 2)
+	_check("first finish pays half again, less two recoveries", r["pay"] == 30000 - 2 * Career.RECOVERY_FEE and c.pesos == before + r["pay"], r)
+	_check("one club run isn't enough for the challenge", not c.unlocked(1) and r["opened"].is_empty())
+	_check("fees never take more than three quarters", c.finish(0, 99)["pay"] == 5000)
+	_check("the second finish opens the challenge", c.unlocked(1) and not c.unlocked(2))
+	_check("a clean run pays a bonus", c.finish(0, 0)["pay"] == 20000 + 5000)
 	var d := Career.new()
 	d.file = TEST_FILE
 	d.load_file()
-	_check("save round trip", d.started and d.rig_id == "gera" and d.pesos == c.pesos and d.owns("lift", "2.5") and d.finishes[0] == 2)
+	_check("save round trip", d.started and d.rig_id == "gera" and d.pesos == c.pesos and d.owns("lift", "2.5") and d.finishes[0] == 3)
 	_check("pesos text", Career.pesos_text(1234567) == "₱1,234,567", Career.pesos_text(1234567))
 
 	# --- armor ---
@@ -86,17 +88,20 @@ func _run() -> void:
 	c.bank_damage({"underbody": 0.5, "shaft_f": 0.0})
 	_check("repair bill", c.repair_cost() == 20000 + 15000, c.repair_cost())
 	var cash := c.pesos
-	_check("repair", c.repair() and c.pesos == cash - 35000 and c.repair_cost() == 0)
+	_check("repair one part", c.repair_part("shaft_f") and c.pesos == cash - 15000 and c.repair_cost() == 20000)
+	_check("repair the rest", c.repair() and c.pesos == cash - 35000 and c.repair_cost() == 0)
 	var old := ConfigFile.new()
 	old.set_value("career", "started", true)
 	old.set_value("career", "rig", "owner")
 	old.set_value("career", "fitted", {"lift": "2.5"})
 	old.set_value("career", "owned", {"lift": ["2.5"]})
+	old.set_value("career", "finishes", [4, 2, 1])
 	old.save(TEST_FILE)
 	var m := Career.new()
 	m.file = TEST_FILE
 	m.load_file()
 	_check("an old one-rig save loads", m.started and m.rig_id == "owner" and m.fitted_id("lift") == "2.5" and m.owns("lift", "2.5"))
+	_check("its finishes move to the new ladder", Array(m.finishes) == [4, 2, 0, 1, 0], m.finishes)
 	c.start(0)
 
 	# --- on the stage: lift + 37s raise the body by 2.5 in + 1 in of radius ---

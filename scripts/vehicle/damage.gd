@@ -26,7 +26,7 @@ const PARTS := {
 	"steering": ["Tie rod", 8000],
 	"shaft_f": ["Front axle shaft", 15000],
 	"shaft_r": ["Rear axle shaft", 15000],
-	"engine": ["Engine", 150000],
+	"engine": ["Engine", 100000],
 	"body": ["Body panels", 60000]}
 const COOLANT_OK := 88.0
 const COOLANT_HOT := 108.0
@@ -69,10 +69,16 @@ func to_dict() -> Dictionary:
 
 ## What putting it all right costs, from a saved condition dictionary.
 static func repair_cost(saved: Dictionary) -> int:
-	var total := 0.0
+	var total := 0
 	for k: String in PARTS:
-		total += (1.0 - clampf(float(saved.get(k, 1.0)), 0.0, 1.0)) * float(PARTS[k][1])
-	return int(roundf(total / 100.0) * 100.0)
+		total += part_cost(saved, k)
+	return total
+
+
+## What fixing one part costs.
+static func part_cost(saved: Dictionary, part: String) -> int:
+	var c := clampf(float(saved.get(part, 1.0)), 0.0, 1.0)
+	return int(roundf((1.0 - c) * float(PARTS[part][1]) / 100.0) * 100.0)
 
 
 ## The parts that need fixing, for the garage and the finish card.

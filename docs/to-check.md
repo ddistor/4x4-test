@@ -3,10 +3,19 @@
 ## Career mode: parts, armor, damage, more rigs (branch `career-parts`, not on main yet)
 
 - **Career mode** on the start menu: pick a rig (any stock one), ₱60,000 to
-  start. Club events: Sunday club run (Moderate, ₱30,000), Club challenge
-  (Hard, ₱55,000, after 1 club run), Invitational (Extreme, ₱95,000, after 2
-  challenges). Marshal recoveries cost ₱4,000 each off the pay. Saved in
-  `user://career.cfg`; free play is unchanged and never uses parts.
+  start. The ladder (each opens after finishes of the one before):
+  Sunday club run (Moderate, ₱20,000) → 2 → Club challenge (Hard, ₱35,000)
+  → 3 → Tanay Cup round (Hard, rainy, ₱50,000, entry ₱5,000) → 3 →
+  Invitational (Extreme, ₱75,000, entry ₱15,000, roll bar required) → 3 →
+  Morong Trophy (Extreme, rainy, ₱120,000, entry ₱25,000, full cage and
+  snorkel). First finish of an event +50%, no marshals +25%, ₱4,000 per
+  marshal recovery, never under a quarter of the purse. Repairs one part at
+  a time or all (click the Repairs row to pick). `tests/career_test.tscn`
+  plays whole careers by sum (careful and rough drivers reach the trophy in
+  12-13 runs, never broke) and then the real scenes end to end. To check by
+  playing: does it feel too quick or too slow? The pacing is the `runs`,
+  `pay` and `fee` in `Career.EVENTS`. Saved in `user://career.cfg` (old
+  saves move to the new ladder); free play is unchanged and never uses parts.
 - **Parts page** in the career garage: tires (31 to 37 in, mud-terrain or
   all-terrain), lift (2.5 in, 4 in, 4 in long-travel), axle gears (4.10 to
   5.38), 4:1 low range. Click a part to try it on the pad, then buy/fit. The

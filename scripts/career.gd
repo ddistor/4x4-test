@@ -9,18 +9,33 @@ extends RefCounted
 ## rest are made for that chassis (see docs/upgrades.md).
 ##
 ## No clock (it's a drive, not a race): an event pays for getting to the end,
-## less the marshals' fee each time they put you back on the trail. Damage
-## is paid for in the garage, when you choose to fix it.
+## double the first time, a bonus for a clean run with no marshals, less the
+## marshals' fee each time they put you back on the trail, never less than a
+## quarter of the purse (the club covers your fuel). Damage is paid for in
+## the garage, when you choose to fix it, a part at a time if money's short.
+##
+## The ladder: each event opens after finishes of the one before it, and the
+## top ones are run under competition rules, so the scrutineers want a roll
+## bar, then a full cage and a snorkel, before you're let on the trail.
 
 const FILE := "user://career.cfg"
+const VERSION := 2
 const START_PESOS := 60000
 const RECOVERY_FEE := 4000
-## [name, trail level (StagePlan.DIFFICULTY), pay, finishes of the event
-## before it that open it]
+const FIRST_BONUS := 0.5     # the first finish of an event pays this much more
+const CLEAN_BONUS := 0.25    # finished without the marshals
+const MIN_PAY := 0.25        # of the purse, whatever the fees
+## name; trail level (StagePlan.DIFFICULTY); purse; entry fee, paid when you
+## set off; the event before it and how many finishes of it open this one;
+## weather (-1 the seed decides, 1 rainy season); what the scrutineers want:
+## cage (1 roll bar, 2 full), snorkel. Tuned with tests/career_test.gd: a
+## careful driver reaches the trophy in about fifteen runs.
 const EVENTS := [
-	["Sunday club run", 0, 30000, 0],
-	["Club challenge", 1, 55000, 1],
-	["Invitational", 2, 95000, 2]]
+	{"name": "Sunday club run", "level": 0, "pay": 20000, "fee": 0, "after": -1, "runs": 0, "weather": -1},
+	{"name": "Club challenge", "level": 1, "pay": 35000, "fee": 0, "after": 0, "runs": 2, "weather": -1},
+	{"name": "Tanay Cup round", "level": 1, "pay": 50000, "fee": 5000, "after": 1, "runs": 3, "weather": 1},
+	{"name": "Invitational", "level": 2, "pay": 75000, "fee": 15000, "after": 2, "runs": 3, "weather": -1, "cage": 1},
+	{"name": "Morong Trophy", "level": 2, "pay": 120000, "fee": 25000, "after": 3, "runs": 3, "weather": 1, "cage": 2, "snorkel": true}]
 ## What another rig costs, as it comes (a used rig off a club member).
 const RIG_PRICES := {"gera": 650000, "kuwarenta": 550000, "feroz": 350000, "ronda": 700000,
 	"owner": 300000, "rubikon": 1600000, "gerilya": 950000}
@@ -33,7 +48,7 @@ var pesos := 0
 ## where it isn't stock), "damage": part -> condition (damage.gd)}
 var rigs := {}
 ## finishes per event
-var finishes: Array[int] = [0, 0, 0]
+var finishes: Array[int] = [0, 0, 0, 0, 0]
 var event := 0
 ## Where it's kept (the tests point this somewhere else).
 var file := FILE
@@ -65,7 +80,11 @@ func load_file() -> void:
 	if rigs.is_empty() and rig_id != "":
 		# a save from before you could own more than one rig
 		rigs[rig_id] = {"owned": cfg.get_value("career", "owned", {}), "fitted": cfg.get_value("career", "fitted", {})}
-	var f: Array = cfg.get_value("career", "finishes", [0, 0, 0])
+	var f: Array = cfg.get_value("career", "finishes", [])
+	if int(cfg.get_value("career", "version", 1)) < 2 and f.size() == 3:
+		# three events then: club run, challenge, invitational
+		f = [f[0], f[1], 0, f[2], 0]
+	finishes = [0, 0, 0, 0, 0]
 	for i in mini(f.size(), finishes.size()):
 		finishes[i] = int(f[i])
 	event = clampi(cfg.get_value("career", "event", 0), 0, EVENTS.size() - 1)
@@ -75,6 +94,7 @@ func load_file() -> void:
 
 func save_file() -> void:
 	var cfg := ConfigFile.new()
+	cfg.set_value("career", "version", VERSION)
 	cfg.set_value("career", "started", started)
 	cfg.set_value("career", "rig", rig_id)
 	cfg.set_value("career", "pesos", pesos)
@@ -90,7 +110,7 @@ func start(kind: int) -> void:
 	rig_id = RigSpec.get_kind(kind).id
 	pesos = START_PESOS
 	rigs = {rig_id: {}}
-	finishes = [0, 0, 0]
+	finishes = [0, 0, 0, 0, 0]
 	event = 0
 	save_file()
 
@@ -169,6 +189,21 @@ func repair_cost() -> int:
 	return Damage.repair_cost(damage)
 
 
+## Fix one part of the current rig. False if you can't afford it.
+func repair_part(part: String) -> bool:
+	var cost := Damage.part_cost(damage, part)
+	if cost > pesos or cost == 0:
+		return false
+	pesos -= cost
+	var d := damage.duplicate()
+	d.erase(part)
+	if part == "steering":
+		d.erase("pull")
+	damage = d
+	save_file()
+	return true
+
+
 ## Fix everything on the current rig. False if you can't afford it.
 func repair() -> bool:
 	var cost := repair_cost()
@@ -187,23 +222,68 @@ func bank_damage(d: Dictionary) -> void:
 
 
 func unlocked(e: int) -> bool:
-	return e == 0 or finishes[e - 1] >= EVENTS[e][3]
+	var ev: Dictionary = EVENTS[e]
+	return ev["after"] < 0 or finishes[ev["after"]] >= ev["runs"]
 
 
 ## Why event `e` is shut, for the button.
 func lock_reason(e: int) -> String:
-	var need: int = EVENTS[e][3] - finishes[e - 1]
-	return "finish %d more %s" % [need, EVENTS[e - 1][0].to_lower()]
+	var ev: Dictionary = EVENTS[e]
+	var need: int = ev["runs"] - finishes[ev["after"]]
+	return "finish the %s %s" % [(EVENTS[ev["after"]]["name"] as String).to_lower(),
+		"once more" if need == 1 else "%d more times" % need]
 
 
-## You got to the end of event `e`: what it pays after the marshals' fees
-## (never less than nothing), banked and saved.
-func finish(e: int, recoveries: int) -> int:
-	var pay := maxi(0, int(EVENTS[e][2]) - recoveries * RECOVERY_FEE)
-	pesos += pay
-	finishes[e] += 1
+## What the scrutineers won't let the current rig in without, "" if it passes.
+func gear_missing(e: int) -> String:
+	var ev: Dictionary = EVENTS[e]
+	var s := Parts.apply(stock_spec(), fitted)
+	var need: Array[String] = []
+	if s.cage < int(ev.get("cage", 0)):
+		need.append("a full cage" if int(ev["cage"]) >= 2 else "a roll bar")
+	if ev.get("snorkel", false) and s.intake_depth < 1.0:
+		need.append("a snorkel")
+	return "" if need.is_empty() else "needs " + " and ".join(need)
+
+
+func can_enter(e: int) -> bool:
+	return unlocked(e) and gear_missing(e) == "" and pesos >= int(EVENTS[e]["fee"])
+
+
+## Pay event `e`'s entry fee as you set off. False if you can't go.
+func enter(e: int) -> bool:
+	if not can_enter(e):
+		return false
+	pesos -= int(EVENTS[e]["fee"])
 	save_file()
-	return pay
+	return true
+
+
+## You got to the end of event `e`: the purse, double the first time, a bonus
+## with no marshals, less their fees, never under a quarter of the purse.
+## Banked and saved. Returns the sums for the finish card, and any event it
+## opened.
+func finish(e: int, recoveries: int) -> Dictionary:
+	var base: int = EVENTS[e]["pay"]
+	var was_open: Array[bool] = []
+	for i in EVENTS.size():
+		was_open.append(unlocked(i))
+	var out := {"base": base, "first": 0, "clean": 0, "fees": recoveries * RECOVERY_FEE}
+	if finishes[e] == 0:
+		out["first"] = int(base * FIRST_BONUS)
+	if recoveries == 0:
+		out["clean"] = int(base * CLEAN_BONUS)
+	var pay: int = base + out["first"] + out["clean"] - out["fees"]
+	out["pay"] = maxi(pay, int(base * MIN_PAY))
+	pesos += out["pay"]
+	finishes[e] += 1
+	var opened: Array[String] = []
+	for i in EVENTS.size():
+		if unlocked(i) and not was_open[i]:
+			opened.append(EVENTS[i]["name"])
+	out["opened"] = opened
+	save_file()
+	return out
 
 
 static func pesos_text(p: int) -> String:
