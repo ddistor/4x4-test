@@ -580,6 +580,7 @@ func _physics_process(_delta: float) -> void:
 	for m: ShaderMaterial in [_mat, _shirt_mat]:
 		m.set_shader_parameter("mud", rig.call("mud_amount"))
 		m.set_shader_parameter("dryness", rig.get("dryness"))
+		m.set_shader_parameter("mud_ash", rig.get("mud_ash"))
 
 
 ## Torque `body` back toward its rest pose relative to `parent` (equal and

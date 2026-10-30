@@ -42,7 +42,8 @@ var _lat_drift := 0.0         # sideways creep while near-stopped (static grip)
 var mesh: MeshInstance3D
 var tire_mat: ShaderMaterial
 var wheel_color := Color(0.03, 0.03, 0.032)   # the steel wheel's paint (RigSpec)
-var spin_omega := 0.0         # rad/s the engine would spin it at, set by the rig each step
+var mud_ash := 0.0           # 0 its mud is red clay .. 1 grey lahar ash
+var spin_omega := 0.0        # rad/s the engine would spin it at, set by the rig each step
 var spray: GPUParticles3D
 var splash: GPUParticles3D
 var mist: GPUParticles3D
@@ -504,6 +505,8 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	# the tire gets coated fast in the slop, flings clean slowly on firm ground
 	if soft > 0.3:
 		tire_mud = move_toward(tire_mud, 1.0, delta * soft * (0.4 + 1.5 * slip))
+		# the tread takes on what it's rolling in: red clay, or grey lahar ash
+		mud_ash = move_toward(mud_ash, float(ground.get("ash", 0.0)), delta * soft * (0.5 + 1.5 * slip))
 	else:
 		tire_mud = move_toward(tire_mud, 0.2 * tire_mud, delta * 0.01 * surf_speed)
 	if water > 0.15:
@@ -518,6 +521,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	if water > 0.15:
 		packing = move_toward(packing, 0.0, delta * 0.3 * (0.5 + planar.length()))
 	tire_mat.set_shader_parameter("tire_mud", maxf(tire_mud * 0.8, packing))
+	tire_mat.set_shader_parameter("mud_ash", mud_ash)
 
 	_update_mesh(contact_dist, delta)
 	return result

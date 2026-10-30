@@ -62,17 +62,21 @@ float mud_cell_id(vec3 p) {
 	return id;
 }
 
+// What the mud on this rig is: 0 red laterite clay .. 1 grey Pinatubo lahar
+// ash (set by the rig from where it picked the mud up).
+uniform float mud_ash : hint_range(0.0, 1.0) = 0.0;
+
 // Albedo/roughness/specular of clay at point p (mesh space), given how thick
 // it is there (0..1) and how dry the whole rig is (0..1).
 void mud_material(vec3 p, float thick, float dryness, out vec3 albedo, out float rough, out float spec) {
 	float n = mud_fbm(p * 11.0);
-	vec3 wet = vec3(0.25, 0.10, 0.04);
-	vec3 dry = vec3(0.55, 0.28, 0.14);
+	vec3 wet = mix(vec3(0.25, 0.10, 0.04), vec3(0.26, 0.25, 0.23), mud_ash);
+	vec3 dry = mix(vec3(0.55, 0.28, 0.14), vec3(0.64, 0.62, 0.57), mud_ash);
 	// thin films dry first, thick dollops stay dark longer
 	float d = clamp(dryness * (1.35 - 0.7 * thick), 0.0, 1.0);
 	albedo = mix(wet, dry, d) * (0.82 + 0.36 * n);
-	// a bit of laterite red in the lumps
-	albedo = mix(albedo, vec3(0.45, 0.16, 0.06), 0.25 * thick * (1.0 - d));
+	// a bit of laterite red in the lumps (ash has none)
+	albedo = mix(albedo, vec3(0.45, 0.16, 0.06), 0.25 * thick * (1.0 - d) * (1.0 - mud_ash));
 	// fine crazing on the thick crust only, warped so it isn't a tidy grid
 	vec3 q = p * 32.0 + vec3(mud_noise(p * 9.0), mud_noise(p * 9.0 + 5.3), 0.0) * 1.5;
 	float crack = smoothstep(0.0, 0.06, mud_cracks(q));

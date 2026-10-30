@@ -25,7 +25,8 @@ var diff_locked := false
 var low_range := false
 var gearbox := Gearbox.new()
 var kit: RecoveryKit      # shovel, traction boards, high-lift jack
-var choke := 0.0          # 0..1 how drowned the air intake is (no drive at 1)
+var mud_ash := 0.0        # 0 the mud on it is red clay .. 1 grey lahar ash
+var choke := 0.0         # 0..1 how drowned the air intake is (no drive at 1)
 var winch_active := false
 var winch_anchor := Vector3.INF
 var winch_target_len := 0.0
@@ -470,6 +471,10 @@ func _physics_process(delta: float) -> void:
 		var fling: float = s["in_mud"] * (1.1 * spin + 0.012 * absf(w.omega) * w.radius) * (0.3 + 0.9 * s["wet"])
 		# slow at first, slower again as the corner fills
 		corner_mud[i] = minf(2.0, corner_mud[i] + fling * delta * 0.09 * (1.0 - corner_mud[i] / 2.3))
+		# what it throws is what it's rolling in: a fresh coat of grey ash over
+		# red clay turns the rig grey, by how much goes on against what's there
+		var ash: float = w.ground.get("ash", 0.0)
+		mud_ash = move_toward(mud_ash, ash, fling * delta * 0.09 / maxf(0.15, corner_mud[i] * 0.5))
 		cake = minf(1.0, cake + s["in_mud"] * maxf(0.0, w.sink - 0.18) * delta * 0.025)
 		# a corner only washes once the water is up over the wheel's patch
 		var hub := w.position + Vector3(0, -0.21, 0)
@@ -530,9 +535,11 @@ func _physics_process(delta: float) -> void:
 		m.set_shader_parameter("flaked", flaked)
 		m.set_shader_parameter("wash_y", wash_y)
 		m.set_shader_parameter("washed", washed)
+		m.set_shader_parameter("mud_ash", mud_ash)
 	for w in wheels:
 		w.tire_mat.set_shader_parameter("dryness", dryness)
 	if spare_mat:
+		spare_mat.set_shader_parameter("mud_ash", mud_ash)
 		spare_mat.set_shader_parameter("tire_mud", minf(1.0, (corner_mud[2] + corner_mud[3]) * 0.25))
 		spare_mat.set_shader_parameter("dryness", dryness)
 
