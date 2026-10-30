@@ -1,6 +1,38 @@
 # To check in Claude Code / by hand
 
-## Career mode: parts, armor, damage, more rigs (branch `career-parts`, not on main yet)
+## Career polish (branch `career-polish`, off main)
+
+- **New career**: Look page, "Start a new career" (press twice).
+- **Restart / New stage** in the pause menu now pays the entry fee again.
+- **Lockers** are a part (Drivetrain page): open, auto rear (always locked,
+  turns a little wider), selectable rear, selectable front and rear (the
+  Rubikon comes with them). L only locks what's fitted; free play still
+  locks both on every rig. A locked front steers 25% less: check by driving
+  that it feels like a locked front, and that the test bot still copes.
+- **Kit page**: beadlocks (air down to 8 psi, never off the bead), on-board
+  compressor (without one, you can't air back up on the trail), traction
+  boards and high-lift jack (a career rig starts with just the shovel).
+  Free play has the lot, as before.
+- **Tires move** to another of your rigs with the same bolt pattern (Gera,
+  Gerilya, Owner, Feroz on 5 on 5.5; Kuwarenta and Ronda on 6 on 5.5;
+  Rubikon on 5 on 5).
+- **Sell a rig** (Look page): 60% of it and its parts, less the repairs.
+- **Seasons**: win the Morong Trophy and the next season's purses and fees
+  are a fifth bigger, each one you win; shown next to the pesos.
+- **Each event has its own trail**: club run pasture and farm road,
+  challenge clay climb, Tanay Cup bog and clay, Invitational rock steps and
+  gully, Trophy rock steps, gully and lahar (plus the river and kanal every
+  stage has). Free play stages are unchanged.
+- **Edge boulders** (Hard and up): big ones just outside a tire track in the
+  rock steps, gully and lahar. Lean toward one and the sills drag (rock
+  sliders); slide into one and the front tire slams it (tie rods). Straddle
+  rocks now really stand 0.5 to 0.72 m (the rock mesh is squashed).
+- **Damage you can hear and see**: a bang when a knock does damage, a deep
+  crack when something breaks, steam off the nose when it boils. Dents in
+  the body aren't modelled yet.
+- **First visit**: a card in the career garage explains how it works.
+
+## Career mode: parts, armor, damage, more rigs (on main)
 
 - **Career mode** on the start menu: pick a rig (any stock one), ₱60,000 to
   start. The ladder (each opens after finishes of the one before):

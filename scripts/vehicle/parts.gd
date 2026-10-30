@@ -13,12 +13,22 @@ extends RefCounted
 ## or both axles.
 
 ## The garage shows them on two pages.
-const DRIVETRAIN := ["tires", "lift", "gears", "low"]
+const DRIVETRAIN := ["tires", "lift", "gears", "low", "lockers"]
 const ARMOR_SLOTS := ["skid", "sliders", "cage", "snorkel", "shafts", "steering"]
-const SLOTS := DRIVETRAIN + ARMOR_SLOTS
+const KIT_SLOTS := ["wheels", "compressor", "boards", "jack"]
+const SLOTS := DRIVETRAIN + ARMOR_SLOTS + KIT_SLOTS
 const SLOT_NAMES := {"tires": "Tires", "lift": "Lift", "gears": "Axle gears", "low": "Low range",
 	"skid": "Skid plates", "sliders": "Rock sliders", "cage": "Cage", "snorkel": "Snorkel",
-	"shafts": "Axle shafts", "steering": "Tie rods"}
+	"shafts": "Axle shafts", "steering": "Tie rods", "lockers": "Lockers",
+	"wheels": "Wheels", "compressor": "Compressor", "boards": "Traction boards", "jack": "High-lift jack"}
+
+## Lockers: id -> [name, kg, price, what it does].
+const LOCKERS := {
+	"open": ["Open diffs", 0.0, 0, "Each axle drives only what its lighter tire can hold: lift a wheel and it spins, the other gets nothing."],
+	"rear_auto": ["Auto rear locker", 3.0, 25000, "A lunchbox locker in the rear: always locked, nothing to switch. Cheap, but it pushes the nose wide in tight turns."],
+	"rear": ["Selectable rear", 5.0, 55000, "An air locker in the rear axle: L locks it when you need it, open for the turns."],
+	"both": ["Selectable front and rear", 10.0, 110000, "Air lockers in both axles: L locks all four tires together. The front one shock-loads its shafts and won't steer well locked."]}
+const LOCKER_IDS := ["open", "rear_auto", "rear", "both"]
 
 ## Protection, what each costs and does: slot -> {id: [name, kg, price, what it does]}.
 ## The first is what most rigs come with. What damage each one saves you
@@ -36,7 +46,16 @@ const ARMOR := {
 	"shafts": {"stock": ["Stock", 0.0, 0, "Fine until a spinning tire grabs with the lockers in: then one snaps."],
 		"chromoly": ["Chromoly", 4.0, 60000, "Chromoly shafts and joints front and rear: they take a shock load the stock ones snap on."]},
 	"steering": {"stock": ["Stock", 0.0, 0, "Slam a front tire sideways into a rock and the tie rod bends: the rig pulls to one side."],
-		"hd": ["Heavy-duty", 3.0, 18000, "A thick-wall tie rod and drag link: they shrug off hits that bend the stock ones."]}}
+		"hd": ["Heavy-duty", 3.0, 18000, "A thick-wall tie rod and drag link: they shrug off hits that bend the stock ones."]},
+	# the kit (the same table: it's all bolt-on)
+	"wheels": {"steel": ["Steel wheels", 0.0, 0, "Air down past 12 psi and corner hard, and the tire rolls off the rim."],
+		"beadlock": ["Beadlocks", 12.0, 60000, "A ring bolts the bead to the wheel: air down to 8 psi, the tire wraps rock and floats on mud, and it stays on."]},
+	"compressor": {"none": ["None", 0.0, 0, "Air down on the trail and you drive the rest of it soft."],
+		"onboard": ["On-board compressor", 8.0, 22000, "Air back up on the trail when the rock gives way to road (= key, stopped)."]},
+	"boards": {"none": ["None", 0.0, 0, "Just the shovel in the back."],
+		"boards": ["Traction boards", 10.0, 12000, "A pair of cleated boards to lay under the tires out of a hole (2)."]},
+	"jack": {"none": ["None", 0.0, 0, "Hung on a rock with nothing to winch to: the marshals."],
+		"highlift": ["High-lift jack", 13.0, 9000, "Jack it off what it's hung on and pack stones under the tires (3)."]}}
 const CAGE_IDS := ["none", "bar", "full"]
 
 ## Tire sizes, inches: [radius m, width m, price for a set of mud-terrains].
@@ -84,6 +103,10 @@ static func options(stock: RigSpec, slot: String) -> Array[String]:
 			out.append(_ratio_id(stock.low_ratio))
 			if stock.low_ratio < LOW_4:
 				out.append(_ratio_id(LOW_4))
+		"lockers":
+			# from what it came with up
+			for i in range(LOCKER_IDS.find(stock.stock_lockers), LOCKER_IDS.size()):
+				out.append(LOCKER_IDS[i])
 		"cage":
 			# a welded-in cage stays: you can only go up from what it came with
 			for i in range(stock.cage, CAGE_IDS.size()):
@@ -116,6 +139,8 @@ static func stock_option(stock: RigSpec, slot: String) -> String:
 			return _ratio_id(stock.low_ratio)
 		"cage":
 			return CAGE_IDS[stock.cage]
+		"lockers":
+			return stock.stock_lockers
 		"sliders":
 			return "steel" if stock.sliders else "none"
 		_:
@@ -135,6 +160,8 @@ static func label(slot: String, id: String) -> String:
 			return "%s:1" % id
 		"low":
 			return "%s:1" % id
+	if slot == "lockers":
+		return LOCKERS[id][0]
 	if ARMOR.has(slot):
 		return ARMOR[slot][id][0]
 	return id
@@ -152,6 +179,8 @@ static func price(slot: String, id: String) -> int:
 			return GEAR_PRICE
 		"low":
 			return LOW_PRICE
+	if slot == "lockers":
+		return LOCKERS[id][2]
 	if ARMOR.has(slot):
 		return ARMOR[slot][id][2]
 	return 0
@@ -186,6 +215,8 @@ static func describe(stock: RigSpec, slot: String, id: String) -> String:
 			var lo := float(id)
 			return "Crawl ratio %.0f:1 in 1st low (stock %.0f:1). For rock steps and steep clay." % [
 				stock.gears[0] * stock.final_drive * lo, stock.gears[0] * stock.final_drive * stock.low_ratio]
+	if slot == "lockers":
+		return ("Came with the rig. " if id == stock.stock_lockers and id != "open" else "") + LOCKERS[id][3]
 	if ARMOR.has(slot):
 		if slot == "cage" and id == CAGE_IDS[stock.cage] and stock.cage > 0:
 			return "Came with the rig. " + ARMOR[slot][id][3]
@@ -248,7 +279,14 @@ static func apply(s: RigSpec, fit: Dictionary) -> RigSpec:
 	if fit.has("low") and float(fit["low"]) != s.low_ratio:
 		s.low_ratio = float(fit["low"])
 		s.mass += LOW_KG
-	for slot: String in ARMOR_SLOTS:
+	if fit.has("lockers") and fit["lockers"] != s.stock_lockers:
+		s.mass += LOCKERS[fit["lockers"]][1]
+	s.lockers = fit.get("lockers", s.stock_lockers)
+	s.beadlocks = fit.get("wheels", "steel") == "beadlock"
+	s.compressor = fit.get("compressor", "none") != "none"
+	s.boards = fit.get("boards", "none") != "none"
+	s.jack = fit.get("jack", "none") != "none"
+	for slot: String in ARMOR_SLOTS + KIT_SLOTS:
 		if not fit.has(slot) or fit[slot] == stock_option(s, slot):
 			continue
 		var a: Array = ARMOR[slot][fit[slot]]

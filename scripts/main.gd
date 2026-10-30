@@ -12,7 +12,7 @@ func _ready() -> void:
 	_build_environment()
 	var terrain := Terrain.new()
 	terrain.name = "Terrain"
-	terrain.plan = StagePlan.generate(Game.stage_seed, Game.weather, Game.level)
+	terrain.plan = StagePlan.generate(Game.stage_seed, Game.weather, Game.level, Game.stage_must())
 	add_child(terrain)
 	var backdrop := Backdrop.new()
 	backdrop.name = "Backdrop"

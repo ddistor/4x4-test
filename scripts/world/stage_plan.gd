@@ -54,8 +54,9 @@ var difficulty := 1.0
 
 
 ## `weather`: -1 let the seed decide, 0 dry season, 1 rainy season.
-## `level`: key into DIFFICULTY.
-static func generate(p_seed: int, weather := -1, level := 1) -> StagePlan:
+## `level`: key into DIFFICULTY. `must`: section kinds the stage has to have
+## (a career event's own trail), drawn first; none, and it's the seed's alone.
+static func generate(p_seed: int, weather := -1, level := 1, must: Array = []) -> StagePlan:
 	var plan := StagePlan.new()
 	plan.seed_value = p_seed
 	plan.level = level
@@ -69,7 +70,11 @@ static func generate(p_seed: int, weather := -1, level := 1) -> StagePlan:
 		plan.rain = 0.72 + plan.rain * 0.28
 	var kinds: Array[String] = ["river", "kanal"]
 	var pool: Array[String] = ["clay", "lahar", "rocky", "gully", "bog", "cogon", "niyog", "pasture", "ridge", "sukal"]
-	for i in range(4):
+	for k: String in must:
+		if pool.has(k) and kinds.size() < 6:
+			pool.erase(k)
+			kinds.append(k)
+	while kinds.size() < 6:
 		kinds.append(pool.pop_at(rng.randi() % pool.size()))
 	# shuffle, then nudge the river away from the very first slot so the
 	# paddy road leads into something to climb first most of the time

@@ -88,7 +88,7 @@ func _economy(label: String, kind: int, recov: int, wear: Dictionary, drown: int
 		for i in Career.EVENTS.size():
 			if c.can_enter(i):
 				e = i
-		spent["fees"] += int(Career.EVENTS[e]["fee"])
+		spent["fees"] += c.fee(e)
 		c.enter(e)
 		c.finish(e, recov)
 		runs += 1
@@ -187,6 +187,26 @@ func _scenes() -> void:
 		var card: String = (hud[0].get("_finish") as Label).text
 		_check("the card shows the sums", card.contains("+ first finish ₱10,000") and card.contains("+ clean run ₱5,000"), card)
 
+	# the pause menu's restart is a new entry: on the Tanay Cup that's the fee
+	var keep := c.finishes.duplicate()
+	c.finishes = [2, 3, 0, 0, 0]
+	c.event = 2
+	var before := c.pesos
+	var pause: Node = main.find_children("*", "", true, false).filter(func(n: Node) -> bool:
+		return n.get_script() != null and (n.get_script() as Script).resource_path.ends_with("pause_menu.gd"))[0]
+	Game.use_career_rig()
+	pause._again(Game.stage_seed)
+	_check("restarting pays the entry again", c.pesos == before - c.fee(2), c.pesos)
+	await _frames(3)
+	_check("and the stage comes back", await _wait_scene("main.gd"))
+	main = get_tree().current_scene
+	rig = main.get_node("Rig")
+	var kinds: Array = rig.terrain.plan.sections.map(func(sec: Dictionary) -> String: return sec["kind"])
+	_check("the Tanay Cup's own trail: bog and clay", kinds.has("bog") and kinds.has("clay"), kinds)
+	c.finishes = keep
+	c.event = 0
+	c.pesos = before
+	await _frames(30)
 	rig.damage.cond["engine"] = 0.6
 	Game.leave_stage()
 	_check("back to the garage", await _wait_scene("garage.gd"))

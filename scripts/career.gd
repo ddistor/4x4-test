@@ -16,7 +16,10 @@ extends RefCounted
 ##
 ## The ladder: each event opens after finishes of the one before it, and the
 ## top ones are run under competition rules, so the scrutineers want a roll
-## bar, then a full cage and a snorkel, before you're let on the trail.
+## bar, then a full cage and a snorkel, before you're let on the trail. Each
+## event runs its own kind of trail. Win the Morong Trophy and that's the
+## season: the next one's purses and fees are a fifth bigger (sponsors know
+## your name now), every season you win.
 
 const FILE := "user://career.cfg"
 const VERSION := 2
@@ -25,17 +28,25 @@ const RECOVERY_FEE := 4000
 const FIRST_BONUS := 0.5     # the first finish of an event pays this much more
 const CLEAN_BONUS := 0.25    # finished without the marshals
 const MIN_PAY := 0.25        # of the purse, whatever the fees
+const SEASON_RAISE := 0.2    # purses and fees, each season won
+const SELL_BACK := 0.6       # what a rig and its parts fetch, sold on
 ## name; trail level (StagePlan.DIFFICULTY); purse; entry fee, paid when you
 ## set off; the event before it and how many finishes of it open this one;
 ## weather (-1 the seed decides, 1 rainy season); what the scrutineers want:
-## cage (1 roll bar, 2 full), snorkel. Tuned with tests/career_test.gd: a
-## careful driver reaches the trophy in about fifteen runs.
+## cage (1 roll bar, 2 full), snorkel; trail: the section kinds its stage
+## always has (on top of a river and a kanal). Tuned with
+## tests/career_test.gd: a careful driver reaches the trophy in about a dozen.
 const EVENTS := [
-	{"name": "Sunday club run", "level": 0, "pay": 20000, "fee": 0, "after": -1, "runs": 0, "weather": -1},
-	{"name": "Club challenge", "level": 1, "pay": 35000, "fee": 0, "after": 0, "runs": 2, "weather": -1},
-	{"name": "Tanay Cup round", "level": 1, "pay": 50000, "fee": 5000, "after": 1, "runs": 3, "weather": 1},
-	{"name": "Invitational", "level": 2, "pay": 75000, "fee": 15000, "after": 2, "runs": 3, "weather": -1, "cage": 1},
-	{"name": "Morong Trophy", "level": 2, "pay": 120000, "fee": 25000, "after": 3, "runs": 3, "weather": 1, "cage": 2, "snorkel": true}]
+	{"name": "Sunday club run", "level": 0, "pay": 20000, "fee": 0, "after": -1, "runs": 0, "weather": -1,
+		"trail": ["pasture", "niyog"]},
+	{"name": "Club challenge", "level": 1, "pay": 35000, "fee": 0, "after": 0, "runs": 2, "weather": -1,
+		"trail": ["clay"]},
+	{"name": "Tanay Cup round", "level": 1, "pay": 50000, "fee": 5000, "after": 1, "runs": 3, "weather": 1,
+		"trail": ["bog", "clay"]},
+	{"name": "Invitational", "level": 2, "pay": 75000, "fee": 15000, "after": 2, "runs": 3, "weather": -1, "cage": 1,
+		"trail": ["rocky", "gully"]},
+	{"name": "Morong Trophy", "level": 2, "pay": 120000, "fee": 25000, "after": 3, "runs": 3, "weather": 1, "cage": 2,
+		"snorkel": true, "trail": ["rocky", "gully", "lahar"]}]
 ## What another rig costs, as it comes (a used rig off a club member).
 const RIG_PRICES := {"gera": 650000, "kuwarenta": 550000, "feroz": 350000, "ronda": 700000,
 	"owner": 300000, "rubikon": 1600000, "gerilya": 950000}
@@ -50,6 +61,10 @@ var rigs := {}
 ## finishes per event
 var finishes: Array[int] = [0, 0, 0, 0, 0]
 var event := 0
+## Morong Trophies won: each is a season, and puts the purses up
+var trophies := 0
+## the first-visit explainer in the garage has been read
+var seen_help := false
 ## Where it's kept (the tests point this somewhere else).
 var file := FILE
 
@@ -88,6 +103,8 @@ func load_file() -> void:
 	for i in mini(f.size(), finishes.size()):
 		finishes[i] = int(f[i])
 	event = clampi(cfg.get_value("career", "event", 0), 0, EVENTS.size() - 1)
+	trophies = int(cfg.get_value("career", "trophies", finishes[4]))
+	seen_help = cfg.get_value("career", "seen_help", false)
 	if rig_kind() < 0:
 		started = false
 
@@ -101,6 +118,8 @@ func save_file() -> void:
 	cfg.set_value("career", "rigs", rigs)
 	cfg.set_value("career", "finishes", finishes)
 	cfg.set_value("career", "event", event)
+	cfg.set_value("career", "trophies", trophies)
+	cfg.set_value("career", "seen_help", seen_help)
 	cfg.save(file)
 
 
@@ -112,6 +131,19 @@ func start(kind: int) -> void:
 	rigs = {rig_id: {}}
 	finishes = [0, 0, 0, 0, 0]
 	event = 0
+	trophies = 0
+	save_file()
+
+
+## Throw the career away: the next visit to the garage picks a rig afresh.
+func reset() -> void:
+	started = false
+	rig_id = ""
+	pesos = START_PESOS
+	rigs = {}
+	finishes = [0, 0, 0, 0, 0]
+	event = 0
+	trophies = 0
 	save_file()
 
 
@@ -159,11 +191,36 @@ func fitted_id(slot: String) -> String:
 
 
 func owns(slot: String, id: String) -> bool:
-	return id == Parts.stock_option(stock_spec(), slot) or (owned.get(slot, []) as Array).has(id)
+	return id == Parts.stock_option(stock_spec(), slot) or (owned.get(slot, []) as Array).has(id) \
+		or (slot == "tires" and tires_elsewhere(id) != "")
 
 
-## Fit a part you own; it goes back on the shelf when you swap it out.
+## Another rig of yours with the same bolt pattern that has a set of `id`
+## tires: they'll bolt straight on this one too. "" if none.
+func tires_elsewhere(id: String) -> String:
+	var bolt := stock_spec().bolt
+	for other: String in rigs:
+		if other == rig_id or RigSpec.get_kind(kind_of(other)).bolt != bolt:
+			continue
+		if (((rigs[other] as Dictionary).get("owned", {}) as Dictionary).get("tires", []) as Array).has(id):
+			return other
+	return ""
+
+
+## Fit a part you own; it goes back on the shelf when you swap it out. A
+## set of tires off another rig with the same bolt pattern moves over (that
+## rig goes back on its own).
 func fit(slot: String, id: String) -> void:
+	if slot == "tires" and not (owned.get("tires", []) as Array).has(id):
+		var other := tires_elsewhere(id)
+		if other != "":
+			var st: Dictionary = rigs[other]
+			(st["owned"]["tires"] as Array).erase(id)
+			if (st.get("fitted", {}) as Dictionary).get("tires", "") == id:
+				(st["fitted"] as Dictionary).erase("tires")
+			var mine: Array = owned.get("tires", [])
+			mine.append(id)
+			owned["tires"] = mine
 	if id == Parts.stock_option(stock_spec(), slot):
 		fitted.erase(slot)
 	else:
@@ -181,6 +238,29 @@ func buy(slot: String, id: String) -> bool:
 	list.append(id)
 	owned[slot] = list
 	fit(slot, id)
+	return true
+
+
+## What a rig fetches sold on: 60% of what it cost, and of its parts.
+func sell_value(id: String) -> int:
+	var total := float(RIG_PRICES.get(id, 0))
+	var st: Dictionary = rigs.get(id, {})
+	for slot: String in st.get("owned", {}):
+		for part: String in st["owned"][slot]:
+			total += Parts.price(slot, part)
+	# less what it needs fixing
+	total = total * SELL_BACK - Damage.repair_cost(st.get("damage", {}))
+	return maxi(0, int(roundf(total / 500.0) * 500.0))
+
+
+## Sell the rig you're on (not your last one) and move to another.
+func sell_rig() -> bool:
+	if rigs.size() < 2:
+		return false
+	pesos += sell_value(rig_id)
+	rigs.erase(rig_id)
+	rig_id = rigs.keys()[0]
+	save_file()
 	return true
 
 
@@ -246,15 +326,28 @@ func gear_missing(e: int) -> String:
 	return "" if need.is_empty() else "needs " + " and ".join(need)
 
 
+## This season's purse and entry fee for event `e`.
+func purse(e: int) -> int:
+	return int(roundf(float(EVENTS[e]["pay"]) * (1.0 + SEASON_RAISE * trophies) / 500.0) * 500.0)
+
+
+func fee(e: int) -> int:
+	return int(roundf(float(EVENTS[e]["fee"]) * (1.0 + SEASON_RAISE * trophies) / 500.0) * 500.0)
+
+
+func season() -> int:
+	return trophies + 1
+
+
 func can_enter(e: int) -> bool:
-	return unlocked(e) and gear_missing(e) == "" and pesos >= int(EVENTS[e]["fee"])
+	return unlocked(e) and gear_missing(e) == "" and pesos >= fee(e)
 
 
 ## Pay event `e`'s entry fee as you set off. False if you can't go.
 func enter(e: int) -> bool:
 	if not can_enter(e):
 		return false
-	pesos -= int(EVENTS[e]["fee"])
+	pesos -= fee(e)
 	save_file()
 	return true
 
@@ -264,7 +357,7 @@ func enter(e: int) -> bool:
 ## Banked and saved. Returns the sums for the finish card, and any event it
 ## opened.
 func finish(e: int, recoveries: int) -> Dictionary:
-	var base: int = EVENTS[e]["pay"]
+	var base := purse(e)
 	var was_open: Array[bool] = []
 	for i in EVENTS.size():
 		was_open.append(unlocked(i))
@@ -277,6 +370,9 @@ func finish(e: int, recoveries: int) -> Dictionary:
 	out["pay"] = maxi(pay, int(base * MIN_PAY))
 	pesos += out["pay"]
 	finishes[e] += 1
+	out["season_won"] = e == EVENTS.size() - 1
+	if out["season_won"]:
+		trophies += 1
 	var opened: Array[String] = []
 	for i in EVENTS.size():
 		if unlocked(i) and not was_open[i]:

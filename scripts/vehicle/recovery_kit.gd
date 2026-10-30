@@ -43,12 +43,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("dig"):
 		_start("dig")
 	elif event.is_action_pressed("traction_boards"):
-		if not _boards.is_empty():
+		if not rig.spec.boards:
+			_say("No traction boards in the back")
+		elif not _boards.is_empty():
 			_stow_boards("Boards back in the rig")
 		else:
 			_start("boards")
 	elif event.is_action_pressed("jack"):
-		_start("jack")
+		if rig.spec.jack:
+			_start("jack")
+		else:
+			_say("No high-lift jack in the back")
 
 
 func _start(what: String) -> void:

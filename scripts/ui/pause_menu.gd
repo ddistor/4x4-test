@@ -35,12 +35,20 @@ func _ready() -> void:
 	_resume = UiKit.button("Resume")
 	_resume.pressed.connect(_toggle)
 	box.add_child(_resume)
-	var restart := UiKit.button("Restart this stage")
-	restart.pressed.connect(func() -> void: Game.start_stage(Game.stage_seed))
+	# in a career a restart is a new entry: the fee again
+	var fee := 0
+	if Game.in_career and Game.career.started:
+		fee = Game.career.fee(Game.career.event)
+	var cost := (" (entry %s)" % Career.pesos_text(fee)) if fee > 0 else ""
+	var restart := UiKit.button("Restart this stage" + cost, 420)
+	restart.pressed.connect(func() -> void: _again(Game.stage_seed))
 	box.add_child(restart)
-	var fresh := UiKit.button("New stage")
-	fresh.pressed.connect(func() -> void: Game.start_stage(Game.random_seed()))
+	var fresh := UiKit.button("New stage" + cost, 420)
+	fresh.pressed.connect(func() -> void: _again(Game.random_seed()))
 	box.add_child(fresh)
+	if fee > Game.career.pesos and Game.in_career:
+		restart.disabled = true
+		fresh.disabled = true
 	var gfx := UiKit.button("Graphics")
 	gfx.pressed.connect(func() -> void:
 		box.visible = false
@@ -56,6 +64,13 @@ func _ready() -> void:
 	var quit := UiKit.button("Quit")
 	quit.pressed.connect(Game.quit_game)
 	box.add_child(quit)
+
+
+## Drive it again: in a career, entering again pays the fee.
+func _again(seed_v: int) -> void:
+	if Game.in_career and Game.career.started and not Game.career.enter(Game.career.event):
+		return
+	Game.start_stage(seed_v)
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -44,6 +44,21 @@ var skid := false             # steel skid plates under the oil pan and transfer
 var intake_depth := 0.9       # water depth at the front tires that drowns the intake, m
 var chromoly := false         # chromoly axle shafts: take a shock load far better
 var hd_steering := false      # heavy-duty tie rod: bends far less
+## Lockers: "open" diffs both ends, "rear_auto" an automatic rear locker
+## (always locked), "rear" a selectable rear, "both" selectable front and
+## rear. Free play gives every rig "both" (L locks both, as it always has);
+## a career starts from what the rig came with, `stock_lockers`.
+var lockers := "both"
+var stock_lockers := "open"
+## Kit (career parts; free play has the lot): beadlock wheels hold the bead
+## down to 8 psi; an on-board compressor airs back up on the trail; traction
+## boards and a high-lift jack in the back (the shovel is always there).
+## Wheel bolt pattern: tires and wheels move between rigs that share it.
+var bolt := "5x5.5"
+var beadlocks := false
+var compressor := true
+var boards := true
+var jack := true
 
 ## Where the hubs ride (rig space y) on level ground on stock suspension;
 ## the bodies build their wheel wells round this.
@@ -202,6 +217,7 @@ static func _kuwarenta() -> RigSpec:
 	s.cage = 1
 	s.cage_built = 1
 	s.build_body = KuwarentaBody.build
+	s.bolt = "6x5.5"
 	return s
 
 
@@ -281,6 +297,7 @@ static func _ronda() -> RigSpec:
 	s.cabin_lo = Vector3(0, 0.54, -0.775)   # closed cab: glass all round
 	s.cabin_hi = Vector3(0.91, 1.97, 2.235)
 	s.build_body = RondaBody.build
+	s.bolt = "6x5.5"
 	return s
 
 
@@ -334,6 +351,8 @@ static func _rubikon() -> RigSpec:
 	s.id = "rubikon"
 	s.name = "Rubikon"
 	s.blurb = "Modern four-door on 35s: lockers, the sway bar unhooked. Flexes the most, a long wheelbase."
+	s.stock_lockers = "both"
+	s.bolt = "5x5"
 	s.mass = 2300.0
 	s.center_of_mass = Vector3(0, 0.58, -0.1)
 	s.track = 0.82

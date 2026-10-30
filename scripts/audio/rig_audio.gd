@@ -22,6 +22,8 @@ var _winch: AudioStreamPlayer3D
 var _air: AudioStreamPlayer3D
 var _compressor: AudioStreamPlayer3D
 var _oneshot: AudioStreamPlayer3D
+var _knocks := 0
+var _breaks := 0
 var _paddy_amb: AudioStreamPlayer
 var _forest_amb: AudioStreamPlayer
 var _clunk: AudioStream
@@ -136,6 +138,14 @@ func _process(delta: float) -> void:
 		if now[key] != _last[key]:
 			_play(_clunk, -4.0, 0.9 if key == "low" else 1.1)
 	_last = now
+	# damage: a dull bang for a knock that hurt, a deep crack when it broke
+	var dmg: Damage = rig.damage
+	if dmg.breaks != _breaks:
+		_play(_clunk, 2.0, 0.45)
+	elif dmg.knocks != _knocks:
+		_play(_clunk, -1.0, 0.65)
+	_knocks = dmg.knocks
+	_breaks = dmg.breaks
 	var wet := water > 0.15
 	if wet and not _was_wet and speed > 2.5:
 		_play(_splash, clampf(-10.0 + speed * 1.5, -10.0, 2.0), 1.0)

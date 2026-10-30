@@ -1007,29 +1007,45 @@ func _place_rocks() -> void:
 	rocks.build(self, rock_spots)
 
 
-## Boulders right on the line, between where the tires run: straddle one
-## and a stock rig's transfer case lands on it (about 0.55 m up). Put a tire
-## on it and crawl over, or come with lift and skid plates. None on Moderate,
-## a few on Hard, more and taller on Extreme. Their own random stream, so
-## every other stone keeps its place.
+## Set pieces for career damage, Hard and Extreme only (none on Moderate),
+## each kind from its own random stream so every other stone keeps its place:
+##   - straddle rocks: right on the line between the tire tracks. Straddle
+##     one and a stock rig's transfer case (about 0.55 m up) lands on it: put
+##     a tire on it and crawl over, or come with lift and skid plates.
+##   - edge boulders: big ones just outside a tire track. Lean toward one on
+##     an off-camber and the sills drag along it (rock sliders); slide
+##     sideways into it and the front tire slams the rock (the tie rod).
+## Rock meshes are squashed spheres, standing about two thirds of their
+## radius over their centre, and sit flat on their bottom.
+const ROCK_TOP := 0.67
 func _straddle_rocks(s: Dictionary) -> void:
 	var per := {"rocky": 4, "gully": 3, "lahar": 2, "ridge": 2}
-	if not per.has(s["kind"]) or plan.difficulty < 0.9:
+	var edge := {"rocky": 3, "gully": 4, "lahar": 2}
+	if plan.difficulty < 0.9 or not (per.has(s["kind"]) or edge.has(s["kind"])):
 		return
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value + 41 + int(s["z0"])
 	var z0: float = s["z0"]
 	var z1: float = s["z1"]
-	var n := int(roundf(float(per[s["kind"]]) * (plan.difficulty - 0.4) * 1.6))
-	for k in range(n):
+	var more := (plan.difficulty - 0.4) * 1.6   # 1 on Hard, ~1.4 on Extreme
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + 41 + int(s["z0"])
+	for k in range(int(roundf(float(per.get(s["kind"], 0)) * more))):
 		var z := rng.randf_range(z0 + 15.0, z1 - 15.0)
 		var x := trail_x_at(z) + rng.randf_range(-0.25, 0.25)
 		# how tall it stands over the trail where the rig straddles it (not
 		# bedded on the lowest ground round it, as other stones are: on a
-		# slope that buried them under any rig's belly), half buried or more
+		# slope that buried them under any rig's belly)
 		var h := rng.randf_range(0.5, 0.72) * (1.0 + 0.4 * (plan.difficulty - 1.0))
 		var r := h * rng.randf_range(1.0, 1.15)
-		rock_spots.append(Vector4(x, get_height(x, z) + h - r, z, r))
+		rock_spots.append(Vector4(x, get_height(x, z) + h - ROCK_TOP * r, z, r))
+	var side_rng := RandomNumberGenerator.new()
+	side_rng.seed = seed_value + 43 + int(s["z0"])
+	for k in range(int(roundf(float(edge.get(s["kind"], 0)) * more))):
+		var z := side_rng.randf_range(z0 + 15.0, z1 - 15.0)
+		var side := 1.0 if side_rng.randf() < 0.5 else -1.0
+		var r := side_rng.randf_range(0.8, 1.15)
+		# its face a hand's width or two outside the tire track (~0.95 m out)
+		var x := trail_x_at(z) + side * (side_rng.randf_range(1.1, 1.35) + r)
+		rock_spots.append(Vector4(x, get_height(x, z) + 0.05, z, r))
 
 
 func _build_trees() -> void:

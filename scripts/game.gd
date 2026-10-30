@@ -137,6 +137,11 @@ func fitted_parts() -> Dictionary:
 	return test_parts
 
 
+## The section kinds the stage must have: the career event's own trail.
+func stage_must() -> Array:
+	return Career.EVENTS[career.event].get("trail", []) if in_career and career.started else []
+
+
 ## Damage carried into the stage: the career rig's, none in free play.
 func rig_damage() -> Dictionary:
 	return career.damage if in_career and career.started else {}

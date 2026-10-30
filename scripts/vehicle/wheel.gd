@@ -38,6 +38,7 @@ var tire_mud := 0.0           # 0..1 mud coating the tire (visual)
 var packing := 0.0            # 0..1 tread voids filled with clay: a slick tire
 var psi := 35.0               # tire pressure
 var debeaded := false         # aired down too far and cornered hard: tire off the rim
+var beadlock := false         # beadlock wheels: the bead stays on (RigSpec)
 var _bead_stress := 0.0
 var _lat_drift := 0.0         # sideways creep while near-stopped (static grip)
 
@@ -426,7 +427,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		_lat_drift = 0.0
 	f_lat -= _lat_drift * load * 14.0
 	# Cornering hard on a soft tire can roll the bead off the rim.
-	if psi < 15.0 and not debeaded and load > 0.0:
+	if psi < 15.0 and not debeaded and not beadlock and load > 0.0:
 		var demand := absf(f_lat) / load
 		_bead_stress = maxf(0.0, _bead_stress + (demand - 0.85) * (15.0 - psi) * 0.6 * delta)
 		if _bead_stress > 1.0:
@@ -569,7 +570,8 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 
 ## 0 at street pressure (35 psi) .. 1 fully aired down (12 psi).
 func aired() -> float:
-	return 1.0 if debeaded else clampf((STREET_PSI - psi) / (STREET_PSI - 12.0), 0.0, 1.0)
+	# beadlocks go on down past 12 psi: softer still (8 psi is 1.17)
+	return 1.0 if debeaded else clampf((STREET_PSI - psi) / (STREET_PSI - 12.0), 0.0, 1.2)
 
 
 ## Rolling radius: a soft tire squats, a debeaded one sits on its rim.

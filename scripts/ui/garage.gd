@@ -28,6 +28,7 @@ var _rig_pick: Button
 var _rig_act: Button
 var _repair_pick: Button
 var _repair_act: Button
+var _sell: Button
 var _fix_part := "all"   # what the repairs row fixes: "all" or one part
 var _drive_btn: Button
 
@@ -136,12 +137,12 @@ func _career_panel(col: VBoxContainer) -> void:
 	tabs.add_theme_constant_override("separation", 10)
 	col.add_child(tabs)
 	var pages := {}
-	for page: String in ["Drivetrain", "Armor", "Look"]:
+	for page: String in ["Drivetrain", "Armor", "Kit", "Look"]:
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 6)
 		box.visible = page == "Drivetrain"
 		pages[page] = box
-		var tab := _small(page, 147)
+		var tab := _small(page, 107)
 		tab.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tab.pressed.connect(func() -> void:
 			for k: String in pages:
@@ -160,10 +161,34 @@ func _career_panel(col: VBoxContainer) -> void:
 		act.pressed.connect(_part_action.bind(slot))
 		row.add_child(pick)
 		row.add_child(act)
-		(pages["Drivetrain" if Parts.DRIVETRAIN.has(slot) else "Armor"] as VBoxContainer).add_child(row)
+		var on := "Drivetrain" if Parts.DRIVETRAIN.has(slot) else ("Kit" if Parts.KIT_SLOTS.has(slot) else "Armor")
+		(pages[on] as VBoxContainer).add_child(row)
 		_part_rows[slot] = [pick, act]
 	_look_rows(pages["Look"])
 	(pages["Look"] as VBoxContainer).add_child(_flex_button())
+	# start over: press twice, it's every rig and peso gone
+	var wipe := _small("Start a new career", 460)
+	var armed := [false]
+	wipe.pressed.connect(func() -> void:
+		if not armed[0]:
+			armed[0] = true
+			wipe.text = "Press again: every rig and peso goes"
+			return
+		c.reset()
+		Game.to_garage(Game.stage_seed))
+	(pages["Look"] as VBoxContainer).add_child(wipe)
+	# sell the rig you're on, parts and all, for 60% less its repairs
+	_sell = _small("", 460)
+	var sell_armed := [false]
+	_sell.pressed.connect(func() -> void:
+		if not sell_armed[0]:
+			sell_armed[0] = true
+			_sell.text = "Press again to sell it"
+			return
+		if c.sell_rig():
+			Game.use_career_rig()
+			Game.to_garage(Game.stage_seed))
+	(pages["Look"] as VBoxContainer).add_child(_sell)
 	_desc = UiKit.label("", 17, UiKit.DIM)
 	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_desc.custom_minimum_size = Vector2(460, 48)
@@ -203,6 +228,46 @@ func _career_panel(col: VBoxContainer) -> void:
 	_drive_btn.grab_focus()
 	_show_names()
 	_show_career()
+	if not c.seen_help:
+		_help_card()
+
+
+## The first time in a career garage: how it all works, in a few lines.
+func _help_card() -> void:
+	var c := Game.career
+	var dim := ColorRect.new()
+	dim.color = Color(0.02, 0.015, 0.01, 0.75)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(dim)
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", UiKit.box(Color(0.07, 0.055, 0.04, 0.96), 12, UiKit.CLAY))
+	card.set_anchors_preset(Control.PRESET_CENTER)
+	card.position = Vector2(-430, -290)
+	card.custom_minimum_size = Vector2(860, 0)
+	dim.add_child(card)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	card.add_child(col)
+	col.add_child(UiKit.label("How the career works", 38))
+	for line: String in [
+		"Drive club events to earn pesos. No clock: get to the end. The first finish of each event pays half again, a run without the marshals a quarter more; each marshal recovery (Backspace) costs %s." % Career.pesos_text(Career.RECOVERY_FEE),
+		"Finish an event a few times and the next one opens. The top two are run under competition rules: the scrutineers want a roll bar, then a full cage and a snorkel.",
+		"Things break: the belly on rock, the steering on a rock face, axle shafts with the lockers in, the engine in deep water or with a mud-caked radiator. It stays broken till you fix it here (Repairs).",
+		"Spend on parts (Drivetrain, Armor, Kit pages): click one to try it on the rig, then buy and fit it. Bigger tires need a lift. Parts stay with their rig; tires move to a rig with the same bolt pattern.",
+		"Win the Morong Trophy and the season's yours: the next pays a fifth more. Buy more rigs on the Rig row."]:
+		var l := UiKit.label("·  " + line, 19, UiKit.DIM)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size = Vector2(820, 0)
+		col.add_child(l)
+	var ok := UiKit.button("Got it", 200)
+	ok.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ok.pressed.connect(func() -> void:
+		c.seen_help = true
+		c.save_file()
+		dim.queue_free()
+		_drive_btn.grab_focus())
+	col.add_child(ok)
+	ok.grab_focus()
 
 
 ## A garage button a little shorter than the menu's, so the career page fits.
@@ -355,7 +420,12 @@ func _show_career() -> void:
 	var c := Game.career
 	var stock := c.stock_spec()
 	_pesos.text = Career.pesos_text(c.pesos)
+	if c.trophies > 0:
+		_pesos.text += "   season %d" % c.season()
 	_desc.text = "Click a part to try the next one on the rig, then fit it."
+	if _sell:
+		_sell.disabled = c.rigs.size() < 2
+		_sell.text = ("Sell this rig: " + Career.pesos_text(c.sell_value(c.rig_id))) if not _sell.disabled else "Sell this rig (it's your only one)"
 	_show_rig_row()
 	if not _worn().has(_fix_part):
 		_fix_part = "all"
@@ -393,10 +463,14 @@ func _show_career() -> void:
 				_desc.text = "Won't fit: %s. %s" % [why, _desc.text]
 			elif not c.owns(slot, id) and cost > c.pesos:
 				_desc.text = "Not enough pesos yet. " + _desc.text
+			elif slot == "tires" and id != c.fitted_id(slot) and c.tires_elsewhere(id) != "" \
+					and not (c.owned.get("tires", []) as Array).has(id):
+				_desc.text = "Yours, off the %s (same bolt pattern): they move over. %s" % [
+					RigSpec.get_kind(Career.kind_of(c.tires_elsewhere(id))).name, _desc.text]
 	var e: Dictionary = Career.EVENTS[c.event]
 	var open := c.unlocked(c.event)
 	var gear := c.gear_missing(c.event)
-	var tag := ("pays " + Career.pesos_text(e["pay"])) if open else "locked"
+	var tag := ("pays " + Career.pesos_text(c.purse(c.event))) if open else "locked"
 	_event_btn.text = "Event: %s, %s  %s" % [e["name"], StagePlan.DIFFICULTY[e["level"]][0], tag]
 	var idle := _try_slot == "" and (_try_rig == "" or _try_rig == c.rig_id)
 	if not open:
@@ -407,14 +481,14 @@ func _show_career() -> void:
 		_drive_btn.text = "Not passed by the scrutineers"
 		if idle:
 			_desc.text = "Competition rules: the scrutineers say this rig %s (Armor page)." % gear
-	elif c.pesos < int(e["fee"]):
-		_drive_btn.text = "Entry %s: not enough pesos" % Career.pesos_text(e["fee"])
+	elif c.pesos < c.fee(c.event):
+		_drive_btn.text = "Entry %s: not enough pesos" % Career.pesos_text(c.fee(c.event))
 		if idle:
 			_desc.text = "Run an easier event for the entry money."
 	else:
 		_drive_btn.text = "Drive the " + (e["name"] as String).to_lower()
-		if int(e["fee"]) > 0:
-			_drive_btn.text += " (entry %s)" % Career.pesos_text(e["fee"])
+		if c.fee(c.event) > 0:
+			_drive_btn.text += " (entry %s)" % Career.pesos_text(c.fee(c.event))
 	_drive_btn.disabled = not c.can_enter(c.event)
 
 
@@ -435,9 +509,9 @@ func _event_text(e: int) -> String:
 	var ev: Dictionary = Career.EVENTS[e]
 	var t := "%s trail, %s. Pays %s, +%d%% the first time you finish it, +%d%% with no marshals." % [
 		StagePlan.DIFFICULTY[ev["level"]][0], "rainy season" if ev["weather"] == 1 else "dry or wet as it comes",
-		Career.pesos_text(ev["pay"]), roundi(Career.FIRST_BONUS * 100.0), roundi(Career.CLEAN_BONUS * 100.0)]
-	if int(ev["fee"]) > 0:
-		t += " Entry %s." % Career.pesos_text(ev["fee"])
+		Career.pesos_text(c.purse(e)), roundi(Career.FIRST_BONUS * 100.0), roundi(Career.CLEAN_BONUS * 100.0)]
+	if c.fee(e) > 0:
+		t += " Entry %s." % Career.pesos_text(c.fee(e))
 	if ev.has("cage"):
 		t += " Run under competition rules: %s%s." % ["a full cage" if ev["cage"] >= 2 else "a roll bar",
 			" and a snorkel" if ev.get("snorkel", false) else ""]

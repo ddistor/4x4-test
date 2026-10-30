@@ -92,6 +92,12 @@ func _ready() -> void:
 		terrain = get_node(terrain_path) as Terrain
 	freeze = preview
 	spec = Parts.apply(RigSpec.get_kind(Game.rig_kind), parts if parts != null else Game.fitted_parts())
+	if not (Game.in_career and Game.career.started):
+		# free play: L locks both and the kit's all there, as it always was
+		spec.lockers = "both"
+		spec.compressor = true
+		spec.boards = true
+		spec.jack = true
 	mass = spec.mass
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = spec.center_of_mass
@@ -227,6 +233,7 @@ func _build_wheels() -> void:
 		w.radius = spec.tire_radius
 		w.width = spec.tire_width
 		w.wheel_color = spec.wheel_color
+		w.beadlock = spec.beadlocks
 		w.tread = spec.tread
 		w.footprint = spec.footprint
 		w.stiffness = spec.spring_stiffness
@@ -296,7 +303,10 @@ func _build_cable() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("diff_lock"):
-		diff_locked = not diff_locked
+		if spec.lockers in ["rear", "both"]:
+			diff_locked = not diff_locked
+		else:
+			damage._say("no selectable lockers fitted" if spec.lockers == "open" else "the rear locker is automatic: always locked")
 	elif event.is_action_pressed("low_range"):
 		low_range = not low_range
 	elif event.is_action_pressed("shift_up"):
@@ -308,8 +318,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("winch"):
 		_toggle_winch()
 	elif event.is_action_pressed("air_down") or event.is_action_pressed("air_up"):
-		var i := PSI_STEPS.find(psi_target) + (1 if event.is_action_pressed("air_down") else -1)
-		psi_target = PSI_STEPS[clampi(i, 0, PSI_STEPS.size() - 1)]
+		var steps := PSI_STEPS.duplicate()
+		if spec.beadlocks:
+			steps.append(8.0)   # beadlocks hold the bead
+		var i := steps.find(psi_target) + (1 if event.is_action_pressed("air_down") else -1)
+		psi_target = steps[clampi(i, 0, steps.size() - 1)]
 	elif event.is_action_pressed("reset_rig"):
 		recover()
 
@@ -415,8 +428,15 @@ func _physics_process(delta: float) -> void:
 		wheel_brake = maxf(wheel_brake, brake_force * 1.5)
 
 	# --- steering & diffs ---------------------------------------------------
+	# a locked axle won't let its tires turn at different speeds, so the rig
+	# resists the turn: a locked front most, an automatic rear a little
+	var turn := 1.0
+	if axle_locked(true):
+		turn = 0.75
+	elif spec.lockers == "rear_auto":
+		turn = 0.9
 	for w in wheels:
-		w.steer_angle = steer + damage.steer_offset() if w.steerable else 0.0
+		w.steer_angle = steer * turn + damage.steer_offset() if w.steerable else 0.0
 
 	# Open diff: an axle can only put down twice what its weaker tire holds —
 	# the light/wet wheel spins, the planted one gets nothing. Locked: each
@@ -449,14 +469,15 @@ func _physics_process(delta: float) -> void:
 		# everything to the side that's spinning free, so neither drives
 		var drive_a := per_axle * 0.5
 		var drive_b := per_axle * 0.5
+		var locked := axle_locked(axle == 0)
 		if not damage.shaft_ok(axle == 0):
-			drive_b = per_axle * 0.5 if diff_locked else 0.0
+			drive_b = per_axle * 0.5 if locked else 0.0
 			drive_a = 0.0
 		drive_per_wheel[a] = drive_a
 		drive_per_wheel[b] = drive_b
 		var cap_override_a := -1.0
 		var cap_override_b := -1.0
-		if not diff_locked:
+		if not locked:
 			var weakest: float = minf(caps[a], caps[b])
 			cap_override_a = weakest
 			cap_override_b = weakest
@@ -701,7 +722,7 @@ func _air_step(delta: float) -> void:
 		if w.psi > psi_target + 0.05:
 			w.psi = move_toward(w.psi, psi_target, 2.5 * delta)
 			airing = -1
-		elif w.psi < psi_target - 0.05:
+		elif w.psi < psi_target - 0.05 and spec.compressor:
 			w.psi = move_toward(w.psi, psi_target, 0.8 * delta)
 			airing = 1
 
@@ -714,10 +735,35 @@ func roll_pitch() -> Vector2:
 	return Vector2(roll, pitch)
 
 
+## Is this axle's diff locked: a selectable locker switched on, or the
+## automatic rear one.
+func axle_locked(front: bool) -> bool:
+	match spec.lockers:
+		"both":
+			return diff_locked
+		"rear":
+			return diff_locked and not front
+		"rear_auto":
+			return not front
+	return false
+
+
+func _locker_text() -> String:
+	if spec.lockers == "open":
+		return "open diffs"
+	var f := axle_locked(true)
+	var r := axle_locked(false)
+	if f and r:
+		return "DIFF LOCK"
+	if r:
+		return "REAR LOCKED"
+	return "diff open"
+
+
 func status_text() -> String:
 	var lines := []
 	lines.append("%3.0f km/h   %s %s %s   %s" % [speed_kmh, "4L" if low_range else "4H", gearbox.gear_name(),
-		"auto" if gearbox.auto else "manual", "DIFF LOCK" if diff_locked else "diff open"])
+		"auto" if gearbox.auto else "manual", _locker_text()])
 	if choke > 0.3 and not damage.hydrolocked:
 		lines.append("ENGINE CHOKING: water over the intake (winch out)")
 	elif gearbox.running:
@@ -753,6 +799,8 @@ func status_text() -> String:
 		psi_line += "  airing down to %.0f" % psi_target
 	elif airing > 0:
 		psi_line += "  compressor on, to %.0f" % psi_target
+	elif psi_target > wheels[0].psi + 0.5 and not spec.compressor:
+		psi_line += "  (no compressor: they stay soft)"
 	elif absf(wheels[0].psi - psi_target) > 0.5:
 		psi_line += "  (stop to set %.0f)" % psi_target
 	lines.append(psi_line)

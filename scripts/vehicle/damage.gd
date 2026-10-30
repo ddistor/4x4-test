@@ -46,6 +46,11 @@ var _sill := Vector2.ZERO
 var _cool := {"belly": 0.0, "sill": 0.0, "roof": 0.0, "panel": 0.0, "tire": 0.0}
 var _note := ""
 var _note_t := 0.0
+## Counted for the sound (rig_audio.gd): a knock that did damage, and a part
+## that just broke outright.
+var knocks := 0
+var breaks := 0
+var _steam: GPUParticles3D
 
 
 func setup(r: Rig, saved: Dictionary, on: bool) -> void:
@@ -58,6 +63,7 @@ func setup(r: Rig, saved: Dictionary, on: bool) -> void:
 	if enabled:
 		rig.contact_monitor = true
 		rig.max_contacts_reported = 16
+		_build_steam()
 
 
 ## What goes in the save.
@@ -255,7 +261,7 @@ func _shafts() -> void:
 		if force < 3000.0:
 			continue
 		var front := i < 2
-		var k := pow(force / 8000.0, 2.0) * (1.0 if rig.diff_locked else 0.3) * 0.12
+		var k := pow(force / 8000.0, 2.0) * (1.0 if rig.axle_locked(front) else 0.3) * 0.12
 		if front and absf(rig.steer) > 0.25:
 			k *= 1.6   # a CV joint at full lock is the weak spot
 		if s.chromoly:
@@ -288,6 +294,10 @@ func _heat(delta: float) -> void:
 	coolant = clampf(coolant, COOLANT_OK, COOLANT_MAX)
 	if coolant > 115.0:
 		_hurt("engine", delta * 0.01, "")
+	if _steam:
+		# a boiling radiator: steam out of the grille, more the hotter it gets
+		_steam.emitting = coolant > COOLANT_HOT - 2.0 or cooked
+		_steam.amount_ratio = clampf((coolant - COOLANT_HOT + 4.0) / 12.0, 0.2, 1.0)
 	if coolant >= COOLANT_MAX and gb.running:
 		_say("ENGINE OVERHEATED: it quit (wait for it to cool, or wash the radiator)")
 
@@ -297,6 +307,10 @@ func _hurt(part: String, amount: float, note: String) -> void:
 		return
 	var before := float(cond[part])
 	cond[part] = maxf(0.0, before - amount)
+	if amount > 0.01:
+		knocks += 1
+	if before > 0.0 and cond[part] <= 0.0:
+		breaks += 1
 	if note != "" and amount > 0.004:
 		_say(note)
 
@@ -304,6 +318,46 @@ func _hurt(part: String, amount: float, note: String) -> void:
 func _say(note: String) -> void:
 	_note = note
 	_note_t = 4.0
+
+
+## White steam puffing up off the nose when the engine boils.
+func _build_steam() -> void:
+	var s := rig.spec
+	_steam = GPUParticles3D.new()
+	_steam.amount = 40
+	_steam.lifetime = 1.6
+	_steam.emitting = false
+	_steam.position = Vector3(0, 0.95, s.front_z - 0.25)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(0.35, 0.05, 0.15)
+	pm.direction = Vector3(0, 1, -0.2)
+	pm.spread = 25.0
+	pm.initial_velocity_min = 0.6
+	pm.initial_velocity_max = 1.4
+	pm.gravity = Vector3(0, 0.4, 0)
+	pm.damping_min = 0.5
+	pm.damping_max = 1.0
+	pm.scale_min = 0.6
+	pm.scale_max = 1.6
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 0.45))
+	fade.set_color(1, Color(1, 1, 1, 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	_steam.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.5, 0.5)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.vertex_color_use_as_albedo = true
+	m.albedo_color = Color(0.92, 0.92, 0.9)
+	quad.material = m
+	_steam.draw_pass_1 = quad
+	rig.add_child(_steam)
 
 
 ## HUD lines: the gauge, anything broken, the latest knock.

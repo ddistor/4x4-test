@@ -88,6 +88,9 @@ func _career_pay() -> String:
 			Career.pesos_text(r["fees"])]
 	sums += "  =  " + Career.pesos_text(r["pay"])
 	var lines := ["%s: you made it to the end." % e["name"], sums]
+	if r["season_won"]:
+		lines[0] = "You won the Morong Trophy: season %d is yours. Next season pays %d%% more." % [
+			c.season() - 1, roundi(Career.SEASON_RAISE * 100.0 * c.trophies)]
 	if not (r["opened"] as Array).is_empty():
 		lines.append("Now open: " + ", ".join(r["opened"]))
 	lines.append("In the bank: %s%s  ·  Esc for the garage" % [Career.pesos_text(c.pesos),

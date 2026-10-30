@@ -102,6 +102,46 @@ func _run() -> void:
 	m.load_file()
 	_check("an old one-rig save loads", m.started and m.rig_id == "owner" and m.fitted_id("lift") == "2.5" and m.owns("lift", "2.5"))
 	_check("its finishes move to the new ladder", Array(m.finishes) == [4, 2, 0, 1, 0], m.finishes)
+
+	# --- lockers, kit, tires between rigs, selling, seasons, a fresh start ---
+	_check("lockers from open up", Array(Parts.options(gera, "lockers")) == ["open", "rear_auto", "rear", "both"])
+	_check("the rubikon came with them", Array(Parts.options(_kind("rubikon"), "lockers")) == ["both"])
+	var kitted := Parts.apply(_kind("gera"), {"lockers": "rear", "wheels": "beadlock", "compressor": "onboard"})
+	_check("lockers and kit fitted", kitted.lockers == "rear" and kitted.beadlocks and kitted.compressor and not kitted.boards and not kitted.jack)
+	_check("a career rig starts without the kit", not Parts.apply(_kind("gera"), {}).compressor and Parts.apply(_kind("gera"), {}).lockers == "open")
+	var t := Career.new()
+	t.file = TEST_FILE
+	t.start(0)
+	t.pesos = 5000000
+	t.buy("tires", "37_mt")
+	t.buy_rig("owner")
+	_check("the gera's 37s fit the owner (same bolt pattern)", t.owns("tires", "37_mt"))
+	t.fit("tires", "37_mt")
+	_check("they move over", t.fitted_id("tires") == "37_mt" and not t.rigs["gera"]["owned"]["tires"].has("37_mt"))
+	t.buy_rig("kuwarenta")
+	_check("not onto a kuwarenta (6 on 5.5)", not t.owns("tires", "37_mt"))
+	var worth := t.sell_value("kuwarenta")
+	var before_sale := t.pesos
+	_check("sell a rig for 60%", worth == int(Career.RIG_PRICES["kuwarenta"] * 0.6) and t.sell_rig() and t.pesos == before_sale + worth and not t.rigs.has("kuwarenta"))
+	t.switch_rig("gera")
+	t.sell_rig()
+	_check("can't sell your last rig", not t.sell_rig() and t.rigs.size() == 1)
+	var p0 := t.purse(4)
+	t.finishes = [3, 3, 3, 3, 0]
+	var won := t.finish(4, 0)
+	_check("the trophy wins the season", won["season_won"] and t.season() == 2 and t.purse(4) == int(p0 * 1.2), t.purse(4))
+	t.reset()
+	var u := Career.new()
+	u.file = TEST_FILE
+	u.load_file()
+	_check("a new career starts from nothing", not u.started and u.rigs.is_empty() and u.trophies == 0)
+	var plan := StagePlan.generate(5, -1, 1, ["bog", "clay"])
+	var kinds := plan.sections.map(func(sec: Dictionary) -> String: return sec["kind"])
+	_check("an event's trail is in its stage", kinds.has("bog") and kinds.has("clay") and kinds.has("river") and kinds.has("kanal"), kinds)
+	var free_a := StagePlan.generate(5).sections.map(func(sec: Dictionary) -> String: return sec["kind"])
+	var free_b := StagePlan.generate(5, -1, 1, []).sections.map(func(sec: Dictionary) -> String: return sec["kind"])
+	_check("free play stages unchanged", free_a == free_b)
+
 	c.start(0)
 
 	# --- on the stage: lift + 37s raise the body by 2.5 in + 1 in of radius ---
