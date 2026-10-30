@@ -33,10 +33,16 @@ uniform vec3 bedrock : source_color = vec3(0.44, 0.42, 0.39);
 
 varying vec3 world_pos;
 
+// Integer hash of the float's bits: exact at any distance from the origin.
+// (The old fract(p * 456.21) ran out of float precision a few hundred metres
+// up the stage and the noise broke into blocks: the ground went to squares.)
 float hash(vec2 p) {
-	p = fract(p * vec2(123.34, 456.21));
-	p += dot(p, p + 45.32);
-	return fract(p.x * p.y);
+	uvec2 q = floatBitsToUint(p);
+	uint h = q.x * 1597334677u ^ q.y * 3812015801u;
+	h = (h ^ (h >> 16u)) * 2246822519u;
+	h = (h ^ (h >> 13u)) * 3266489917u;
+	h ^= h >> 16u;
+	return float(h) * (1.0 / 4294967295.0);
 }
 
 float noise(vec2 p) {
