@@ -9,6 +9,7 @@ var _preview: Label
 var _title: Label
 var _loading: Control
 var _drive: Button
+var _gfx: Button
 
 
 func _ready() -> void:
@@ -17,7 +18,7 @@ func _ready() -> void:
 	if "--snap-garage" in OS.get_cmdline_user_args():
 		Game.to_garage.call_deferred(Game.stage_seed)
 		return
-	if "--snap-menu" in OS.get_cmdline_user_args():
+	if "--snap-menu" in OS.get_cmdline_user_args() or "--snap-settings" in OS.get_cmdline_user_args():
 		_snap_menu.call_deferred()
 	elif "--snap" in OS.get_cmdline_user_args():
 		Game.start_stage.call_deferred(Game.stage_seed)
@@ -81,6 +82,16 @@ func _ready() -> void:
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
 	left.add_child(trail)
+	var gfx := UiKit.button("Graphics")
+	gfx.pressed.connect(func() -> void:
+		left.visible = false
+		var s: Control = load("res://scripts/ui/settings_menu.gd").new()
+		s.closed.connect(func() -> void:
+			left.visible = true
+			gfx.grab_focus())
+		add_child(s))
+	left.add_child(gfx)
+	_gfx = gfx
 	var quit := UiKit.button("Quit")
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	left.add_child(quit)
@@ -118,13 +129,18 @@ func _ready() -> void:
 	_drive.grab_focus()
 
 
-## `--snap-menu`: save a picture of this menu to snaps/ and quit.
+## `--snap-menu`: save a picture of this menu to snaps/ and quit
+## (`--snap-settings`: of the graphics screen open over it).
 func _snap_menu() -> void:
+	var file := "res://snaps/96_menu.png"
+	if "--snap-settings" in OS.get_cmdline_user_args():
+		_gfx.pressed.emit()
+		file = "res://snaps/96_settings.png"
 	for i in range(10):
 		await RenderingServer.frame_post_draw
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://snaps"))
-	get_viewport().get_texture().get_image().save_png("res://snaps/96_menu.png")
-	print("saved ", ProjectSettings.globalize_path("res://snaps/96_menu.png"))
+	get_viewport().get_texture().get_image().save_png(file)
+	print("saved ", ProjectSettings.globalize_path(file))
 	get_tree().quit()
 
 

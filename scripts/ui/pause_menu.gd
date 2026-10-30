@@ -41,6 +41,15 @@ func _ready() -> void:
 	var fresh := UiKit.button("New stage")
 	fresh.pressed.connect(func() -> void: Game.start_stage(Game.random_seed()))
 	box.add_child(fresh)
+	var gfx := UiKit.button("Graphics")
+	gfx.pressed.connect(func() -> void:
+		box.visible = false
+		var s: Control = load("res://scripts/ui/settings_menu.gd").new()
+		s.closed.connect(func() -> void:
+			box.visible = true
+			gfx.grab_focus())
+		_root.add_child(s))
+	box.add_child(gfx)
 	var menu := UiKit.button("Back to start menu")
 	menu.pressed.connect(Game.to_menu)
 	box.add_child(menu)

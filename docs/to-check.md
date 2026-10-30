@@ -1,5 +1,19 @@
 # To check in Claude Code / by hand
 
+## Graphics settings
+
+*Graphics* in the start menu and the Esc menu (`scripts/ui/settings_menu.gd`,
+settings in `scripts/graphics_settings.gd`, saved to `user://graphics.cfg`).
+Quality preset Low / Medium / High / Ultra (High is the look it had before),
+then window (windowed / fullscreen), V-Sync, frame-rate cap, render scale (FSR
+below 100%), anti-aliasing (off / FXAA / MSAA 2x / 4x / TAA), shadows, ambient
+occlusion, reflections, volumetric fog, glow, grass and tree draw distance.
+Click for the next option, right-click for the previous; a hand change turns
+the preset Custom. Everything applies live, mid-stage too. Rendered here: the
+screen (`--snap-settings`) and a stage on Low vs High (haze, AO, grass
+distance and resolution all change). To check by hand: fullscreen and V-Sync
+on your monitor, frame rate on Low vs Ultra, TAA's smearing on the grass.
+
 ## Rolling over, winch jolts, wheel wells, finish banner
 
 `tests/tip_test.tscn` (new, headless): a tilt table with a lip, or `--winch`

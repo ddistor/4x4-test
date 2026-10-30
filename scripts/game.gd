@@ -43,10 +43,14 @@ var logo := 0
 var paint := 0
 var shirt := 0
 var shorts := 0
+## Graphics settings (user://graphics.cfg): the settings screen changes them.
+var gfx := GraphicsSettings.new()
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	gfx.load_file()
+	gfx.apply.call_deferred()
 	var args := OS.get_cmdline_user_args()
 	var i := args.find("--seed")
 	if i >= 0 and i + 1 < args.size():

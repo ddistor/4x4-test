@@ -4,6 +4,10 @@ extends Node3D
 ## menu. Everything is procedural so the whole scene lives in text.
 
 
+var _env: Environment
+var _sun: DirectionalLight3D
+
+
 func _ready() -> void:
 	_build_environment()
 	var terrain := Terrain.new()
@@ -47,6 +51,9 @@ func _ready() -> void:
 		snap.name = "Snapshot"
 		add_child(snap)
 
+	# graphics settings: shadows, sky effects, how far the grass and trees draw
+	Game.gfx.attach(self, _env, _sun)
+
 
 func _build_environment() -> void:
 	# Late-afternoon rainy-season light: soft, warm, hazy.
@@ -60,6 +67,7 @@ func _build_environment() -> void:
 	sun.light_angular_distance = 0.6  # soft-edged shadows, the sun is hazy
 	sun.rotation_degrees = Vector3(-38, 35, 0)
 	add_child(sun)
+	_sun = sun
 
 	var env := Environment.new()
 	var sky := Sky.new()
@@ -101,3 +109,4 @@ func _build_environment() -> void:
 	we.name = "WorldEnvironment"
 	we.environment = env
 	add_child(we)
+	_env = env

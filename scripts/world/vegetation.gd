@@ -171,6 +171,8 @@ func _multi(mesh: Mesh, xforms: Array[Transform3D], name_: String, shadows := tr
 		mmi.visibility_range_end = vis_end
 		mmi.visibility_range_end_margin = 12.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		# the graphics settings set how far these draw (GraphicsSettings)
+		mmi.add_to_group("veg_trees" if vis_end >= TREE_RANGE else "veg_grass")
 		# visibility is measured from the node origin, so put it mid-chunk
 		mmi.position = centre
 		for k in range(xforms.size()):
