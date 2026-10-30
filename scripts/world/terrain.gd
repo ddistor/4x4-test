@@ -995,6 +995,7 @@ func _place_rocks() -> void:
 				off_trail = 6
 			"pasture", "sukal":
 				off_trail = 3
+		_straddle_rocks(s, add)
 		for k in range(off_trail):
 			var z := rng.randf_range(z0, z1)
 			var side := 1.0 if rng.randf() < 0.5 else -1.0
@@ -1004,6 +1005,27 @@ func _place_rocks() -> void:
 	rocks.name = "Rocks"
 	add_child(rocks)
 	rocks.build(self, rock_spots)
+
+
+## Boulders right on the line, between where the tires run: straddle one
+## and a stock rig's transfer case lands on it (about 0.55 m up). Put a tire
+## on it and crawl over, or come with lift and skid plates. None on Moderate,
+## a few on Hard, more and taller on Extreme. Their own random stream, so
+## every other stone keeps its place.
+func _straddle_rocks(s: Dictionary, add: Callable) -> void:
+	var per := {"rocky": 4, "gully": 3, "lahar": 2, "ridge": 2}
+	if not per.has(s["kind"]) or plan.difficulty < 0.9:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + 41 + int(s["z0"])
+	var z0: float = s["z0"]
+	var z1: float = s["z1"]
+	var n := int(roundf(float(per[s["kind"]]) * (plan.difficulty - 0.4) * 1.6))
+	for k in range(n):
+		var z := rng.randf_range(z0 + 15.0, z1 - 15.0)
+		# half buried: it stands as tall as half its width
+		var r := rng.randf_range(0.48, 0.66) * (1.0 + 0.4 * (plan.difficulty - 1.0))
+		add.call(trail_x_at(z) + rng.randf_range(-0.25, 0.25), z, r, 0.0)
 
 
 func _build_trees() -> void:

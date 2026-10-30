@@ -72,9 +72,9 @@ func _run() -> void:
 		await _wait(2.0)
 		var p := rig.global_position
 		var ground := terrain.get_height(p.x, p.z)
-		# a rock under the middle standing 10 cm proud of the belly, then the
+		# a rock under the middle standing 35 cm proud of the transfer case (taller than the springs can droop), then the
 		# rig lifted and dropped on it: hung up, tires off the ground
-		var top := p.y + Armor.sill(rig).y + 0.1
+		var top := p.y + Armor.UNDER_BOTTOM + 0.35
 		var mid := rig.to_global(Vector3(0, 0, (rig.spec.front_z + rig.spec.rear_z) * 0.5))
 		_rock(Vector3(mid.x, (top + ground - 0.3) * 0.5, mid.z), Vector3(0.6, top - ground + 0.3, 0.6))
 		rig.global_position = p + Vector3(0, 0.6, 0)

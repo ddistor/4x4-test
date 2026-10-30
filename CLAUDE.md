@@ -27,7 +27,7 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   parts and damage, pesos, club events and their pay; `user://career.cfg`. Free play
   never uses it. Parts are in `scripts/vehicle/parts.gd` (`Parts`: tires, lift, axle
   gears, low range, and armor; prices, what fits, `Parts.apply` on a RigSpec);
-  bolted-on armor is modelled by `armor.gd`; what breaks and why in `damage.gd`
+  the underbody solid and bolted-on armor are modelled by `armor.gd`; what breaks and why in `damage.gd`
   (on in a career, `--damage` in free play).
 - `scripts/main.gd` — builds environment, terrain, rig, camera, HUD, pause menu.
 - `scripts/world/stage_plan.gd` — the seeded chain of sections: paddy road first,

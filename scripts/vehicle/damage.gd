@@ -177,7 +177,7 @@ func _contacts(delta: float) -> void:
 				tire_x = p.x
 		elif p.y > s.seat.y + 0.45 and upside:
 			zone = "roof"
-		elif p.y < _sill.y + 0.12 and absf(p.x) < _sill.x - 0.15 and p.z > s.front_z - 0.1 and p.z < s.rear_z + 0.1:
+		elif p.y < Armor.UNDER_BOTTOM + 0.12 and absf(p.x) < Armor.UNDER_HALF + 0.45 and p.z > s.front_z - 0.1 and p.z < s.rear_z + 0.1:
 			zone = "belly"
 			belly_force += imp.length() / delta
 			belly_rock = belly_rock or hard >= 1.0

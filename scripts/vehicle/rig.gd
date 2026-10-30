@@ -131,6 +131,7 @@ func _ready() -> void:
 
 func _build_body() -> void:
 	spec.build_body.call(self)
+	Armor.underbody(self)
 	Armor.build(self)
 
 

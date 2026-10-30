@@ -34,6 +34,15 @@
   (wade to ~1.5 m), chromoly shafts, heavy-duty tie rods. Bolted-on armor is
   generic, sized off each body: check by eye that it sits right on every rig
   (`-- --career --snap-garage --flex` after fitting it).
+- **The map, tuned for it**: every rig now has an underbody (oil pan,
+  gearbox, transfer case) as a solid, about 0.55 m off the ground stock; a
+  lift and bigger tires raise it, skid plates cover it. Rock steps, the
+  gully, the lahar wash and the talahib ridge get straddle rocks on Hard and
+  Extreme (none on Moderate): boulders right on the line between the tire
+  tracks, 0.5 to 0.75 m tall, that high-centre a stock rig. To check by
+  driving: put a tire on one and crawl over; straddle it stock and hear the
+  pan crack; with 4 in and 37s most clear. Rivers were already tuned: a
+  shallow ford off the line, pools that drown a stock intake on Hard and up.
 - **More rigs**: the Rig row cycles every rig, yours or for sale (₱300,000
   Owner .. ₱1.6M Rubikon); each keeps its own parts and damage.
 - To check by driving: does a normal run break about the right amount? The
