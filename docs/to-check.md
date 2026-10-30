@@ -1,6 +1,6 @@
 # To check in Claude Code / by hand
 
-## Career mode: first parts (branch `career-parts`, not on main yet)
+## Career mode: parts, armor, damage, more rigs (branch `career-parts`, not on main yet)
 
 - **Career mode** on the start menu: pick a rig (any stock one), ₱60,000 to
   start. Club events: Sunday club run (Moderate, ₱30,000), Club challenge
@@ -19,8 +19,30 @@
   in sticky clay sooner than mud-terrains.
 - To check by eye: the garage panel at your screen size (`-- --career
   --snap-garage` saves `snaps/95_career.png`), the payout card at the finish.
-- Tests: `tests/parts_test.tscn` (fits, money, ride height on a stage),
-  `tests/well_test.tscn` now also checks every lift with the biggest tires.
+- **Damage** (career only; `--damage` turns it on in free play): the HUD shows
+  coolant and anything broken. Belly on rock cracks the oil pan (runs hot,
+  then no low range); a front tire slammed sideways into rock bends the tie
+  rod (pulls to one side); a spinning tire that grabs with the lockers in can
+  snap an axle shaft (that axle stops driving; open diff, both wheels); sills
+  and rollovers dent the body; a mud-caked nose overheats the engine when
+  you work it hard (limp, then it quits; a river washes the radiator); water
+  over the intake hydrolocks it (Backspace: the marshals drain it, the engine
+  is worn after). Clay knocks count a third of rock. Damage carries between
+  events; the garage's Repairs row shows the bill and fixes it all.
+- **Armor page**: skid plates (and they slide you off a rock), rock sliders,
+  roll bar / full cage (only up from what the rig came with), snorkel
+  (wade to ~1.5 m), chromoly shafts, heavy-duty tie rods. Bolted-on armor is
+  generic, sized off each body: check by eye that it sits right on every rig
+  (`-- --career --snap-garage --flex` after fitting it).
+- **More rigs**: the Rig row cycles every rig, yours or for sale (₱300,000
+  Owner .. ₱1.6M Rubikon); each keeps its own parts and damage.
+- To check by driving: does a normal run break about the right amount? The
+  test bot (seed 7, 21) comes home with a few percent off the tie rod and
+  body; hard driving in the gully and rock steps should cost more.
+- Tests: `tests/parts_test.tscn` (fits, money, rigs, repairs, old saves, ride
+  height on a stage), `tests/damage_test.tscn` (each way it breaks, with and
+  without the part that saves it), `tests/well_test.tscn` also checks every
+  lift with the biggest tires and all the armor.
   `--parts lift=4,tires=37_mt` drives parts in free play for tests.
 
 ## Tire pressure, water, ruts, the test bot

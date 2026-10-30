@@ -1,8 +1,12 @@
 # Career and upgrades — research and plan
 
-Status: step 1 built on branch `career-parts` (tires, lift, gearing, low
-range), with a first career loop (events, pesos, payout, garage parts page),
-so the parts live in career mode from day one. Builds on the three upgrades already queued in
+Status, on branch `career-parts`: steps 1 to 6 built: tires, lift, gearing,
+low range; the career loop (events, pesos, payout, garage pages); armor
+(skid plates, sliders, cage, snorkel, chromoly shafts, heavy-duty tie rods);
+damage (`scripts/vehicle/damage.gd`) and repairs; owning more than one rig.
+Not yet: lockers as a part (L still locks every rig), beadlocks, compressor,
+wheels moving between rigs with the same bolt pattern, radiator dents and
+bent panels you can see. Builds on the three upgrades already queued in
 `to-check.md` (wheels and tires, roll cage, skid plate).
 
 ## What real builders do

@@ -32,6 +32,8 @@ var rpm := 750.0
 var running := true
 var shifting := 0.0         # s left in a shift: no drive while the clutch is out
 var torque_out := 0.0       # N·m at the flywheel this step (+ drive, - engine braking)
+var power := 1.0            # what's left of the torque (damage: wear, limp mode)
+var seized := false         # hydrolocked or cooked: it won't crank
 var _crank := 0.0
 var _lugging := 0.0
 
@@ -96,6 +98,9 @@ func step(delta: float, throttle: float, reverse: bool, braking: bool, low_range
 
 	if not running:
 		rpm = move_toward(rpm, 0.0, 3000.0 * delta)
+		if seized:
+			_crank = 0.0
+			return 0.0
 		if throttle > 0.3:
 			_crank += delta
 			rpm = 180.0 + 60.0 * sin(_crank * 40.0)   # turning over
@@ -135,7 +140,7 @@ func step(delta: float, throttle: float, reverse: bool, braking: bool, low_range
 	target = lerpf(target, idle_rpm + pedal * (redline - idle_rpm) * 0.85, clampf(slip, 0.0, 1.0) * pedal)
 	rpm = lerpf(rpm, target, 1.0 - exp(-delta * 12.0))
 
-	var t := curve(rpm) * open
+	var t := curve(rpm) * open * power
 	if wheel_rpm > redline:
 		t = 0.0   # fuel cut
 	# engine braking: pumping and friction hold the rig back off the throttle

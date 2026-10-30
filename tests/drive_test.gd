@@ -102,8 +102,12 @@ func _physics_process(delta: float) -> void:
 	if z > terrain.plan.finish_z and not finished:
 		finished = true
 		print("FINISHED at t=%.0f with %d recoveries, %d winches" % [t, recoveries, winches])
+		if rig.damage.enabled:
+			print("DAMAGE (repairs %s): %s" % [Career.pesos_text(Damage.repair_cost(rig.damage.to_dict())), Damage.summary(rig.damage.to_dict())])
 	if t >= next_print:
 		next_print += 1.0
+		if rig.damage.enabled and int(t) % 30 == 0:
+			print("  damage: %s  coolant %.0f" % [Damage.summary(rig.damage.to_dict()), rig.damage.coolant])
 		var p := rig.global_position
 		var sinks := []
 		var slips := []

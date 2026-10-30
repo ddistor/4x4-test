@@ -452,6 +452,9 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 			f_lat = clampf(stop, -2.5 * load - 3000.0, 2.5 * load + 3000.0)
 			lat_at = wall.position
 			result["tripped"] = 1.0
+			# a rock face is what bends steering; a clay rut wall gives
+			if (wall.collider as Node).is_in_group("rock"):
+				result["trip_speed"] = absf(v_lat)
 
 	# --- soft-ground resistance -----------------------------------------
 	# Pushing a tire through mud: drag that grows with sink and wetness, plus

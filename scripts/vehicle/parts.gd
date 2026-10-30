@@ -12,8 +12,32 @@ extends RefCounted
 ## Prices are rough Philippine shop prices, installed, for a set of four tires
 ## or both axles.
 
-const SLOTS := ["tires", "lift", "gears", "low"]
-const SLOT_NAMES := {"tires": "Tires", "lift": "Lift", "gears": "Axle gears", "low": "Low range"}
+## The garage shows them on two pages.
+const DRIVETRAIN := ["tires", "lift", "gears", "low"]
+const ARMOR_SLOTS := ["skid", "sliders", "cage", "snorkel", "shafts", "steering"]
+const SLOTS := DRIVETRAIN + ARMOR_SLOTS
+const SLOT_NAMES := {"tires": "Tires", "lift": "Lift", "gears": "Axle gears", "low": "Low range",
+	"skid": "Skid plates", "sliders": "Rock sliders", "cage": "Cage", "snorkel": "Snorkel",
+	"shafts": "Axle shafts", "steering": "Tie rods"}
+
+## Protection, what each costs and does: slot -> {id: [name, kg, price, what it does]}.
+## The first is what most rigs come with. What damage each one saves you
+## from is in damage.gd.
+const ARMOR := {
+	"skid": {"none": ["None", 0.0, 0, "Oil pan and transfer case hang out under the belly: a rock strike cracks them."],
+		"steel": ["Steel plates", 35.0, 35000, "3/16 in steel under the oil pan and transfer case: a high-centred rig slides off the rock instead of hanging and cracking the pan."]},
+	"sliders": {"none": ["None", 0.0, 0, "The sills take every rock you slide against."],
+		"steel": ["Steel sliders", 30.0, 40000, "Tubes along the sills, bolted to the frame: lean on a rock and slide past it, the body stays straight."]},
+	"cage": {"none": ["None", 0.0, 0, "Roll it and the body takes it all."],
+		"bar": ["Roll bar", 25.0, 45000, "A hoop behind the seats: on its side or roof the bar carries the rig, not the body."],
+		"full": ["Full cage", 55.0, 110000, "Hoops front and back joined over the top: a rollover bends tubes, not the rig. Weight up high: tips a little sooner."]},
+	"snorkel": {"none": ["None", 0.0, 0, "The air intake sits behind the grille: water over about 0.9 m at the front tires drowns the engine."],
+		"snorkel": ["Snorkel", 6.0, 28000, "Intake up at the roof line: wade to about 1.5 m without hydrolocking it."]},
+	"shafts": {"stock": ["Stock", 0.0, 0, "Fine until a spinning tire grabs with the lockers in: then one snaps."],
+		"chromoly": ["Chromoly", 4.0, 60000, "Chromoly shafts and joints front and rear: they take a shock load the stock ones snap on."]},
+	"steering": {"stock": ["Stock", 0.0, 0, "Slam a front tire sideways into a rock and the tie rod bends: the rig pulls to one side."],
+		"hd": ["Heavy-duty", 3.0, 18000, "A thick-wall tie rod and drag link: they shrug off hits that bend the stock ones."]}}
+const CAGE_IDS := ["none", "bar", "full"]
 
 ## Tire sizes, inches: [radius m, width m, price for a set of mud-terrains].
 ## All-terrains are 80% of that.
@@ -60,6 +84,18 @@ static func options(stock: RigSpec, slot: String) -> Array[String]:
 			out.append(_ratio_id(stock.low_ratio))
 			if stock.low_ratio < LOW_4:
 				out.append(_ratio_id(LOW_4))
+		"cage":
+			# a welded-in cage stays: you can only go up from what it came with
+			for i in range(stock.cage, CAGE_IDS.size()):
+				out.append(CAGE_IDS[i])
+		"sliders":
+			if not stock.sliders:
+				out.append("none")
+			out.append("steel")
+		_:
+			if ARMOR.has(slot):
+				for k: String in ARMOR[slot]:
+					out.append(k)
 	return out
 
 
@@ -78,6 +114,13 @@ static func stock_option(stock: RigSpec, slot: String) -> String:
 			return _ratio_id(stock.final_drive)
 		"low":
 			return _ratio_id(stock.low_ratio)
+		"cage":
+			return CAGE_IDS[stock.cage]
+		"sliders":
+			return "steel" if stock.sliders else "none"
+		_:
+			if ARMOR.has(slot):
+				return (ARMOR[slot] as Dictionary).keys()[0]
 	return ""
 
 
@@ -92,6 +135,8 @@ static func label(slot: String, id: String) -> String:
 			return "%s:1" % id
 		"low":
 			return "%s:1" % id
+	if ARMOR.has(slot):
+		return ARMOR[slot][id][0]
 	return id
 
 
@@ -107,6 +152,8 @@ static func price(slot: String, id: String) -> int:
 			return GEAR_PRICE
 		"low":
 			return LOW_PRICE
+	if ARMOR.has(slot):
+		return ARMOR[slot][id][2]
 	return 0
 
 
@@ -139,6 +186,10 @@ static func describe(stock: RigSpec, slot: String, id: String) -> String:
 			var lo := float(id)
 			return "Crawl ratio %.0f:1 in 1st low (stock %.0f:1). For rock steps and steep clay." % [
 				stock.gears[0] * stock.final_drive * lo, stock.gears[0] * stock.final_drive * stock.low_ratio]
+	if ARMOR.has(slot):
+		if slot == "cage" and id == CAGE_IDS[stock.cage] and stock.cage > 0:
+			return "Came with the rig. " + ARMOR[slot][id][3]
+		return ARMOR[slot][id][3]
 	return ""
 
 
@@ -197,6 +248,27 @@ static func apply(s: RigSpec, fit: Dictionary) -> RigSpec:
 	if fit.has("low") and float(fit["low"]) != s.low_ratio:
 		s.low_ratio = float(fit["low"])
 		s.mass += LOW_KG
+	for slot: String in ARMOR_SLOTS:
+		if not fit.has(slot) or fit[slot] == stock_option(s, slot):
+			continue
+		var a: Array = ARMOR[slot][fit[slot]]
+		s.mass += a[1]
+		match slot:
+			"skid":
+				s.skid = true
+			"sliders":
+				s.sliders = true
+			"cage":
+				var c := CAGE_IDS.find(fit[slot])
+				# weight up high: the cage's mass raises the centre of mass a little
+				s.center_of_mass.y += 0.012 * (c - s.cage)
+				s.cage = c
+			"snorkel":
+				s.intake_depth = 1.5
+			"shafts":
+				s.chromoly = true
+			"steering":
+				s.hd_steering = true
 	return s
 
 

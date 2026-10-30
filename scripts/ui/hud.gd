@@ -72,6 +72,8 @@ func _career_pay() -> String:
 	var c := Game.career
 	var e: Array = Career.EVENTS[c.event]
 	var pay := c.finish(c.event, rig.recoveries)
+	c.bank_damage(rig.damage.to_dict())
+	var fix := c.repair_cost()
 	_finish.add_theme_font_size_override("font_size", 34)
 	_finish.position = Vector2(-700, -120)
 	_finish.size = Vector2(1400, 160)
@@ -79,8 +81,9 @@ func _career_pay() -> String:
 	if rig.recoveries > 0:
 		fees = "  less %d marshal recover%s %s" % [rig.recoveries, "y" if rig.recoveries == 1 else "ies",
 			Career.pesos_text(rig.recoveries * Career.RECOVERY_FEE)]
-	return "%s: you made it to the end.\n%s%s  =  %s\nIn the bank: %s  ·  Esc for the garage" % [
-		e[0], Career.pesos_text(e[2]), fees, Career.pesos_text(pay), Career.pesos_text(c.pesos)]
+	var bill := "  ·  repairs waiting %s" % Career.pesos_text(fix) if fix > 0 else ""
+	return "%s: you made it to the end.\n%s%s  =  %s\nIn the bank: %s%s  ·  Esc for the garage" % [
+		e[0], Career.pesos_text(e[2]), fees, Career.pesos_text(pay), Career.pesos_text(c.pesos), bill]
 
 
 ## Which section you're in and how far up the trail; no clock, it's a drive.

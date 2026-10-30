@@ -13,7 +13,8 @@ func _ready() -> void:
 	get_tree().quit()
 
 
-## Stock, and each lift with the biggest tires that fit under it (career parts).
+## Stock, and each lift with the biggest tires that fit under it and all the
+## armor (career parts).
 func _builds(stock: RigSpec) -> Array[Dictionary]:
 	var out: Array[Dictionary] = [{}]
 	for lift: String in Parts.options(stock, "lift"):
@@ -21,7 +22,8 @@ func _builds(stock: RigSpec) -> Array[Dictionary]:
 		for t: String in Parts.options(stock, "tires"):
 			if t.ends_with("_mt") and Parts.blocked(stock, {"lift": lift}, "tires", t) == "":
 				best = t
-		out.append({"lift": lift, "tires": best})
+		# and every bit of armor bolted on (it mustn't reach into a tire either)
+		out.append({"lift": lift, "tires": best, "skid": "steel", "sliders": "steel", "cage": "full", "snorkel": "snorkel"})
 	return out
 
 
@@ -86,7 +88,7 @@ func _check(k: int, fit: Dictionary) -> int:
 			var bb: AABB = found[part][2]
 			line += "\n    %s: %d points, x %.2f..%.2f y %.2f..%.2f z %.2f..%.2f" % [part, found[part][0],
 				bb.position.x, bb.end.x, bb.position.y, bb.end.y, bb.position.z, bb.end.z]
-	print("%-10s %-28s %s" % [s.id, " ".join(fit.values()), line])
+	print("%-10s %-28s %s" % [s.id, " ".join([fit.get("lift", ""), fit.get("tires", "")]), line])
 	bad += found.size()
 	rig.queue_free()
 	await get_tree().process_frame

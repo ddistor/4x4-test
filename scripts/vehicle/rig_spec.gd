@@ -35,6 +35,15 @@ var footprint := 1.0
 ## so wells keep their stock size whatever is fitted under them (0 = follow
 ## the tires).
 var fender_top := 0.0
+# armor and protection (career parts; what the body is built with is stock)
+var cage := 0                 # 0 none, 1 roll bar, 2 full cage
+var cage_built := 0           # what the body models itself (stock)
+var sliders := false          # rock sliders along the sills
+var sliders_built := false
+var skid := false             # steel skid plates under the oil pan and transfer case
+var intake_depth := 0.9       # water depth at the front tires that drowns the intake, m
+var chromoly := false         # chromoly axle shafts: take a shock load far better
+var hd_steering := false      # heavy-duty tie rod: bends far less
 
 ## Where the hubs ride (rig space y) on level ground on stock suspension;
 ## the bodies build their wheel wells round this.
@@ -119,6 +128,8 @@ static func _gera() -> RigSpec:
 	s.cabin_lo = Vector3(0, 0.55, -0.32)   # open tub: only flecks land in it
 	s.cabin_hi = Vector3(0.695, 2.2, 1.57)
 	s.cabin_open = true
+	s.cage = 2
+	s.cage_built = 2
 	s.build_body = GeraBody.build
 	return s
 
@@ -143,6 +154,10 @@ static func _gerilya() -> RigSpec:
 	s.cabin_lo = Vector3(0, 0.55, -0.32)   # open tub: only flecks land in it
 	s.cabin_hi = Vector3(0.695, 2.2, 1.57)
 	s.cabin_open = true
+	s.cage = 2
+	s.cage_built = 2
+	s.sliders = true
+	s.sliders_built = true
 	s.build_body = GeraBody.build_trail
 	return s
 
@@ -184,6 +199,8 @@ static func _kuwarenta() -> RigSpec:
 	s.cabin_lo = Vector3(0, 0.49, -0.455)   # open tub: only flecks land in it
 	s.cabin_hi = Vector3(0.79, 2.0, 1.735)
 	s.cabin_open = true
+	s.cage = 1
+	s.cage_built = 1
 	s.build_body = KuwarentaBody.build
 	return s
 

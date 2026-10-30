@@ -23,10 +23,12 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   (values, presets, saving and applying live in `scripts/graphics_settings.gd`,
   `Game.gfx`); `hud.gd` — rig status, inclinometers, section
   and distance (no clock on purpose: it's a drive, not a race); `ui_kit.gd` — shared look.
-- `scripts/career.gd` — career mode (`Game.career`): the rig you picked, pesos, parts
-  owned and fitted, club events and their pay; `user://career.cfg`. Free play never
-  uses it. Parts themselves are in `scripts/vehicle/parts.gd` (`Parts`: tires, lift,
-  axle gears, low range; prices, what fits, `Parts.apply` on a RigSpec).
+- `scripts/career.gd` — career mode (`Game.career`): the rigs you own, each with its
+  parts and damage, pesos, club events and their pay; `user://career.cfg`. Free play
+  never uses it. Parts are in `scripts/vehicle/parts.gd` (`Parts`: tires, lift, axle
+  gears, low range, and armor; prices, what fits, `Parts.apply` on a RigSpec);
+  bolted-on armor is modelled by `armor.gd`; what breaks and why in `damage.gd`
+  (on in a career, `--damage` in free play).
 - `scripts/main.gd` — builds environment, terrain, rig, camera, HUD, pause menu.
 - `scripts/world/stage_plan.gd` — the seeded chain of sections: paddy road first,
   then six of laterite climb, kanal ruts, boulder river, lahar wash, rock steps, rock gully,
@@ -87,7 +89,8 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   thin blades otherwise makes NaNs that glow turns into white blobs).
 - `tests/mud_test.tscn` — mud on the rig: build-up, drying to crust, flaking on
   knocks, washing in a river (`--pictures --close` with a window renders the stages).
-- `tests/parts_test.tscn` — career parts and money, and the ride height on a stage.
+- `tests/parts_test.tscn` — career parts, rigs and money, and the ride height on a stage;
+  `tests/damage_test.tscn` — each way a rig breaks, with and without the part that saves it.
 - `tests/drive_test.tscn` — headless smoke test that drives a whole stage with a
   line-follower (crawling in 4L), recovers when stuck >10 s and prints where:
   `godot --headless --path . res://tests/drive_test.tscn --quit-after 36000 -- --seed 7`

@@ -23,6 +23,11 @@ var _pesos: Label
 var _desc: Label
 var _part_rows := {}   # slot -> [cycle button, action button]
 var _event_btn: Button
+var _try_rig := ""     # a rig on the pad you're looking at (owned or for sale)
+var _rig_pick: Button
+var _rig_act: Button
+var _repair_pick: Button
+var _repair_act: Button
 var _drive_btn: Button
 
 
@@ -115,58 +120,77 @@ func _career_panel(col: VBoxContainer) -> void:
 		_drive_btn.grab_focus()
 		_show_names()
 		return
-	_pesos = UiKit.label("", 28, UiKit.CLAY.lightened(0.35))
-	col.add_child(_pesos)
+	# the rig you're working on: click to look over your others, or ones for sale
+	var rig_row := HBoxContainer.new()
+	rig_row.add_theme_constant_override("separation", 10)
+	_rig_pick = _small("", 300)
+	_rig_act = _small("", 150)
+	_rig_act.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_rig_pick.pressed.connect(_cycle_rig)
+	_rig_act.pressed.connect(_rig_action)
+	rig_row.add_child(_rig_pick)
+	rig_row.add_child(_rig_act)
+	col.add_child(rig_row)
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 10)
-	var parts_tab := UiKit.button("Parts", 225)
-	var look_tab := UiKit.button("Look", 225)
-	tabs.add_child(parts_tab)
-	tabs.add_child(look_tab)
 	col.add_child(tabs)
-	var parts_box := VBoxContainer.new()
-	parts_box.add_theme_constant_override("separation", 8)
-	col.add_child(parts_box)
-	var look_box := VBoxContainer.new()
-	look_box.add_theme_constant_override("separation", 8)
-	look_box.visible = false
-	col.add_child(look_box)
-	parts_tab.pressed.connect(func() -> void:
-		parts_box.visible = true
-		look_box.visible = false)
-	look_tab.pressed.connect(func() -> void:
-		parts_box.visible = false
-		look_box.visible = true)
+	var pages := {}
+	for page: String in ["Drivetrain", "Armor", "Look"]:
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 6)
+		box.visible = page == "Drivetrain"
+		pages[page] = box
+		var tab := _small(page, 147)
+		tab.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tab.pressed.connect(func() -> void:
+			for k: String in pages:
+				(pages[k] as Control).visible = k == page)
+		tabs.add_child(tab)
+		col.add_child(box)
 	for slot: String in Parts.SLOTS:
 		if Parts.options(c.stock_spec(), slot).size() < 2:
 			continue
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
-		var pick := UiKit.button("", 300)
-		var act := UiKit.button("", 150)
+		var pick := _small("", 300)
+		var act := _small("", 150)
 		act.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		pick.pressed.connect(_cycle_part.bind(slot))
 		act.pressed.connect(_part_action.bind(slot))
 		row.add_child(pick)
 		row.add_child(act)
-		parts_box.add_child(row)
+		(pages["Drivetrain" if Parts.DRIVETRAIN.has(slot) else "Armor"] as VBoxContainer).add_child(row)
 		_part_rows[slot] = [pick, act]
+	_look_rows(pages["Look"])
+	(pages["Look"] as VBoxContainer).add_child(_flex_button())
 	_desc = UiKit.label("", 17, UiKit.DIM)
 	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_desc.custom_minimum_size = Vector2(460, 48)
-	parts_box.add_child(_desc)
-	parts_box.add_child(_flex_button())
-	_look_rows(look_box)
-	_event_btn = UiKit.button("", 460)
+	col.add_child(_desc)
+	var fix_row := HBoxContainer.new()
+	fix_row.add_theme_constant_override("separation", 10)
+	_repair_pick = _small("", 300)
+	_repair_act = _small("", 150)
+	_repair_act.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_repair_pick.pressed.connect(func() -> void:
+		var what := Damage.summary(c.damage)
+		_desc.text = ("Worn or broken: " + what + ".") if what != "" else "Nothing on this rig needs fixing.")
+	_repair_act.pressed.connect(func() -> void:
+		if c.repair():
+			_show_career())
+	fix_row.add_child(_repair_pick)
+	fix_row.add_child(_repair_act)
+	col.add_child(fix_row)
+	_event_btn = _small("", 460)
 	_event_btn.pressed.connect(func() -> void:
 		c.event = (c.event + 1) % Career.EVENTS.size()
 		c.save_file()
 		_show_career())
 	col.add_child(_event_btn)
-	_drive_btn = UiKit.button("", 460)
+	_drive_btn = _small("", 460)
 	_drive_btn.pressed.connect(_drive)
 	col.add_child(_drive_btn)
-	var back := UiKit.button("Back to the start menu", 460)
+	var back := _small("Back to the start menu", 460)
 	back.pressed.connect(Game.to_menu)
 	col.add_child(back)
 	_drive_btn.grab_focus()
@@ -174,10 +198,81 @@ func _career_panel(col: VBoxContainer) -> void:
 	_show_career()
 
 
+## A garage button a little shorter than the menu's, so the career page fits.
+func _small(text: String, wide: int) -> Button:
+	var b := UiKit.button(text, wide)
+	b.custom_minimum_size.y = 42
+	b.add_theme_font_size_override("font_size", 20)
+	return b
+
+
+## Look at the next rig: one of yours, or one a club member is selling.
+func _cycle_rig() -> void:
+	var c := Game.career
+	var all := RigSpec.kinds()
+	var cur := Career.kind_of(_try_rig if _try_rig != "" else c.rig_id)
+	_try_rig = all[(cur + 1) % all.size()].id
+	_try_slot = ""
+	Game.rig_kind = Career.kind_of(_try_rig)
+	_show_career()
+	_rebuild()
+
+
+## Back to the rig you're working on.
+func _end_rig_try() -> void:
+	if _try_rig == "":
+		return
+	_try_rig = ""
+	Game.rig_kind = Game.career.rig_kind()
+
+
+## Switch to a rig you own, or buy the one on the pad.
+func _rig_action() -> void:
+	var c := Game.career
+	if _try_rig == "" or _try_rig == c.rig_id:
+		return
+	if c.owns_rig(_try_rig):
+		c.switch_rig(_try_rig)
+	elif not c.buy_rig(_try_rig):
+		return
+	# the page is built round the rig's own parts: build it again
+	Game.use_career_rig()
+	Game.to_garage(Game.stage_seed)
+
+
+func _show_rig_row() -> void:
+	var c := Game.career
+	var id := _try_rig if _try_rig != "" else c.rig_id
+	var k := RigSpec.get_kind(Career.kind_of(id))
+	_rig_pick.text = "Rig: " + k.name
+	_rig_act.disabled = true
+	if id == c.rig_id:
+		_rig_act.text = "Driving"
+	elif c.owns_rig(id):
+		_rig_act.text = "Switch"
+		_rig_act.disabled = false
+	else:
+		var cost: int = Career.RIG_PRICES.get(id, 0)
+		_rig_act.text = Career.pesos_text(cost)
+		_rig_act.disabled = cost > c.pesos
+	if _try_rig != "" and _try_rig != c.rig_id:
+		_desc.text = ("Yours: switch to work on it and drive it." if c.owns_rig(id)
+			else "For sale as it stands, stock. Your parts stay on the rig they were fitted to.")
+
+
 ## The name and blurb of the rig on the pad, under a heading.
 func _header(col: VBoxContainer, title: String) -> void:
-	col.add_child(UiKit.label(title, 46))
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 24)
+	top.add_child(UiKit.label(title, 46))
+	_pesos = UiKit.label("", 30, UiKit.CLAY.lightened(0.35))
+	_pesos.size_flags_vertical = Control.SIZE_SHRINK_END
+	_pesos.visible = Game.in_career and Game.career.started
+	top.add_child(_pesos)
+	col.add_child(top)
 	_name = UiKit.label("", 30)
+	# in a career the rig row names it
+	_name.visible = not (Game.in_career and Game.career.started)
 	col.add_child(_name)
 	_blurb = UiKit.label("", 18, UiKit.DIM)
 	_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -223,6 +318,7 @@ func _gap(col: VBoxContainer) -> void:
 
 ## Show the next option for `slot` on the pad, before you pay for it.
 func _cycle_part(slot: String) -> void:
+	_end_rig_try()
 	var c := Game.career
 	var opts := Parts.options(c.stock_spec(), slot)
 	var cur := _try_id if _try_slot == slot else c.fitted_id(slot)
@@ -253,6 +349,11 @@ func _show_career() -> void:
 	var stock := c.stock_spec()
 	_pesos.text = Career.pesos_text(c.pesos)
 	_desc.text = "Click a part to try the next one on the rig, then fit it."
+	_show_rig_row()
+	var fix := c.repair_cost()
+	_repair_pick.text = "Repairs: %s" % ("nothing to fix" if fix == 0 else Career.pesos_text(fix))
+	_repair_act.text = "Fix it all" if fix > 0 else "Sound"
+	_repair_act.disabled = fix == 0 or fix > c.pesos
 	for slot: String in _part_rows:
 		var pick: Button = _part_rows[slot][0]
 		var act: Button = _part_rows[slot][1]
@@ -291,6 +392,9 @@ func _preview_parts() -> Variant:
 	if not (Game.in_career and Game.career.started):
 		return null
 	var c := Game.career
+	if _try_rig != "" and _try_rig != c.rig_id:
+		# another rig: as it stands in your shed, or as it comes
+		return (c.rigs.get(_try_rig, {}) as Dictionary).get("fitted", {})
 	var fit := c.fitted.duplicate()
 	if _try_slot != "" and Parts.blocked(c.stock_spec(), c.fitted, _try_slot, _try_id) == "":
 		fit[_try_slot] = _try_id
@@ -362,12 +466,21 @@ func _rebuild() -> void:
 	_rig.position = Vector3(0, _rig.spec.tire_radius - 0.05 + _rig.spec.lift, 0)
 	_rig.driver.snap()
 	_rig.flex = _flex
+	if _name:
+		_show_names()
 
 
 func _show_names() -> void:
 	var s := RigSpec.get_kind(Game.rig_kind)
 	_name.text = s.name
 	_blurb.text = s.blurb
+	if Game.in_career and Game.career.started and _rig and _rig.spec.tire_radius != s.tire_radius:
+		# what's fitted, not what it came on
+		var size := roundi(_rig.spec.tire_radius * 2.0 / 0.0254)
+		var re := RegEx.create_from_string("on \\d\\ds")
+		_blurb.text = re.sub(s.blurb, "now on %ds" % size)
+	if Game.in_career and Game.career.started and _rig and _rig.spec.cage > s.cage:
+		_blurb.text = _blurb.text.replace("roll bar", "full cage")
 	if Game.in_career and not Game.career.started:
 		_drive_btn.text = "Start the career in the " + s.name
 

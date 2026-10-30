@@ -1,11 +1,16 @@
 class_name Career
 extends RefCounted
-## Career mode: the rig you picked, your pesos, the parts you've bought and
-## the ones fitted, and the club events you can enter. Kept between launches
-## in user://career.cfg. Free play doesn't touch any of it.
+## Career mode: the rigs you own (you start with one you pick, buy more as
+## the pesos come in), the parts each has bought and fitted, the damage each
+## carries, your pesos, and the club events you can enter. Kept between
+## launches in user://career.cfg. Free play doesn't touch any of it.
+##
+## Parts stay with the rig they were bought for: lifts, gears, cages and the
+## rest are made for that chassis (see docs/upgrades.md).
 ##
 ## No clock (it's a drive, not a race): an event pays for getting to the end,
-## less the marshals' fee each time they put you back on the trail.
+## less the marshals' fee each time they put you back on the trail. Damage
+## is paid for in the garage, when you choose to fix it.
 
 const FILE := "user://career.cfg"
 const START_PESOS := 60000
@@ -16,19 +21,37 @@ const EVENTS := [
 	["Sunday club run", 0, 30000, 0],
 	["Club challenge", 1, 55000, 1],
 	["Invitational", 2, 95000, 2]]
+## What another rig costs, as it comes (a used rig off a club member).
+const RIG_PRICES := {"gera": 650000, "kuwarenta": 550000, "feroz": 350000, "ronda": 700000,
+	"owner": 300000, "rubikon": 1600000, "gerilya": 950000}
 
 var started := false
+## the rig you're working on and drive
 var rig_id := ""
 var pesos := 0
-## slot -> option ids bought (the stock part is always owned)
-var owned := {}
-## slot -> option id, only where it isn't the stock part
-var fitted := {}
+## rig id -> {"owned": slot -> [ids bought], "fitted": slot -> id (only
+## where it isn't stock), "damage": part -> condition (damage.gd)}
+var rigs := {}
 ## finishes per event
 var finishes: Array[int] = [0, 0, 0]
 var event := 0
 ## Where it's kept (the tests point this somewhere else).
 var file := FILE
+
+## The current rig's parts bought and fitted, and its damage.
+var owned: Dictionary:
+	get: return _state().get_or_add("owned", {})
+	set(v): _state()["owned"] = v
+var fitted: Dictionary:
+	get: return _state().get_or_add("fitted", {})
+	set(v): _state()["fitted"] = v
+var damage: Dictionary:
+	get: return _state().get_or_add("damage", {})
+	set(v): _state()["damage"] = v
+
+
+func _state() -> Dictionary:
+	return rigs.get_or_add(rig_id, {})
 
 
 func load_file() -> void:
@@ -38,8 +61,10 @@ func load_file() -> void:
 	started = cfg.get_value("career", "started", false)
 	rig_id = cfg.get_value("career", "rig", "")
 	pesos = cfg.get_value("career", "pesos", START_PESOS)
-	owned = cfg.get_value("career", "owned", {})
-	fitted = cfg.get_value("career", "fitted", {})
+	rigs = cfg.get_value("career", "rigs", {})
+	if rigs.is_empty() and rig_id != "":
+		# a save from before you could own more than one rig
+		rigs[rig_id] = {"owned": cfg.get_value("career", "owned", {}), "fitted": cfg.get_value("career", "fitted", {})}
 	var f: Array = cfg.get_value("career", "finishes", [0, 0, 0])
 	for i in mini(f.size(), finishes.size()):
 		finishes[i] = int(f[i])
@@ -53,8 +78,7 @@ func save_file() -> void:
 	cfg.set_value("career", "started", started)
 	cfg.set_value("career", "rig", rig_id)
 	cfg.set_value("career", "pesos", pesos)
-	cfg.set_value("career", "owned", owned)
-	cfg.set_value("career", "fitted", fitted)
+	cfg.set_value("career", "rigs", rigs)
 	cfg.set_value("career", "finishes", finishes)
 	cfg.set_value("career", "event", event)
 	cfg.save(file)
@@ -65,8 +89,7 @@ func start(kind: int) -> void:
 	started = true
 	rig_id = RigSpec.get_kind(kind).id
 	pesos = START_PESOS
-	owned = {}
-	fitted = {}
+	rigs = {rig_id: {}}
 	finishes = [0, 0, 0]
 	event = 0
 	save_file()
@@ -74,15 +97,41 @@ func start(kind: int) -> void:
 
 ## Index into RigSpec.kinds() of the career rig, -1 if there's none.
 func rig_kind() -> int:
+	return kind_of(rig_id)
+
+
+static func kind_of(id: String) -> int:
 	var all := RigSpec.kinds()
 	for k in all.size():
-		if all[k].id == rig_id:
+		if all[k].id == id:
 			return k
 	return -1
 
 
 func stock_spec() -> RigSpec:
 	return RigSpec.get_kind(rig_kind())
+
+
+func owns_rig(id: String) -> bool:
+	return rigs.has(id)
+
+
+## Work on and drive another rig you own.
+func switch_rig(id: String) -> void:
+	if owns_rig(id):
+		rig_id = id
+		save_file()
+
+
+## Buy rig `id` and switch to it. False if you can't afford it.
+func buy_rig(id: String) -> bool:
+	var cost: int = RIG_PRICES.get(id, 0)
+	if owns_rig(id) or cost > pesos:
+		return false
+	pesos -= cost
+	rigs[id] = {}
+	switch_rig(id)
+	return true
 
 
 func fitted_id(slot: String) -> String:
@@ -113,6 +162,28 @@ func buy(slot: String, id: String) -> bool:
 	owned[slot] = list
 	fit(slot, id)
 	return true
+
+
+## What fixing the current rig would cost.
+func repair_cost() -> int:
+	return Damage.repair_cost(damage)
+
+
+## Fix everything on the current rig. False if you can't afford it.
+func repair() -> bool:
+	var cost := repair_cost()
+	if cost > pesos:
+		return false
+	pesos -= cost
+	damage = {}
+	save_file()
+	return true
+
+
+## Keep what the stage did to the rig.
+func bank_damage(d: Dictionary) -> void:
+	damage = d
+	save_file()
 
 
 func unlocked(e: int) -> bool:

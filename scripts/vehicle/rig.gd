@@ -52,6 +52,10 @@ var _plumes: Array[Vector4] = []   # clay stirred into the water: x, z, strength
 var _plume_next := 0
 var _plume_wait := 0.0
 var wheel_status: Array[Dictionary] = []
+## drive force handed to each tire this step, N (damage reads it)
+var drive_per_wheel: Array[float] = [0.0, 0.0, 0.0, 0.0]
+## what breaks (damage.gd): on in career mode, off in free play
+var damage := Damage.new()
 var psi_target := 35.0
 var airing := 0          # -1 letting air out, +1 compressor running, 0 idle
 
@@ -113,6 +117,7 @@ func _ready() -> void:
 	kit.name = "RecoveryKit"
 	add_child(kit)
 	kit.setup(self)
+	damage.setup(self, Game.rig_damage(), not preview and Game.damage_on())
 	_build_wheels()
 	_build_axles()
 	_build_cable()
@@ -126,6 +131,7 @@ func _ready() -> void:
 
 func _build_body() -> void:
 	spec.build_body.call(self)
+	Armor.build(self)
 
 
 ## The body colour picked in the menu: gloss paint, or polished stainless.
@@ -316,6 +322,7 @@ func reset_to_spawn() -> void:
 ## recovery, not a trip back to the start of the stage.
 func recover() -> void:
 	recoveries += 1
+	damage.on_recover()
 	place_on_trail(clampf(global_position.z - 2.0, 6.0, terrain.length - 5.0))
 
 
@@ -379,10 +386,13 @@ func _physics_process(delta: float) -> void:
 	var tire_spin := 0.0
 	for w in wheels:
 		tire_spin += w.slip * 0.25
+	if not damage.low_range_ok():
+		low_range = false   # the transfer case is broken
+	gearbox.power = damage.power()
 	var drive_total := gearbox.step(delta, pedal, reverse, braking, low_range, v_fwd, wheels[0].effective_radius(), tire_spin)
-	# hydrolock-lite: a drowned intake chokes the engine
+	# a drowned intake chokes the engine (with damage on, it hydrolocks)
 	var front_water := maxf(wheels[0].ground.get("water_depth", 0.0), wheels[1].ground.get("water_depth", 0.0))
-	choke = smoothstep(0.75, 1.05, front_water)
+	choke = smoothstep(spec.intake_depth - 0.15, spec.intake_depth + 0.15, front_water)
 	drive_total *= 1.0 - choke
 	# spinning tires turn at what the engine turns them through the gears
 	var spin_omega := gearbox.rpm * TAU / 60.0 / gearbox.ratio(low_range) * (-1.0 if gearbox.gear < 0 else 1.0)
@@ -405,7 +415,7 @@ func _physics_process(delta: float) -> void:
 
 	# --- steering & diffs ---------------------------------------------------
 	for w in wheels:
-		w.steer_angle = steer if w.steerable else 0.0
+		w.steer_angle = steer + damage.steer_offset() if w.steerable else 0.0
 
 	# Open diff: an axle can only put down twice what its weaker tire holds —
 	# the light/wet wheel spins, the planted one gets nothing. Locked: each
@@ -434,14 +444,23 @@ func _physics_process(delta: float) -> void:
 			bar = clampf(bar, -light.stiffness * maxf(light_c, 0.0), light.stiffness * maxf(light_c, 0.0))
 		wheels[a].axle_load = bar
 		wheels[b].axle_load = -bar
+		# a snapped shaft: that side gets nothing, and an open diff sends
+		# everything to the side that's spinning free, so neither drives
+		var drive_a := per_axle * 0.5
+		var drive_b := per_axle * 0.5
+		if not damage.shaft_ok(axle == 0):
+			drive_b = per_axle * 0.5 if diff_locked else 0.0
+			drive_a = 0.0
+		drive_per_wheel[a] = drive_a
+		drive_per_wheel[b] = drive_b
 		var cap_override_a := -1.0
 		var cap_override_b := -1.0
 		if not diff_locked:
 			var weakest: float = minf(caps[a], caps[b])
 			cap_override_a = weakest
 			cap_override_b = weakest
-		var ra := wheels[a].physics_step(self, terrain, delta, per_axle * 0.5, wheel_brake, cap_override_a)
-		var rb := wheels[b].physics_step(self, terrain, delta, per_axle * 0.5, wheel_brake, cap_override_b)
+		var ra := wheels[a].physics_step(self, terrain, delta, drive_a, wheel_brake, cap_override_a)
+		var rb := wheels[b].physics_step(self, terrain, delta, drive_b, wheel_brake, cap_override_b)
 		wheel_status.append(ra)
 		wheel_status.append(rb)
 
@@ -564,6 +583,7 @@ func _physics_process(delta: float) -> void:
 		spare_mat.set_shader_parameter("tire_mud", minf(1.0, (corner_mud[2] + corner_mud[3]) * 0.25))
 		spare_mat.set_shader_parameter("dryness", dryness)
 
+	damage.step(delta)
 	_stir_water(delta)
 	terrain.mud.flush()
 
@@ -697,12 +717,13 @@ func status_text() -> String:
 	var lines := []
 	lines.append("%3.0f km/h   %s %s %s   %s" % [speed_kmh, "4L" if low_range else "4H", gearbox.gear_name(),
 		"auto" if gearbox.auto else "manual", "DIFF LOCK" if diff_locked else "diff open"])
-	if choke > 0.3:
+	if choke > 0.3 and not damage.hydrolocked:
 		lines.append("ENGINE CHOKING: water over the intake (winch out)")
 	elif gearbox.running:
 		lines.append("%4.0f rpm" % gearbox.rpm)
-	else:
+	elif not gearbox.seized:
 		lines.append("STALLED  (throttle to crank it)")
+	lines.append_array(damage.status_lines())
 	if winch_active:
 		lines.append("WINCH  pulling (%.1f m)" % _bumper_pos().distance_to(winch_anchor))
 	var job := kit.status()

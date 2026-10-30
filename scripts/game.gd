@@ -52,6 +52,8 @@ var career := Career.new()
 var in_career := false
 ## `--parts slot=id,...`: drive with career parts outside the career (tests)
 var test_parts := {}
+## `--damage`: things break in free play too (tests); always on in a career
+var test_damage := false
 var career_flag_used := false   # `--career` on the command line: done once
 var _free_rig := -1   # the free-play pick, put back when you leave the career
 
@@ -90,6 +92,7 @@ func _ready() -> void:
 			var p := kv.split("=")
 			if p.size() == 2:
 				test_parts[p[0]] = p[1]
+	test_damage = "--damage" in args
 	var gi := args.find("--logo")
 	if gi >= 0 and gi + 1 < args.size():
 		logo = clampi(int(args[gi + 1]), 0, LOGOS.size() - 1)
@@ -127,8 +130,40 @@ func fitted_parts() -> Dictionary:
 	return test_parts
 
 
+## Damage carried into the stage: the career rig's, none in free play.
+func rig_damage() -> Dictionary:
+	return career.damage if in_career and career.started else {}
+
+
+func damage_on() -> bool:
+	return (in_career and career.started) or test_damage
+
+
+## Leaving a stage in career: keep what it did to the rig.
+func bank_damage() -> void:
+	if not (in_career and career.started):
+		return
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var rig := scene.get_node_or_null("Rig") as Rig
+	if rig and rig.damage.enabled:
+		career.bank_damage(rig.damage.to_dict())
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		bank_damage()
+
+
+func quit_game() -> void:
+	bank_damage()
+	get_tree().quit()
+
+
 ## Out of a stage from the pause menu: the garage in career, else the menu.
 func leave_stage() -> void:
+	bank_damage()
 	if in_career:
 		to_garage(random_seed())
 	else:
@@ -172,6 +207,7 @@ static func random_seed() -> int:
 
 
 func start_stage(seed_v: int) -> void:
+	bank_damage()   # a restart keeps what the last go did
 	stage_seed = seed_v
 	get_tree().paused = false
 	get_tree().change_scene_to_file(STAGE)
@@ -185,6 +221,7 @@ func to_garage(seed_v: int) -> void:
 
 
 func to_menu() -> void:
+	bank_damage()
 	in_career = false
 	if _free_rig >= 0:
 		rig_kind = _free_rig

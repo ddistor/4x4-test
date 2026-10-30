@@ -54,7 +54,7 @@ func _ready() -> void:
 	menu.pressed.connect(Game.leave_stage)
 	box.add_child(menu)
 	var quit := UiKit.button("Quit")
-	quit.pressed.connect(func() -> void: get_tree().quit())
+	quit.pressed.connect(Game.quit_game)
 	box.add_child(quit)
 
 

@@ -68,6 +68,37 @@ func _run() -> void:
 	_check("save round trip", d.started and d.rig_id == "gera" and d.pesos == c.pesos and d.owns("lift", "2.5") and d.finishes[0] == 2)
 	_check("pesos text", Career.pesos_text(1234567) == "₱1,234,567", Career.pesos_text(1234567))
 
+	# --- armor ---
+	_check("gera's cage is the one it came with", Array(Parts.options(gera, "cage")) == ["full"])
+	_check("kuwarenta's roll bar goes to a full cage", Array(Parts.options(kuw, "cage")) == ["bar", "full"])
+	_check("gerilya comes with sliders", Parts.options(_kind("gerilya"), "sliders").size() == 1)
+	var armored := Parts.apply(_kind("feroz"), {"skid": "steel", "sliders": "steel", "cage": "full", "snorkel": "snorkel", "shafts": "chromoly", "steering": "hd"})
+	_check("armor fitted", armored.skid and armored.sliders and armored.cage == 2 and armored.intake_depth > 1.0 and armored.chromoly and armored.hd_steering)
+	_check("armor weighs", armored.mass > feroz.mass + 100.0, armored.mass - feroz.mass)
+
+	# --- more rigs, repairs ---
+	c.pesos = 2000000
+	_check("buy a second rig", c.buy_rig("rubikon") and c.rig_id == "rubikon" and c.pesos == 2000000 - Career.RIG_PRICES["rubikon"])
+	_check("it comes stock", c.fitted.is_empty())
+	c.buy("lift", "4")
+	c.switch_rig("gera")
+	_check("parts stay on their rig", c.fitted_id("lift") == "stock" and not c.owns("lift", "4"))
+	c.bank_damage({"underbody": 0.5, "shaft_f": 0.0})
+	_check("repair bill", c.repair_cost() == 20000 + 15000, c.repair_cost())
+	var cash := c.pesos
+	_check("repair", c.repair() and c.pesos == cash - 35000 and c.repair_cost() == 0)
+	var old := ConfigFile.new()
+	old.set_value("career", "started", true)
+	old.set_value("career", "rig", "owner")
+	old.set_value("career", "fitted", {"lift": "2.5"})
+	old.set_value("career", "owned", {"lift": ["2.5"]})
+	old.save(TEST_FILE)
+	var m := Career.new()
+	m.file = TEST_FILE
+	m.load_file()
+	_check("an old one-rig save loads", m.started and m.rig_id == "owner" and m.fitted_id("lift") == "2.5" and m.owns("lift", "2.5"))
+	c.start(0)
+
 	# --- on the stage: lift + 37s raise the body by 2.5 in + 1 in of radius ---
 	Game.career = c
 	Game.in_career = true
