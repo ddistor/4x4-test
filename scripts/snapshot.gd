@@ -187,6 +187,8 @@ func _rig_shots() -> void:
 			var hub := Vector3(sx * t, 0.35, float(c[2]))
 			views.append(["96_well_%s" % c[0], hub + Vector3(sx * 1.6, 0.35, 0.0), hub + Vector3(0, 0.25, 0)])
 			views.append(["96_wellup_%s" % c[0], hub + Vector3(sx * 1.1, -0.1, 0.9), hub + Vector3(-sx * 0.2, 0.55, -0.1)])
+			# from under the rig at the back of the wheel, where it was hollow
+			views.append(["96_wheelin_%s" % c[0], Vector3(-sx * 0.25, 0.0, float(c[2]) + 1.1), hub + Vector3(0, -0.1, 0)])
 	for v: Array in views:
 		cam.global_position = r * (v[1] as Vector3)
 		cam.look_at(r * (v[2] as Vector3 if v.size() > 2 else Vector3(0, 0.95, 0)), r.basis.y)

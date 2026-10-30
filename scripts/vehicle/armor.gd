@@ -27,7 +27,20 @@ static func underbody(rig: Rig) -> void:
 	var sl := sill(rig)
 	var z := under_z(s)
 	var top := maxf(sl.y, UNDER_BOTTOM + 0.1)
-	_solid(rig, Vector3(UNDER_HALF * 2.0, top - UNDER_BOTTOM, z.y - z.x), Vector3(0, (top + UNDER_BOTTOM) * 0.5, (z.x + z.y) * 0.5))
+	# its front edge chamfered, like the bell housing and pan really are: a
+	# rock rides up under it instead of meeting a square face
+	var cs := CollisionShape3D.new()
+	cs.name = "Armor"
+	var hull := ConvexPolygonShape3D.new()
+	var lo := UNDER_BOTTOM
+	var ch := minf(0.2, top - lo)
+	var pts := PackedVector3Array()
+	for sx: float in [-UNDER_HALF, UNDER_HALF]:
+		pts.append_array([Vector3(sx, lo, z.y), Vector3(sx, top, z.y), Vector3(sx, top, z.x),
+			Vector3(sx, lo + ch, z.x), Vector3(sx, lo, z.x + ch)])
+	hull.points = pts
+	cs.shape = hull
+	rig.add_child(cs, true)
 	var st := MeshKit.begin()
 	var c := Color(0.06, 0.055, 0.05)
 	# the oil pan, the gearbox tapering back, the transfer case

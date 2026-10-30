@@ -1,6 +1,22 @@
 # To check in Claude Code / by hand
 
-## Dents, a crooked steering wheel, selling parts (branch `career-wear`)
+## Holes behind the wheels, small bumps like a wall (branch `fix-wheels-bumps`)
+
+- **Wheels from the inside**: every wheel's back was open (the face and
+  barrel were one-sided, and a gap to the tire's bead): from under the rig
+  you saw the ground through it. Closed now, with a brake drum behind the
+  face. All rigs and spares share the mesh. Check from the low chase camera.
+- **Small bumps**: the tire's solid drum (for a rig on its side) sat low
+  in the wheel, fixed to the body and not rolling; ground rising under the
+  front of it stopped the rig dead (`SNAG=1` on drive_test: 172 backward
+  shoves on seed 7, the worst 6 m/s from 30 km/h). It's smaller and higher
+  now (32, and what's left is half-metre ledges, banks, trees and straddle
+  rocks). The underbody's front edge is chamfered so rocks ride under it.
+  Check by driving: rolling over lumps and small ledges should jolt, not
+  stop you. tests/tip_test reads ~10 deg on this and on older commits
+  alike: worth a look separately.
+
+## Dents, a crooked steering wheel, selling parts (on main)
 
 - **Dents**: each knock that hurts the body leaves one where it hit (up to
   8): darkened, crumpled, scraped through to bare steel at the middle. They

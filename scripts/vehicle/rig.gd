@@ -264,14 +264,18 @@ func _build_wheels() -> void:
 		w.left_side = entry[2]
 		add_child(w)
 		wheels.append(w)
-		# the tire as a solid, a little inside the tread: it carries the rig
-		# when it's on its side and is the bump stop when the springs bottom
+		# the tire as a solid, well inside the tread: it carries the rig when
+		# it's on its side. Not the bump stop (wheel.gd has its own): it's
+		# fixed to the body and doesn't roll, so any bigger and the ground
+		# rising under the front of it stopped the rig dead on small bumps
 		var tire := CollisionShape3D.new()
 		var drum := CylinderShape3D.new()
-		drum.radius = spec.tire_radius - 0.145
+		drum.radius = spec.tire_radius - 0.25
 		drum.height = spec.tire_width - 0.12
 		tire.shape = drum
-		tire.transform = Transform3D(Basis(Vector3.BACK, PI * 0.5), w.position + Vector3(0, -0.1, 0))  # axle along X
+		# high in the wheel: on its side the rig rests on the drum's face, and
+		# it stays out of the way of a ledge the tire's climbing
+		tire.transform = Transform3D(Basis(Vector3.BACK, PI * 0.5), w.position + Vector3(0, -0.02, 0))  # axle along X
 		add_child(tire)
 
 

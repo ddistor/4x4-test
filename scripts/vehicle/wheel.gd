@@ -102,12 +102,31 @@ static func build_wheel_mesh(r: float, w: float, mirror: bool) -> SurfaceTool:
 			MeshKit.rounded_box(st, Vector3(0.075, hw * 0.75, 0.036), 0.008, xf * tread, lug_c, 1)
 			var shoulder := Transform3D(b * Basis(Vector3.RIGHT, -0.75 * row), radial * (carcass - 0.012) + Vector3.UP * row * (hw - 0.012))
 			MeshKit.rounded_box(st, Vector3(0.068, 0.06, 0.05), 0.01, xf * shoulder, lug_c, 1)
-	# wheel barrel (seen past the face) and dished face with holes
-	MeshKit.lathe(st, [Vector2(rim_r - 0.01, hw - 0.03), Vector2(rim_r - 0.01, -hw + 0.03)], xf, steel, 24)
-	MeshKit.lathe(st, [
+	# wheel barrel (seen past the face) and dished face with holes, both
+	# skinned on both sides: from under the rig you look at the back of the
+	# wheel, and a one-sided face there was a hole straight through it
+	var barrel: Array[Vector2] = [Vector2(rim_r - 0.01, hw - 0.03), Vector2(rim_r - 0.01, -hw + 0.03)]
+	var face: Array[Vector2] = [
 		Vector2(rim_r - 0.004, hw - 0.012), Vector2(0.15, hw - 0.055),
 		Vector2(0.085, hw - 0.055), Vector2(0.08, hw - 0.03), Vector2(0.0, hw - 0.03),
-	], xf, steel, 32)
+	]
+	MeshKit.lathe(st, barrel, xf, steel, 24)
+	MeshKit.lathe(st, face, xf, steel, 32)
+	var barrel_back := barrel.duplicate()
+	barrel_back.reverse()
+	MeshKit.lathe(st, barrel_back, xf, steel, 24)
+	var face_back: Array[Vector2] = []
+	for i in range(face.size() - 1, -1, -1):
+		face_back.append(face[i] - Vector2(0, 0.006))
+	MeshKit.lathe(st, face_back, xf, steel, 32)
+	# the inner rim flange: barrel out to the tire's bead, no gap between
+	var flange: Array[Vector2] = [Vector2(rim_r - 0.01, -hw + 0.03), Vector2(rim_r + 0.02, -hw + 0.012)]
+	MeshKit.lathe(st, flange, xf, steel, 24)
+	flange.reverse()
+	MeshKit.lathe(st, flange, xf, steel, 24)
+	# behind the face, what you see from inside: the brake drum and backing plate
+	MeshKit.cylinder(st, 0.15, 0.09, xf * Transform3D(Basis.IDENTITY, Vector3(0, hw - 0.14, 0)), rubber, 20)
+	MeshKit.cylinder(st, 0.17, 0.012, xf * Transform3D(Basis.IDENTITY, Vector3(0, hw - 0.2, 0)), rubber, 20)
 	for k in range(8):
 		var f := TAU * k / 8.0
 		var at := Vector3(cos(f) * 0.118, hw - 0.05, sin(f) * 0.118)

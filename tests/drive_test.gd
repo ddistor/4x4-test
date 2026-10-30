@@ -31,6 +31,8 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	t += delta
+	if OS.get_environment("SNAG") != "":
+		_snags()
 	# steer toward a point on the trail centre 7 m ahead
 	var look_z := rig.global_position.z + 7.0
 	var target := Vector3(terrain.trail_x_at(look_z), 0.0, look_z)
@@ -118,3 +120,20 @@ func _physics_process(delta: float) -> void:
 		print("t=%2.0f  pos=(%.1f, %.2f, %.1f)  %.0f km/h  sink=%s slip=%s cake=%.2f mud=%.0f%%  %s  %s" % [
 			t, p.x, p.y, p.z, rig.speed_kmh, sinks, slips, rig.cake, rig.mud_amount() * 100.0, "4L" if rig.low_range else "4H",
 			terrain.plan.section_at(p.z)["kind"]])
+
+
+## SNAG=1: print every body contact that shoves the rig back hard (rig
+## space, what it hit, the speed): what stops it dead on small bumps.
+func _snags() -> void:
+	if not rig.contact_monitor:
+		rig.contact_monitor = true
+		rig.max_contacts_reported = 16
+	var st := PhysicsServer3D.body_get_direct_state(rig.get_rid())
+	var fwd := -rig.global_basis.z
+	for c in st.get_contact_count():
+		var back := -st.get_contact_impulse(c).dot(fwd) / rig.mass
+		if back > 0.08 and rig.speed_kmh > 2.0:
+			var p := rig.to_local(st.get_contact_local_position(c))
+			var what := st.get_contact_collider_object(c) as Node
+			print("SNAG dv %.2f at (%.2f, %.2f, %.2f) on %s  %.0f km/h  %s" % [back, p.x, p.y, p.z,
+				what.name if what else "?", rig.speed_kmh, terrain.plan.section_at(rig.global_position.z)["kind"]])
