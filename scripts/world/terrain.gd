@@ -873,6 +873,13 @@ func _place_rocks() -> void:
 					var z := rng.randf_range(z0 + 8.0, z1 - 8.0)
 					add.call(trail_x_at(z) + rng.randf_range(-1.8, 1.8), z, rng.randf_range(0.28, 0.65) * plan.difficulty, 0.35)
 				off_trail = 40
+				# loose rubble broken off the steps, gathered at the foot of each
+				# ledge and scattered on the benches: it rolls under the tires
+				var rubble := RandomNumberGenerator.new()
+				rubble.seed = seed_value + 31   # its own stream: the rest of the stage keeps its stones
+				for k in range(int(70 * plan.difficulty)):
+					var z := rubble.randf_range(z0 + 6.0, z1 - 6.0)
+					add.call(trail_x_at(z) + rubble.randfn(0.0, 1.6), z, rubble.randf_range(0.12, 0.24), 0.4)
 			"gully":
 				# stones half-buried in the clay all across the floor: pick a line
 				# over them and crawl it, the mud slick on every one

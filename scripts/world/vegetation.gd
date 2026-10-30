@@ -554,6 +554,11 @@ func _place_ground_cover() -> void:
 					continue
 			elif thick > 0.04:
 				continue  # trail mud
+			# bare bedrock (the rock steps, a gully's wall) grows nothing; grass
+			# only in the cracks off to the side
+			var rock_here: float = terrain.soil_image.get_pixel(clampi(int(x), 0, terrain.soil_image.get_width() - 1), clampi(int(zz), 0, terrain.soil_image.get_height() - 1)).r
+			if rock_here > 0.5 or (rock_here > 0.2 and _rng.randf() < 0.85):
+				continue
 			# steep cut banks stay bare
 			var slope := absf(terrain.get_height(x + 0.5, zz) - terrain.get_height(x - 0.5, zz)) + absf(terrain.get_height(x, zz + 0.5) - terrain.get_height(x, zz - 0.5))
 			if slope > 0.9:
