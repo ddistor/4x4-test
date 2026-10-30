@@ -171,14 +171,16 @@ static func build(rig: Rig) -> void:
 	var gst := MeshKit.begin()
 	MeshKit.rounded_box(gst, Vector3(HALF_W * 2.0 - 0.12, wh - 0.07, 0.008), 0.02, ws * at.call(Vector3(0, wh * 0.5, 0)), c, 1)
 	var wy := (ROOF + BELT) * 0.5
-	var wh2 := ROOF - BELT - 0.1
+	var wh2 := ROOF - BELT - 0.06
+	# side glass fitted rail to rail, the front door's up the raked A-pillar
+	var y0 := BELT + 0.005
+	var y1 := ROOF - 0.03
 	for sx: float in [-1.0, 1.0]:
 		var x := sx * HALF_W
-		for seg: Array in [[roof_z0 + 0.06, B_Z - 0.06], [B_Z + 0.06, C_Z - 0.06], [C_Z + 0.06, TAIL_Z - 0.21]]:
-			var z0: float = seg[0]
-			var z1: float = seg[1]
-			MeshKit.rounded_box(gst, Vector3(0.008, wh2, z1 - z0), 0.03, at.call(Vector3(x, wy, (z0 + z1) * 0.5)), c, 1)
-	MeshKit.rounded_box(gst, Vector3(HALF_W * 2.0 - 0.38, wh2 - 0.04, 0.008), 0.03, at.call(Vector3(0, wy, TAIL_Z + 0.022)), c, 1)
+		BodyKit.side_glass(gst, x, y0, y1, COWL_Z + 0.07 + tan(rake) * (y0 - BELT), COWL_Z + 0.07 + tan(rake) * (y1 - BELT), B_Z - 0.03, c)
+		BodyKit.side_glass(gst, x, y0, y1, B_Z + 0.03, B_Z + 0.03, C_Z - 0.03, c)
+		BodyKit.side_glass(gst, x, y0, y1, C_Z + 0.03, C_Z + 0.03, TAIL_Z - 0.18, c)
+	MeshKit.rounded_box(gst, Vector3(HALF_W * 2.0 - 0.34, wh2, 0.008), 0.02, at.call(Vector3(0, wy, TAIL_Z + 0.022)), c, 1)
 	rig._add_mesh(MeshKit.commit(gst, glass))
 	var lamp := StandardMaterial3D.new()
 	lamp.albedo_color = Color(0.95, 0.93, 0.85)

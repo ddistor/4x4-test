@@ -92,6 +92,19 @@ static func collide(rig: Rig, z0: float, z1: float, y0: float, y1: float, half_w
 					_box(rig, Vector3(w, y1 - top, b - a), Vector3(sx * (half_w + inner) * 0.5, (top + y1) * 0.5, (a + b) * 0.5))
 
 
+## A side window's glass at `x`, filling its opening: from the belt rail `y0`
+## up to the roof rail `y1`, back to `z_back`, its front edge following the
+## raked A-pillar (`z_front0` at the belt, `z_front1` at the roof). Both
+## faces, a few mm thick: no gap round it for mud or sky to get through.
+static func side_glass(st: SurfaceTool, x: float, y0: float, y1: float, z_front0: float, z_front1: float, z_back: float, col: Color) -> void:
+	var out := Vector3(signf(x), 0, 0)
+	var pts: Array[Vector3] = [Vector3(x, y0, z_front0), Vector3(x, y1, z_front1), Vector3(x, y1, z_back), Vector3(x, y0, z_back)]
+	for side: float in [1.0, -1.0]:
+		var n := out * side
+		var o := out * 0.004 * side
+		MeshKit._quad(st, Transform3D.IDENTITY, [pts[0] + o, pts[1] + o, pts[2] + o, pts[3] + o], [n, n, n, n], col)
+
+
 ## A plain collision box (bumpers, cab tops: things no tire reaches).
 static func _box(rig: Rig, size: Vector3, at: Vector3) -> void:
 	var cs := CollisionShape3D.new()

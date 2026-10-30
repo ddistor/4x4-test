@@ -169,12 +169,13 @@ static func build(rig: Rig) -> void:
 	MeshKit.rounded_box(gst, Vector3(HALF_W * 2.0 - 0.1, wh - 0.06, 0.008), 0.02, ws * at.call(Vector3(0, wh * 0.5, 0)), c, 1)
 	for sx: float in [-1.0, 1.0]:
 		var x := sx * HALF_W
-		var door_z0 := roof_z0 + 0.04
-		var dz := STEP_Z - 0.05 - door_z0
-		MeshKit.rounded_box(gst, Vector3(0.008, ROOF - BELT - 0.08, dz), 0.02, at.call(Vector3(x, (ROOF + BELT) * 0.5, door_z0 + dz * 0.5)), c, 1)
-		var qz := TAIL_Z - 0.16 - STEP_Z - 0.05
-		MeshKit.rounded_box(gst, Vector3(0.008, ROOF + STEP - BELT - 0.1, qz), 0.04, at.call(Vector3(x, (ROOF + STEP + BELT) * 0.5, STEP_Z + 0.05 + qz * 0.5)), c, 1)
-	MeshKit.rounded_box(gst, Vector3(HALF_W * 2.0 - 0.2, ROOF + STEP - BELT - 0.12, 0.008), 0.03, at.call(Vector3(0, (ROOF + STEP + BELT) * 0.5, TAIL_Z + 0.022)), c, 1)
+		# door glass up the raked A-pillar, and the big quarter window, both
+		# fitted to their openings rail to rail
+		var y0 := BELT + 0.005
+		var y1 := ROOF - 0.015
+		BodyKit.side_glass(gst, x, y0, y1, COWL_Z + 0.06 + tan(rake) * (y0 - BELT), COWL_Z + 0.06 + tan(rake) * (y1 - BELT), STEP_Z - 0.03, c)
+		BodyKit.side_glass(gst, x, y0, ROOF + STEP - 0.015, STEP_Z + 0.03, STEP_Z + 0.03, TAIL_Z - 0.1, c)
+	MeshKit.rounded_box(gst, Vector3(HALF_W * 2.0 - 0.14, ROOF + STEP - BELT - 0.04, 0.008), 0.02, at.call(Vector3(0, (ROOF + STEP + BELT) * 0.5, TAIL_Z + 0.022)), c, 1)
 	rig._add_mesh(MeshKit.commit(gst, glass))
 	var lamp := StandardMaterial3D.new()
 	lamp.albedo_color = Color(0.95, 0.93, 0.85)

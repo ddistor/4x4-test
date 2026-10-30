@@ -136,6 +136,9 @@ func _body_mat(col: Color, rough: float, metal: float, coat: float) -> ShaderMat
 	m.set_shader_parameter("paint_roughness", rough)
 	m.set_shader_parameter("paint_metallic", metal)
 	m.set_shader_parameter("clearcoat", coat)
+	if spec.cabin_hi.x > 0.0:
+		m.set_shader_parameter("cabin_lo", spec.cabin_lo)
+		m.set_shader_parameter("cabin_hi", spec.cabin_hi)
 	_body_mats.append(m)
 	return m
 

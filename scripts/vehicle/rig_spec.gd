@@ -57,6 +57,11 @@ var fairlead := Vector3(0, 0.75, -1.86)
 var seat := Vector3(-0.33, 0.8, 0.27)       # the driver's hips
 var wheel_at := Vector3(-0.33, 1.2, -0.1)   # steering wheel hub
 var build_body: Callable
+## A closed cab (glass all round): the box inside it, rig space, that mud
+## doesn't reach (x of cabin_hi is the inner half-width; zero = open tub).
+## The driver in it stays clean too.
+var cabin_lo := Vector3.ZERO
+var cabin_hi := Vector3.ZERO
 
 
 static func kinds() -> Array[RigSpec]:
@@ -182,6 +187,8 @@ static func _feroz() -> RigSpec:
 	s.fairlead = Vector3(0, 0.66, -1.88)
 	s.seat = Vector3(-0.34, 0.78, 0.2)
 	s.wheel_at = Vector3(-0.34, 1.16, -0.17)
+	s.cabin_lo = Vector3(0, 0.5, -0.47)   # closed cab: glass all round
+	s.cabin_hi = Vector3(0.68, 1.68, 1.59)
 	s.build_body = FerozBody.build
 	return s
 
@@ -220,6 +227,8 @@ static func _ronda() -> RigSpec:
 	s.fairlead = Vector3(0, 0.74, -2.56)
 	s.seat = Vector3(-0.42, 0.88, 0.02)
 	s.wheel_at = Vector3(-0.42, 1.28, -0.38)
+	s.cabin_lo = Vector3(0, 0.55, -0.75)   # closed cab: glass all round
+	s.cabin_hi = Vector3(0.86, 1.95, 2.21)
 	s.build_body = RondaBody.build
 	return s
 
@@ -296,5 +305,7 @@ static func _rubikon() -> RigSpec:
 	s.fairlead = Vector3(0, 0.74, -2.48)
 	s.seat = Vector3(-0.4, 0.88, 0.0)
 	s.wheel_at = Vector3(-0.4, 1.28, -0.4)
+	s.cabin_lo = Vector3(0, 0.55, -0.73)   # closed cab: glass all round
+	s.cabin_hi = Vector3(0.82, 1.93, 2.17)
 	s.build_body = RubikonBody.build
 	return s
