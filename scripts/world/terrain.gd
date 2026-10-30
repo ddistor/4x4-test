@@ -155,10 +155,12 @@ func _plan_features() -> void:
 					"tint": Color(0.16, 0.27, 0.24, 0.85), "clarity": 1.0, "stones": true,
 					"flow": 1.4 * (1.0 if rng.randf() < 0.5 else -1.0), "ford": true}, rng)
 			"lahar":
-				# a braided channel of milky grey water across the ash
+				# a braided channel of milky grey water across the ash: it wanders,
+				# swells and pinches, and sand bars split it into threads
 				_add_crossing(zc, {
-					"half_w": 3.5, "bank": 4.0, "drop": 0.6, "depth": 0.32 * d, "amp": 8.0,
-					"tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "stones": false, "flow": 0.8}, rng)
+					"half_w": 4.5, "bank": 4.0, "drop": 0.6, "depth": 0.32 * d, "amp": 5.0,
+					"tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "stones": false, "flow": 0.8,
+					"braided": true}, rng)
 			"clay":
 				if s["cross_t"] >= 0.0:
 					# the brown creek at the bottom of the climb
@@ -199,6 +201,8 @@ func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void
 		c["shallow"] = 0.42 * plan.difficulty * (0.85 + 0.3 * absf(cos(float(c["phase"]) * 1.7)))
 		c["pool"] = float(c["depth"]) * 1.3
 	c["reach"] = float(c["amp"]) + float(c["half_w"]) + float(c["bank"]) + 1.0
+	if c.get("braided", false):
+		c["reach"] += 3.1 + float(c["half_w"]) * 0.3   # its extra wander and swell (_channel)
 	crossings.append(c)
 	water_bodies.append({"z_lo": zc - float(c["reach"]), "z_hi": zc + float(c["reach"]), "level": c["level"],
 		"tint": c["tint"], "clarity": c["clarity"], "flow": c["flow"], "crossing": c})
@@ -208,8 +212,14 @@ func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void
 ## the channel's middle in half-widths.
 func _channel(c: Dictionary, x: float, z: float) -> Vector2:
 	var mid: float = c["zc"] + c["amp"] * sin(x * c["freq"] + c["phase"])
-	var u := absf(z - mid) / float(c["half_w"])
-	return Vector2(1.0 - smoothstep(1.0, 1.0 + float(c["bank"]) / float(c["half_w"]), u), u)
+	var hw: float = c["half_w"]
+	if c.get("braided", false):
+		# wanders on a short wavelength too, and swells and pinches as it goes
+		var ph: float = c["phase"]
+		mid += 2.2 * sin(x * 0.11 + ph * 2.3) + 0.9 * sin(x * 0.29 + ph * 5.1)
+		hw *= 0.65 + 0.45 * (0.5 + 0.5 * sin(x * 0.07 + ph * 3.7)) + 0.15 * sin(x * 0.23 + ph)
+	var u := absf(z - mid) / hw
+	return Vector2(1.0 - smoothstep(1.0, 1.0 + float(c["bank"]) / hw, u), u)
 
 
 func _near(list: Array[Dictionary], z: float, key: String, reach_key: String, pad: float) -> Array[Dictionary]:
@@ -358,6 +368,12 @@ func _height_at(x: float, z: float, bl: Array, th: float, tx: float, inv: float,
 				bed = float(c["level"]) - deep * (1.0 - 0.35 * minf(ch.y * ch.y, 1.0))
 			if c["stones"]:
 				bed += 0.1 * _detail.get_noise_2d(x * 1.6, z * 1.6)
+			if c.get("braided", false):
+				# sand bars: long low islands lying along the flow, the water
+				# threading between them
+				var bar := _detail.get_noise_2d(x * 0.09 + 50.0, z * 0.45 + 30.0)
+				bed += float(c["depth"]) * 1.35 * smoothstep(0.05, 0.35, bar) * minf(1.0, 1.4 - ch.y)
+				bed += 0.04 * _detail.get_noise_2d(x * 0.7, z * 0.7)   # rippled sand
 			h = lerpf(h, minf(h, bed), ch.x)
 	for p in near_pits:
 		var d := Vector2(x - float(p["x"]), z - float(p["z"])).length()
