@@ -220,7 +220,8 @@ void fragment() {
 	clay = mix(clay, mix(ash_dry * 0.92, ash_wet, m.g), ash);  // churned ash is grey, not red
 	clay *= 0.8 + 0.28 * fbm(p * 1.4) + 0.2 * (g4 - 0.5) * detail;
 	float rut_k = smoothstep(0.02, 0.18, m.r);
-	clay = mix(clay, clay_wet * 0.72, rut_k * (0.5 + 0.5 * g3));
+	// churned ruts go dark and wet: red clay, or grey ash in the lahar
+	clay = mix(clay, mix(clay_wet * 0.72, ash_wet * 0.8, ash), rut_k * (0.5 + 0.5 * g3));
 	float clods = fbm(p * 3.5);
 	// dry-season clay: pale, dusty, split into plates along shrinkage cracks
 	float dry = (1.0 - smoothstep(0.12, 0.35, m.g)) * (1.0 - ash) * (1.0 - rut_k);
@@ -230,17 +231,21 @@ void fragment() {
 	clay *= 1.0 - 0.45 * crack;
 	vec3 col = mix(ground, clay, soft);
 	h = mix(h, clods * 0.05 + g4 * 0.012 - crack * 0.02, soft);
-	float rough = mix(rough_ground, mix(0.85, 0.28, pow(m.g, 1.4)), soft);
+	float rough = mix(rough_ground, mix(0.85, 0.38, pow(m.g, 1.4)), soft);
 	float spec = mix(0.3, 0.5, soft * m.g);
 
 	// --- standing water: in deep wet ruts, low spots on wet clay -------------
-	float pool = m.g * (0.45 + rut_k) - fbm(p * 0.16 + 11.0) * 0.75;
-	float puddle = smoothstep(0.1, 0.16, pool) * soft;
+	// (only where the ground is really wet, with soft edges: a fresh rut in
+	// damp clay doesn't fill with water the moment it's dug)
+	float pool = m.g * (0.35 + 0.7 * rut_k) - fbm(p * 0.16 + 11.0) * 0.75 + 0.08 * (g3 - 0.5);
+	float puddle = smoothstep(0.1, 0.32, pool) * soft * smoothstep(0.55, 0.85, m.g);
 	// a dark wet margin round each puddle
 	col *= 1.0 - 0.3 * smoothstep(0.04, 0.1, pool) * soft * (1.0 - puddle);
-	col = mix(col, puddle_col, puddle * 0.85);
-	rough = mix(rough, 0.03, puddle);
-	spec = mix(spec, 0.5, puddle);
+	// muddy water: opaque brown (milky grey on the ash), a dull sheen, not a
+	// mirror (a glassy puddle caught the sky and read as silver foil)
+	col = mix(col, mix(mix(puddle_col, clay_wet * 0.6, 0.5), ash_wet * 0.6, ash), puddle * 0.8);
+	rough = mix(rough, 0.22, puddle);
+	spec = mix(spec, 0.25, puddle);
 	h = mix(h, 0.0015 * sin(p.x * 9.0 + TIME * 1.3) * sin(p.y * 7.0 - TIME), puddle);
 	// under a river, creek or paddy (the water sheet draws the surface):
 	// soaked and dark, plus a wet band just above the waterline
@@ -259,7 +264,9 @@ void fragment() {
 	float rr = texture(mud_tex, UV + vec2(tx.x, 0.0)).r;
 	float rd = texture(mud_tex, UV - vec2(0.0, tx.y)).r;
 	float ru = texture(mud_tex, UV + vec2(0.0, tx.y)).r;
-	vec3 rutted = normalize(wn + vec3(rr - rl, 0.0, ru - rd) / (2.0 * cell));
+	vec2 tilt = vec2(rr - rl, ru - rd) / (2.0 * cell);
+	tilt *= min(1.0, 1.2 / max(length(tilt), 1e-4));   // a churned wall, not a mirror facing the sky
+	vec3 rutted = normalize(wn + vec3(tilt.x, 0.0, tilt.y));
 	NORMAL = normalize((VIEW_MATRIX * vec4(rutted, 0.0)).xyz);
 	NORMAL = bump(NORMAL, VERTEX, h * mix(0.3, 1.0, detail));
 }

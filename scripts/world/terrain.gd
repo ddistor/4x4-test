@@ -229,8 +229,9 @@ func _add_stream(s: Dictionary, ph: float) -> void:
 	if z1 - z0 > 80.0:
 		_pinches.append(lerpf(z0 + 30.0, z1 - 30.0, fposmod(ph * 1.37, 1.0)))
 	streams.append(st)
-	# its water: a run of short level pools stepping down with the wash (each
-	# sheet flat, 3 m long), none over the steep drop: that's a dry cascade
+	# its water: a run of short sheets, each tilted to follow the wash down so
+	# the surface runs on without steps; none over the steep drop: that's a
+	# dry cascade of stones
 	var z := z0
 	while z < z1:
 		var zb := minf(z + 3.0, z1)
@@ -238,7 +239,9 @@ func _add_stream(s: Dictionary, ph: float) -> void:
 			var zm := (z + zb) * 0.5
 			var cx := trail_x_at(zm)
 			var half := _lahar_half(zm)
-			water_bodies.append({"z_lo": z, "z_hi": zb, "level": trail_floor_at(zm) - float(st["cut"]) + float(st["depth"]),
+			var off := -float(st["cut"]) + float(st["depth"])
+			water_bodies.append({"z_lo": z, "z_hi": zb, "level": trail_floor_at(zm) + off,
+				"level_lo": trail_floor_at(z) + off, "level_hi": trail_floor_at(zb) + off,
 				"tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "flow": st["flow"], "along_z": true,
 				"stream": st, "x_lo": cx - half - 4.0, "x_hi": cx + half + 4.0})
 		z = zb
@@ -315,7 +318,10 @@ func water_level_at(z: float) -> float:
 	var level := NO_WATER
 	for b in water_bodies:
 		if z > b["z_lo"] and z < b["z_hi"]:
-			level = maxf(level, b["level"])
+			var l: float = b["level"]
+			if b.has("level_lo"):   # a sloping stream sheet
+				l = lerpf(b["level_lo"], b["level_hi"], (z - float(b["z_lo"])) / (float(b["z_hi"]) - float(b["z_lo"])))
+			level = maxf(level, l)
 	return level
 
 
@@ -877,6 +883,13 @@ func _build_water() -> void:
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mi.position = Vector3((x_lo + x_hi) * 0.5, b["level"], (float(b["z_lo"]) + float(b["z_hi"])) * 0.5)
+		if b.has("level_lo"):
+			# tilt it down the wash; a touch longer so neighbours overlap, no seam
+			var span := float(b["z_hi"]) - float(b["z_lo"])
+			var drop := float(b["level_hi"]) - float(b["level_lo"])
+			mi.position.y = (float(b["level_lo"]) + float(b["level_hi"])) * 0.5
+			mi.rotation.x = -atan2(drop, span)
+			plane.size.y = sqrt(span * span + drop * drop) + 0.3
 		mi.name = "Water"
 		add_child(mi)
 
