@@ -107,8 +107,6 @@ func carve(world_xz: Vector2, radius: float, amount: float) -> float:
 			var dr := minf(room, amount * falloff)
 			rut[i] += dr
 			carved = maxf(carved, dr)
-			# A wheel churning through the cell wets it slightly (brings water up).
-			wetness[i] = minf(1.0, wetness[i] + dr * 0.15)
 			image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i]))
 	if carved > 0.0:
 		_dirty = true
@@ -118,7 +116,9 @@ func carve(world_xz: Vector2, radius: float, amount: float) -> float:
 ## Press a tire's footprint to `depth` below the original surface: every cell
 ## under it (`radius` across, a softened edge) is cut down to at least that
 ## depth, never past the soft layer. Nothing happens where it's already that
-## deep, so a tire sitting still doesn't keep digging. Returns the deepest
+## deep, so a tire sitting still doesn't keep digging. The cell keeps its own
+## wetness: a rut only holds water where the ground was wet already (rain,
+## a high water table), never because it was dug. Returns the deepest
 ## amount it had to cut this time (what gets shoved into the berms).
 func carve_to(world_xz: Vector2, radius: float, depth: float) -> float:
 	if depth <= 0.0:
@@ -142,8 +142,6 @@ func carve_to(world_xz: Vector2, radius: float, depth: float) -> float:
 			if want > rut[i] + 0.001:
 				cut = maxf(cut, want - maxf(rut[i], 0.0))
 				rut[i] = want
-				# a tire working the cell brings water up into it
-				wetness[i] = minf(1.0, wetness[i] + 0.02)
 				image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i]))
 	if cut > 0.0:
 		_dirty = true

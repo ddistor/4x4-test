@@ -288,6 +288,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 
 	# --- where the tire actually sits -------------------------------------
 	ground = terrain.ground_sample(hit.position)
+	var on_rock := hit.collider is Node and (hit.collider as Node).is_in_group("rock")
 	if hit.collider is Node and (hit.collider as Node).is_in_group("rock"):
 		# up on a boulder: nothing to sink into, and slick where the river wets it
 		var level := terrain.water_at(hit.position.x, hit.position.z)
@@ -386,7 +387,10 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	mu *= 1.0 - 0.15 * soft                              # soup has less to push on
 	var sink_ratio := clampf(depth / maxf(thick, 0.05), 0.0, 1.0)
 	mu += 0.22 * sink_ratio * (1.0 - wet * 0.5) * (1.0 - 0.7 * packing)  # bite once the tire is in
-	mu += aired() * (0.06 + 0.16 * soft)                 # bigger footprint, lugs wrap the ground
+	# aired down: a longer footprint and the lugs wrap the ground; on rock the
+	# soft carcass moulds over the edges and grips far better (why you air down)
+	var rocky := 1.0 if on_rock else smoothstep(1.0, 1.1, float(ground.get("grip", 1.0)))
+	mu += aired() * (0.06 + 0.16 * soft + 0.2 * rocky)
 	mu *= 1.0 - 0.3 * packing                            # tread full of clay: a slick
 	if debeaded:
 		mu *= 0.45
@@ -452,6 +456,10 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		rig.apply_force(terrain.current_at(contact_point.x, contact_point.z) * water * 700.0, contact_point - rig.global_position)
 	var drag_c := fresh * 1500.0 * (0.6 + 0.6 * wet) + water * 350.0 + (400.0 if debeaded else 0.0)
 	var f_drag := -planar * drag_c
+	# a soft tire flexes as it rolls: on firm ground it costs a little more to
+	# push along (on soft ground floating on top more than pays for it)
+	if planar.length() > 0.05:
+		f_drag -= planar.normalized() * load * 0.025 * aired() * (1.0 - soft)
 	# suction: hard to get moving from a stop in deep mud
 	if planar.length() < 0.6 and depth > 0.08:
 		f_drag -= planar.normalized() * depth * 1800.0 * (planar.length() / 0.6)

@@ -1,5 +1,25 @@
 # To check in Claude Code / by hand
 
+## Tire pressure, water, ruts, the test bot
+
+- **Airing down** (`-` / `=`, stopped) now matters on rock: the soft carcass
+  wraps the edges (`wheel.gd`, `rocky`), and a soft tire costs a little more
+  to roll on firm ground. `tests/psi_test.tscn`: Gera climbs 30 deg of dry rock
+  at 35 psi, 38 at 15; in the bog it sinks 0.44 m instead of 0.62 and gets
+  further. The rock steps' steepest pitches (~46 deg on Hard) are past what
+  35 psi holds: air down or winch. To check by driving: the difference on the
+  rock steps and in the bog.
+- **Water**: the body rides up a few cm on its springs and the tires lose
+  weight (a closed wagon a quarter at 0.86 m, an open tub hardly any), so grip
+  drops and the current shoves harder; wheels stay down. `tests/float_test`.
+- **Ruts and water**: churning no longer wets the ground; a rut holds water
+  only where the ground was wet already (rain, low ground). Dry season: dry
+  ruts; rainy: the dug hole fills.
+- **Test bot** (`tests/drive_test`) drives like a person: stops and airs down
+  to 15 psi, 4L and lockers off the road, winches to the anchor furthest up
+  the trail when stuck 4 s, marshal recovery only after 15 s. It now prints
+  WINCH lines; its recoveries mark where even the winch had nothing in reach.
+
 ## Three new sections, a reworked lahar wash and rock steps
 
 - **Pastulan two-track** (Sampaloc, Tanay): open green hillside pasture, two
