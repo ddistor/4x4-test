@@ -1,5 +1,30 @@
 # To check in Claude Code / by hand
 
+## Where we are (handoff, 31 Oct)
+
+Everything is on `main`. In progress, not yet seen in a picture or driven:
+
+- **Grass wears to dirt** (`mud_field.gd` wear channel = mud texture alpha;
+  `wheel.gd` adds it as tires roll; `terrain.gdshader` turns worn grass to
+  flattened yellow, then packed dirt; `foliage.gdshader` lays worn grass flat
+  and wears it away). Numbers check out (`tests/wear_test.tscn`: 40 s of
+  circles on the yard's grass wears ~470 m2), but nobody has looked at it.
+  Check: `-- --playground`, drive circles on the grass.
+- **Dust and wet grit on the rig** (`rig.gd`, corner mud from firm dirt, up
+  to a light coat ~0.6): dry dirt films the body over a minute or two; wet
+  gravel spatters it. The wet-grit part hasn't been run yet.
+- **Every ground reacts**: `tests/reaction_test.tscn` drives each section
+  kind 12 s and prints ruts, wear, sink, water, mud on the body. All rut or
+  wear and dirty the rig except rock (correct); the paddy road left the rig
+  clean before the wet-grit change: rerun it.
+- **Next up: the playground as a realistic park trail** (not started): a
+  winding loop over a hill, a creek ford, woods with trees close for winching,
+  the obstacles on the trail itself with easy bypasses, real clay that ruts
+  and gets muddy. Today's yard (`yard.gd`) is an open lot of stations; keep
+  its stations' sizes as the trail's obstacles.
+- Known, older: `tests/tip_test` reads ~10 deg on older commits too.
+
+
 ## Practice yard (branch `playground`)
 
 - **Bakuran practice yard**: "Practice yard" on the start menu (the last rig
