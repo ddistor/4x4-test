@@ -610,8 +610,8 @@ func _place_ground_cover() -> void:
 			var x := (ix + 0.5) * step + _rng.randf_range(-0.3, 0.3)
 			var zz := z + _rng.randf_range(-0.3, 0.3)
 			var dx := absf(x - tx)
-			if dx > 55.0:
-				continue
+			if dx > 55.0 and not terrain.plan.yard:
+				continue   # (the park's loop runs out to its edges)
 			var h := terrain.get_height(x, zz)
 			if h < terrain.water_at(x, zz) + 0.05:
 				continue  # under water: rice goes in separately

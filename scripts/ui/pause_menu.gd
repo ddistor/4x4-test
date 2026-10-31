@@ -63,7 +63,7 @@ func _ready() -> void:
 	box.add_child(gfx)
 	var menu := UiKit.button("Back to the garage" if Game.in_career else "Back to start menu")
 	if terrain.plan.yard:
-		menu.text = "Leave the yard"
+		menu.text = "Leave the park"
 	menu.pressed.connect(Game.leave_stage)
 	box.add_child(menu)
 	var quit := UiKit.button("Quit")
@@ -71,15 +71,16 @@ func _ready() -> void:
 	box.add_child(quit)
 
 
-## The practice yard: drive to any station, and damage on or off (off,
-## nothing breaks; on, you see what would, but in the yard it never sticks).
+## The practice park: drive to any station, and damage on or off (off,
+## nothing breaks; on, you see what would, but in the park it never sticks).
 func _yard_buttons(box: VBoxContainer) -> void:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 8)
-	for i in Yard.STATIONS.size():
-		var b := UiKit.button(Yard.STATIONS[i][0], 260)
+	var stations := Yard.stations()
+	for i in stations.size():
+		var b := UiKit.button(stations[i]["name"], 260)
 		b.custom_minimum_size.y = 40
 		b.add_theme_font_size_override("font_size", 19)
 		b.pressed.connect(func() -> void:
@@ -128,5 +129,5 @@ func _toggle() -> void:
 		_where.text = "Stage %d   ·   section %d of %d: %s" % [
 			Game.stage_seed, terrain.plan.sections.find(s) + 1, terrain.plan.sections.size(), StagePlan.display_name(s)]
 		if terrain.plan.yard:
-			_where.text = "Bakuran practice yard, Morong   ·   free: nothing you do here costs"
+			_where.text = "Bakuran trail park, Morong   ·   free: nothing you do here costs"
 		_resume.grab_focus()

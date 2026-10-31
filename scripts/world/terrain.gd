@@ -182,11 +182,15 @@ func _plan_features() -> void:
 				water_bodies.append({"z_lo": z0 - 1.0, "z_hi": z1 + 2.0, "level": float(s["h0"]) - 0.2,
 					"tint": Color(0.22, 0.26, 0.14, 0.55), "clarity": 0.15, "flow": 0.0})
 			"yard":
-				# the wading pool: clear water, standing only in its own basin
-				var pool: Dictionary = Yard.POOL
-				water_bodies.append({"z_lo": float(pool["z_in"]) - 1.0, "z_hi": float(pool["z_out"]) + 1.0,
-					"x_lo": float(pool["x0"]) - 3.0, "x_hi": float(pool["x1"]) + 3.0, "level": float(pool["level"]),
-					"tint": Color(0.16, 0.27, 0.24, 0.85), "clarity": 1.0, "flow": 0.0, "pool": true})
+				# the park's creek: deep runs, a riffle where the loop fords it and
+				# another where the deep crossing's bypass does
+				var c := Yard.CREEK.duplicate()
+				c.merge({"tint": Color(0.2, 0.24, 0.17, 0.85), "clarity": 0.6, "stones": true, "flow": 0.5, "ford": true})
+				_add_crossing(float(c["zc"]), c, rng)
+				c["phase"] = Yard.CREEK["phase"]
+				c["freq"] = Yard.CREEK["freq"]
+				c["pool"] = Yard.CREEK["pool"]
+				c["fords"] = Yard.fords()
 
 
 func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void:
@@ -478,8 +482,10 @@ func _height_at(x: float, z: float, bl: Array, th: float, tx: float, inv: float,
 			if c.get("ford", false):
 				# water this deep mid-channel: the riffle's gravel bar, falling
 				# away into the pools either side of it along the river
-				var r := exp(-pow((x - float(c["ford_x"])) / float(c["ford_w"]), 2.0))
-				var deep := lerpf(float(c["pool"]), float(c["shallow"]), r)
+				# (the practice park's creek has two riffles)
+				var deep := float(c["pool"])
+				for f: Vector3 in c.get("fords", [Vector3(c["ford_x"], c["ford_w"], c["shallow"])]):
+					deep = minf(deep, lerpf(float(c["pool"]), f.z, exp(-pow((x - f.x) / f.y, 2.0))))
 				bed = float(c["level"]) - deep * (1.0 - 0.35 * minf(ch.y * ch.y, 1.0))
 			if c["stones"]:
 				bed += 0.1 * _detail.get_noise_2d(x * 1.6, z * 1.6)
@@ -708,21 +714,33 @@ func _author_mud() -> void:
 			grip[i] = m.w
 
 
-## The yard's depth posts in the wading pool: white with a red band every
-## 0.3 m of water, and a sign post at each station's start.
+## The park's depth posts at the deep crossing: white with a red band at the
+## waterline, every 0.3 m of depth; and a sign post at each station's start.
 func _build_yard_posts() -> void:
 	var st := MeshKit.begin()
-	for p in Yard.pool_posts():
+	# along the deep crossing, beside the line: a post where the water first
+	# reaches 0.3, 0.6, 0.9, 1.2 m
+	var want := [0.3, 0.6, 0.9, 1.2]
+	for pn: Array in Yard.deep_line():
+		if want.is_empty():
+			break
+		var c: Vector2 = pn[0]
+		var level := water_at(c.x, c.y)
+		if level == NO_WATER or level - get_height(c.x, c.y) < float(want[0]):
+			continue
+		want.pop_front()
+		var p: Vector2 = c + (pn[1] as Vector2) * Yard.post_side() * 3.2
 		var bed := get_height(p.x, p.y)
-		var top := float(Yard.POOL["level"]) + 0.5
+		var top := level + 0.5
 		MeshKit.cylinder(st, 0.05, top - bed, Transform3D(Basis.IDENTITY, Vector3(p.x, (top + bed) * 0.5, p.y)), Color(0.9, 0.9, 0.88), 8)
-		# the band at the waterline: the depth there
-		MeshKit.cylinder(st, 0.056, 0.06, Transform3D(Basis.IDENTITY, Vector3(p.x, float(Yard.POOL["level"]), p.y)), Color(0.75, 0.08, 0.05), 8)
-	for s: Array in Yard.STATIONS:
-		var at: Vector2 = s[2]
-		var g := get_height(at.x - 4.0, at.y)
-		MeshKit.cylinder(st, 0.06, 1.6, Transform3D(Basis.IDENTITY, Vector3(at.x - 4.0, g + 0.8, at.y)), Color(0.55, 0.4, 0.22), 8)
-		MeshKit.rounded_box(st, Vector3(0.9, 0.5, 0.05), 0.02, Transform3D(Basis.IDENTITY, Vector3(at.x - 4.0, g + 1.6, at.y)), Color(0.92, 0.85, 0.5))
+		# the band at the waterline
+		MeshKit.cylinder(st, 0.056, 0.06, Transform3D(Basis.IDENTITY, Vector3(p.x, level, p.y)), Color(0.75, 0.08, 0.05), 8)
+	for s: Dictionary in Yard.stations():
+		var at: Vector2 = s["sign"]
+		var g := get_height(at.x, at.y)
+		var face := Basis.looking_at(s["heading"], Vector3.UP)
+		MeshKit.cylinder(st, 0.06, 1.6, Transform3D(Basis.IDENTITY, Vector3(at.x, g + 0.8, at.y)), Color(0.55, 0.4, 0.22), 8)
+		MeshKit.rounded_box(st, Vector3(0.9, 0.5, 0.05), 0.02, Transform3D(face, Vector3(at.x, g + 1.6, at.y)), Color(0.92, 0.85, 0.5))
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
 	m.roughness = 0.8
@@ -793,8 +811,8 @@ func _build_maps() -> void:
 				cobble = maxf(cobble, smoothstep(0.25, 0.75, sk))
 			var trail_d := minf(dx / 32.0, 1.0)
 			if plan.yard:
-				forest = 0.0
-				trail_d = 0.0 if Yard._road(xf, zf) > 0.0 else 0.4   # the gravel road, else open field
+				forest = Yard.forest(xf, zf)
+				trail_d = Yard.trail_dist(xf, zf) / 32.0
 			cover_image.set_pixel(x, z, Color(trail_d, forest, paddy_k, ash_k))
 			var bedrock := rock_k * (0.9 * on + 0.3 * (1.0 - on))
 			if plan.yard:
@@ -1174,17 +1192,13 @@ func _build_trees() -> void:
 					gx += 8.5
 				gz += 8.5
 	if plan.yard:
-		# a ring of trees on the bank round the yard, and shade by the spawn
-		var t := 6.0
-		while t < Yard.SIZE - 6.0:
-			for p: Vector2 in [Vector2(t, Yard.SIZE - 4.0), Vector2(4.0, t), Vector2(Yard.SIZE - 4.0, t)]:
-				if rng.randf() < 0.6:
-					var q := p + Vector2(rng.randf_range(-2.0, 2.0), rng.randf_range(-2.0, 2.0))
-					var sc := rng.randf_range(0.8, 1.15)
-					var y := low_ground(q.x, q.y, 0.45 * sc)
-					placements.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(q.x, y - 0.15, q.y)))
-					solid.call(q.x, y, q.y, sc)
-			t += 9.0
+		# the park's woods (Yard decides where), every trunk solid and an anchor
+		for q: Vector3 in Yard.tree_spots():
+			if get_height(q.x, q.y) < water_at(q.x, q.y) + 0.3:
+				continue   # not in the creek
+			var y := low_ground(q.x, q.y, 0.45 * q.z)
+			placements.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * q.z), Vector3(q.x, y - 0.15, q.y)))
+			solid.call(q.x, y, q.y, q.z)
 	add_child(anchors_body)
 	var veg := Vegetation.new()
 	veg.name = "Vegetation"

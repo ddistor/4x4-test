@@ -103,9 +103,13 @@ func _stage_step(_delta: float) -> void:
 	var plan := rig.terrain.plan
 	var z := rig.global_position.z
 	if plan.yard:
-		# the practice yard: which station you're at, and what it's for
-		var st: Array = Yard.STATIONS[Yard.station_at(rig.global_position.x, z)]
-		_stage.text = "Bakuran practice yard   ·   %s\n%s" % [st[0], st[1]]
+		# the practice park: which obstacle you're at, and what it's for
+		var i := Yard.station_at(rig.global_position.x, z)
+		if i < 0:
+			_stage.text = "Bakuran trail park   ·   the loop\nround the hill; every obstacle has a bypass beside it"
+		else:
+			var st: Dictionary = Yard.stations()[i]
+			_stage.text = "Bakuran trail park   ·   %s\n%s" % [st["name"], st["what"]]
 		return
 	if not _finished and z > plan.finish_z:
 		_finished = true

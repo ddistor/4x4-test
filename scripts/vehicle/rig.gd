@@ -353,15 +353,17 @@ func _unhandled_input(event: InputEvent) -> void:
 func reset_to_spawn() -> void:
 	# Put it back on the road, upright, pointed up the trail.
 	if terrain.plan.yard:
-		place_at(Yard.SPAWN.x, Yard.SPAWN.y, Vector3.BACK)
+		var sp := Yard.spawn()
+		place_at(sp["at"].x, sp["at"].y, sp["heading"])
 		return
 	place_on_trail(6.0)
 
 
-## The practice yard: drop the rig at station `i`'s start, facing up its lane.
+## The practice park: drop the rig on the loop just before station `i`,
+## facing round the loop.
 func go_to_station(i: int) -> void:
-	var at: Vector2 = Yard.STATIONS[i][2]
-	place_at(at.x, at.y, Vector3.BACK)
+	var st: Dictionary = Yard.stations()[i]
+	place_at(st["at"].x, st["at"].y, st["heading"])
 
 
 ## Back on the trail where you are, a couple of metres behind: the marshal's
@@ -370,7 +372,8 @@ func recover() -> void:
 	recoveries += 1
 	damage.on_recover()
 	if terrain.plan.yard:
-		go_to_station(Yard.station_at(global_position.x, global_position.z))
+		var rp := Yard.recover_point(global_position.x, global_position.z, 3.0)
+		place_at(rp["at"].x, rp["at"].y, rp["heading"])
 		return
 	place_on_trail(clampf(global_position.z - 2.0, 6.0, terrain.length - 5.0))
 

@@ -217,10 +217,10 @@ func _yard_shots(terrain: Terrain) -> void:
 	cam.fov = 55.0
 	cam.far = 900.0
 	get_parent().add_child(cam)
-	for v: Array in [["90_yard_overview", Vector3(80, 95, -40), Vector3(80, 0, 85)],
-			["90_yard_west", Vector3(10, 30, 40), Vector3(45, 0, 80)],
-			["90_yard_east", Vector3(150, 30, 40), Vector3(118, 0, 80)],
-			["90_yard_north", Vector3(80, 28, 105), Vector3(80, 4, 148)]]:
+	for v: Array in [["90_yard_overview", Vector3(80, 170, -60), Vector3(80, 0, 170)],
+			["90_yard_south", Vector3(80, 45, -10), Vector3(80, 0, 90)],
+			["90_yard_creek", Vector3(150, 35, 110), Vector3(60, 0, 160)],
+			["90_yard_hill", Vector3(10, 50, 190), Vector3(100, 8, 260)]]:
 		cam.global_position = v[1]
 		cam.look_at(v[2], Vector3.UP)
 		cam.make_current()
@@ -228,14 +228,16 @@ func _yard_shots(terrain: Terrain) -> void:
 			await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png("res://snaps/%s.png" % v[0])
 		print("saved ", v[0])
-	for i in Yard.STATIONS.size():
+	for i in Yard.stations().size():
 		_rig.go_to_station(i)
 		for f in range(SETTLE_FRAMES):
 			await get_tree().physics_frame
 		var p := _rig.global_position
-		var lane: Rect2 = Yard.STATIONS[i][3]
-		cam.global_position = Vector3(p.x + 7.0, p.y + 4.5, p.z - 6.0)
-		cam.look_at(Vector3(lane.get_center().x, terrain.get_height(lane.get_center().x, lane.get_center().y), lane.get_center().y), Vector3.UP)
+		# from behind and above the rig, looking on to the obstacle
+		var on := Yard.ahead_on_loop(p.x, p.z, 22.0)
+		var back := (Vector3(p.x, 0.0, p.z) - Vector3(on.x, 0.0, on.y)).normalized()
+		cam.global_position = p + back * 8.0 + Vector3(0.0, 5.0, 0.0) + back.cross(Vector3.UP) * 3.0
+		cam.look_at(Vector3(on.x, terrain.get_height(on.x, on.y), on.y), Vector3.UP)
 		cam.make_current()
 		for f in range(4):
 			await RenderingServer.frame_post_draw

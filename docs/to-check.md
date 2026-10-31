@@ -1,48 +1,39 @@
 # To check in Claude Code / by hand
 
-## Where we are (handoff, 31 Oct)
+## Where we are (handoff, 30 Oct, branch `park-trail`)
 
-Everything is on `main`. In progress, not yet seen in a picture or driven:
-
-- **Grass wears to dirt** (`mud_field.gd` wear channel = mud texture alpha;
-  `wheel.gd` adds it as tires roll; `terrain.gdshader` turns worn grass to
-  flattened yellow, then packed dirt; `foliage.gdshader` lays worn grass flat
-  and wears it away). Numbers check out (`tests/wear_test.tscn`: 40 s of
-  circles on the yard's grass wears ~470 m2), but nobody has looked at it.
-  Check: `-- --playground`, drive circles on the grass.
-- **Dust and wet grit on the rig** (`rig.gd`, corner mud from firm dirt, up
-  to a light coat ~0.6): dry dirt films the body over a minute or two; wet
-  gravel spatters it. The wet-grit part hasn't been run yet.
-- **Every ground reacts**: `tests/reaction_test.tscn` drives each section
-  kind 12 s and prints ruts, wear, sink, water, mud on the body. All rut or
-  wear and dirty the rig except rock (correct); the paddy road left the rig
-  clean before the wet-grit change: rerun it.
-- **Next up: the playground as a realistic park trail** (not started): a
-  winding loop over a hill, a creek ford, woods with trees close for winching,
-  the obstacles on the trail itself with easy bypasses, real clay that ruts
-  and gets muddy. Today's yard (`yard.gd`) is an open lot of stations; keep
-  its stations' sizes as the trail's obstacles.
+- **Bakuran trail park** replaces the open yard (`yard.gd`): 160 x 320 m, a
+  631 m clay loop anticlockwise round a wooded hill, a creek crossed twice,
+  every obstacle on the trail with a bypass beside it: bump strip, ledges,
+  creek ford (0.35 m), hill climb (a chute steepening to ~32 deg onto rock),
+  flex humps on the open top, side slope (5 to 35 deg), mud hole with trees
+  and a winch rock past it, deep crossing (1.4 m, posts every 0.3 m, the
+  bypass fords a riffle), rock squeeze, straddle line. Station buttons in
+  the pause menu drop you just before each; Backspace puts you back on the
+  nearest track, 3 m back. `tests/yard_test.tscn` (`--loop` for the whole
+  loop: a stock Gera gets round with 2 recoveries, the deep crossing and the
+  straddle rocks, as it should). Pictures: `-- --playground --snap`.
+  Check by driving: does the loop flow, are the bypasses easy enough, is the
+  hill chute right (Gera in 4L got up it), the side slope's tip point, the
+  woods close enough to winch from in the mud hole.
+- Looked at this time: **grass wears to dirt** (`tests/wear_test.tscn`
+  pictures: tire paths flatten then go to red dirt, fine) and the
+  **reaction test** (every ground reacts; the paddy road now dusts the rig).
+- Main menu: the column no longer runs off the bottom (title smaller,
+  Graphics and Quit side by side).
+- **Next up: water washes the rig too clean** (the user: "water completely
+  cleans the car"): a dip should rinse what's below the waterline and soften
+  fresh mud, not take baked crust and everything above the water.
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 
-## Practice yard (branch `playground`)
+## Practice park
 
-- **Bakuran practice yard**: "Practice yard" on the start menu (the last rig
-  you picked), or the career garage's "Practice yard" (your rig with its
-  parts; free, nothing sticks). `-- --playground` goes straight there.
-  An open 160 x 160 m lot, not a trail: bump strip (5 to 30 cm, clay and
-  rock), ledges (20, 40, 60 cm), tilt ramp (5 to 40 deg), straddle line
-  (0.45, 0.6, 0.75 m), rock squeeze (off-camber with boulders), flex humps,
-  wading pool to 1.6 m with depth posts, mud pit, winch rock, hill lanes
-  (20, 30, 40, 45 deg). Gravel road across the south and up the middle.
-- Pause menu: go to any station; damage off/on (on shows what would break,
-  never banked). Backspace: back to the nearest station's start. The HUD
-  says which station you're at and what it's for.
-- `tests/yard_test.tscn` drives every station (stock Gera: through all but
-  the straddle line, the pool and the winch rock, which stop it, as they
-  should); `-- --playground --snap` saves `snaps/90_yard_*` and `91_yard_*`.
-- To check by eye and driving: the tilt ramp reads as a ridge from behind;
-  the station signs are small; grass grows on the lanes too.
+- "Trail park" on the start menu (the last rig you picked), or the career
+  garage's "Trail park" (your rig with its parts; free, nothing sticks).
+  `-- --playground` goes straight there. Pause menu: go to any obstacle;
+  damage off/on (on shows what would break, never banked). The HUD says
+  which obstacle you're at and what it's for. The layout: see the top.
 
 ## Holes behind the wheels, small bumps like a wall (on main)
 

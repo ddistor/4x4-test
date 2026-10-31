@@ -231,7 +231,7 @@ func _career_panel(col: VBoxContainer) -> void:
 	# the practice yard with this rig: free, nothing wears
 	var bottom := HBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 10)
-	var yard := _small("Practice yard", 225)
+	var yard := _small("Trail park", 225)
 	yard.pressed.connect(func() -> void:
 		Game.use_career_rig()
 		_loading.visible = true

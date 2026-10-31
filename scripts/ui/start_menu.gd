@@ -39,22 +39,22 @@ func _ready() -> void:
 	add_child(art)
 
 	var left := VBoxContainer.new()
-	left.position = Vector2(80, 90)
-	left.add_theme_constant_override("separation", 12)
+	left.position = Vector2(80, 50)
+	left.add_theme_constant_override("separation", 10)
 	add_child(left)
-	var title := UiKit.label("PUTIK", 128)
+	var title := UiKit.label("PUTIK", 100)
 	title.add_theme_constant_override("shadow_offset_x", 4)
 	title.add_theme_constant_override("shadow_offset_y", 4)
 	left.add_child(title)
 	left.add_child(UiKit.label("4x4 trail runs from Morong, Rizal and on up the islands", 22, UiKit.DIM))
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 40)
+	gap.custom_minimum_size = Vector2(0, 14)
 	left.add_child(gap)
 
 	_drive = UiKit.button("Pick your rig and drive")
 	_drive.pressed.connect(_start)
 	left.add_child(_drive)
-	var yard := UiKit.button("Practice yard")
+	var yard := UiKit.button("Trail park")
 	yard.pressed.connect(func() -> void:
 		_loading.visible = true
 		await get_tree().process_frame
@@ -102,7 +102,7 @@ func _ready() -> void:
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
 	left.add_child(trail)
-	var gfx := UiKit.button("Graphics")
+	var gfx := UiKit.button("Graphics", 285)
 	gfx.pressed.connect(func() -> void:
 		left.visible = false
 		var s: Control = load("res://scripts/ui/settings_menu.gd").new()
@@ -110,11 +110,15 @@ func _ready() -> void:
 			left.visible = true
 			gfx.grab_focus())
 		add_child(s))
-	left.add_child(gfx)
 	_gfx = gfx
-	var quit := UiKit.button("Quit")
+	var quit := UiKit.button("Quit", 285)
 	quit.pressed.connect(func() -> void: get_tree().quit())
-	left.add_child(quit)
+	# side by side, so the column fits a 900-high window above the key help
+	var last := HBoxContainer.new()
+	last.add_theme_constant_override("separation", 10)
+	last.add_child(gfx)
+	last.add_child(quit)
+	left.add_child(last)
 
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", UiKit.box(Color(0.05, 0.04, 0.03, 0.66), 10))
