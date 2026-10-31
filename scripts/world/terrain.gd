@@ -58,6 +58,8 @@ var water_mats: Array[ShaderMaterial] = []   # the rig stirs these (wakes, mud p
 ## the day's rain, kept up by Weather: how soaked the surfaces are, how hard it's coming down
 var rain_soak := 0.0
 var rain_now := 0.0
+## 0..1: how far up the rivers and creeks have come in a long rain (Weather; set_flood)
+var flood := 0.0
 
 var _noise: FastNoiseLite
 var _detail: FastNoiseLite
@@ -338,8 +340,32 @@ func water_level_at(z: float) -> float:
 			var l: float = b["level"]
 			if b.has("level_lo"):   # a sloping stream sheet
 				l = lerpf(b["level_lo"], b["level_hi"], (z - float(b["z_lo"])) / (float(b["z_hi"]) - float(b["z_lo"])))
-			level = maxf(level, l)
+			level = maxf(level, l + flood * _rise(b))
 	return level
+
+
+## How far a body of water comes up in a long heavy rain (at flood 1): a
+## river half a metre, a creek a third, a lahar stream a fifth (it spreads
+## over its sand bars), paddies and bog holes a few centimetres.
+func _rise(b: Dictionary) -> float:
+	if b.has("crossing"):
+		return 0.5 if float((b["crossing"] as Dictionary)["half_w"]) > 7.0 else 0.32
+	if b.has("stream"):
+		return 0.2
+	return 0.06
+
+
+## The rivers up (or back down) to `f` (0..1 of their rise), sheets and all.
+func set_flood(f: float) -> void:
+	if absf(f - flood) < 0.002:
+		return
+	flood = f
+	for b in water_bodies:
+		var mi: Node3D = b.get("node")
+		if mi:
+			mi.position.y = float(b["base_y"]) + flood * _rise(b)
+			# and runs faster, browner with what it's carrying
+			(b["mat"] as ShaderMaterial).set_shader_parameter("flow", (b["base_flow"] as Vector2) * (1.0 + 1.2 * flood))
 
 
 # --- heights --------------------------------------------------------------------------
@@ -1093,6 +1119,10 @@ func _build_water() -> void:
 			plane.size.y = sqrt(span * span + drop * drop) + 0.3
 		mi.name = "Water"
 		add_child(mi)
+		b["node"] = mi   # (Weather raises it in a long rain: set_flood)
+		b["base_y"] = mi.position.y
+		b["mat"] = mat
+		b["base_flow"] = mat.get_shader_parameter("flow")
 
 
 func _place_rocks() -> void:
@@ -1444,13 +1474,13 @@ func current_at(x: float, z: float) -> Vector3:
 		if absf(z - float(c["zc"])) < float(c["reach"]):
 			var k := _channel(c, x, z).x
 			if k > 0.0:
-				return Vector3(float(c["flow"]) * k, 0.0, 0.0)
+				return Vector3(float(c["flow"]) * k * (1.0 + 1.2 * flood), 0.0, 0.0)   # (faster in flood)
 	for st in streams:
 		var sk := _stream_k(st, x, z)
 		if sk > 0.1:
 			# down the wash, the way the ground falls
 			var down := signf(trail_floor_at(z) - trail_floor_at(z + 2.0))
-			return Vector3(0.0, 0.0, float(st["flow"]) * sk * down)
+			return Vector3(0.0, 0.0, float(st["flow"]) * sk * down * (1.0 + 1.2 * flood))
 	return Vector3.ZERO
 
 

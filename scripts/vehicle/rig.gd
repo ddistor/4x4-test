@@ -68,6 +68,9 @@ const CORNER_PARAMS: Array[StringName] = [&"corner_fl", &"corner_fr", &"corner_r
 var spare_mat: ShaderMaterial   # set by the body if it carries a spare
 ## seconds spent off the course (past the strip's edge); the HUD counts down
 var off_course := 0.0
+var _glass_mats: Array[ShaderMaterial] = []
+var _wiper_rate := 0.0   # sweeps a second, 0 parked
+var _wiper_t := 0.0
 const OFF_COURSE_WAIT := 6.0
 ## mud spattered on the spare (0..1): its own, slow, off the rear tires
 var spare_mud := 0.0
@@ -148,6 +151,61 @@ func _build_body() -> void:
 	spec.build_body.call(self)
 	Armor.underbody(self)
 	Armor.build(self)
+	_rain_glass()
+
+
+## Every body's glass (its own see-through material) onto the glass shader:
+## beads in the rain, wipers on the windscreen. The windscreen's found from
+## the glass itself: the panes facing fore-and-aft in the front half.
+func _rain_glass() -> void:
+	var shader := load("res://shaders/glass.gdshader")
+	for c in get_children():
+		var mi := c as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		for si in mi.mesh.get_surface_count():
+			var sm := mi.mesh.surface_get_material(si) as StandardMaterial3D
+			if sm == null or sm.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA or sm.metallic_specular < 0.85:
+				continue
+			var lo := Vector2(INF, INF)
+			var hi := Vector2(-INF, -INF)
+			var arr := mi.mesh.surface_get_arrays(si)
+			var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+			for k in vs.size():
+				var n := ns[k] if k < ns.size() else Vector3.BACK
+				if absf(n.z) > 0.6 and vs[k].z < 0.0:
+					lo = lo.min(Vector2(absf(vs[k].x), vs[k].y))
+					hi = hi.max(Vector2(absf(vs[k].x), vs[k].y))
+			var m := ShaderMaterial.new()
+			m.shader = shader
+			m.set_shader_parameter("tint", sm.albedo_color)
+			if hi.y > lo.y:
+				m.set_shader_parameter("screen_bottom", lo.y)
+				m.set_shader_parameter("screen_half", hi.x)
+				m.set_shader_parameter("screen_height", hi.y - lo.y)
+			mi.mesh.surface_set_material(si, m)
+			_glass_mats.append(m)
+
+
+## Wipers: on while it rains (fast in a downpour); switched off they finish
+## the sweep and park.
+func _wiper_step(delta: float) -> void:
+	if _glass_mats.is_empty():
+		return
+	var rain := terrain.rain_now if terrain else 0.0
+	if rain > 0.08:
+		_wiper_rate = 1.5 if rain > 0.55 else 0.8
+		_wiper_t += delta
+	elif _wiper_rate > 0.0:
+		var before := fmod(_wiper_t * _wiper_rate, 1.0)
+		_wiper_t += delta
+		if fmod(_wiper_t * _wiper_rate, 1.0) < before:
+			_wiper_rate = 0.0   # back at rest
+			_wiper_t = 0.0
+	for m in _glass_mats:
+		m.set_shader_parameter("wipers", _wiper_rate)
+		m.set_shader_parameter("wiper_phase", _wiper_t)
 
 
 ## The body colour picked in the menu: gloss paint, or polished stainless.
@@ -447,6 +505,7 @@ func _physics_process(delta: float) -> void:
 			return_to_course()
 	else:
 		off_course = 0.0
+	_wiper_step(delta)
 	throttle = Input.get_action_strength("throttle")
 	brake = Input.get_action_strength("brake")
 	var steer_in := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")

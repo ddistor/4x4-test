@@ -58,7 +58,15 @@
 - Check by driving: does it feel right on the clay (greasy, slides), on
   the gravel road (still drivable), on rock; is the rain loud enough
   inside a closed cab; the sky through a shower coming and going.
-- Not done: drops on the windscreen, wipers, rivers rising.
+- Rivers rise in a long heavy rain: once the ground's saturated they come
+  up over a few minutes (river 0.5 m, creek 0.32, lahar stream 0.2,
+  paddies a few cm) and run faster; a shower barely moves them; they go
+  down over a quarter of an hour. A downpour starts with them well up
+  (seed 7 river crossing: 0.13 m on the line -> 0.23 m).
+- Glass (`glass.gdshader`, every rig): beads in the rain that bend the view
+  behind them, running down steep panes; two wipers sweep the windscreen
+  while it rains (faster in heavy rain), the beads coming back between
+  passes; switched off they finish the sweep. Check from the seat camera.
 
 ## Going off the edge (branch `edge-barrier`)
 

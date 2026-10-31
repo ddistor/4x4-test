@@ -13,7 +13,8 @@ extends Node3D
 ## Everything that cares reads it: the global shader values `rain_now` and
 ## `rain_soak` (ground goes dark and slick and its hollows fill, rings on the
 ## water and in the puddles, wet stone, leaves, bark and paint), the terrain
-## (`ground_sample` wetness, so grip and sinkage follow), the rig (mud stays
+## (`ground_sample` wetness, so grip and sinkage follow; the rivers rising in
+## a long heavy rain, deeper and faster: `flood`), the rig (mud stays
 ## wet, a thin film rinses), the sky and the light, the rain itself (streaks
 ## round the camera that stop on roofs and under the canopy, splashes where
 ## they land) and its sound.
@@ -22,6 +23,7 @@ const SHOWER_PERIOD := 240.0   # s, roughly, between one shower and the next
 
 var intensity := 0.0
 var soak := 0.0
+var flood := 0.0              # 0..1: how far up the rivers are (Terrain.set_flood)
 var mode := 0                  # 0 dry, 1 now and then, 2 showers, 3 downpour, 4 fixed
 var _fixed := -1.0
 var _t := 0.0
@@ -72,6 +74,8 @@ func setup(terrain: Terrain, env: Environment, sun: DirectionalLight3D, downpour
 		mode = 4
 	intensity = _target()
 	soak = clampf(intensity * 1.2, 0.0, 1.0) if intensity > 0.05 else (0.25 if mode >= 2 else 0.0)
+	# a downpour's been going a while already: the rivers are well up
+	flood = _flood_target() * (0.7 if mode == 3 else 0.0)
 	_build_rain()
 	_build_sound()
 	_apply(0.0)
@@ -113,7 +117,18 @@ func _process(delta: float) -> void:
 		soak = minf(1.0, soak + delta * intensity / 110.0)
 	else:
 		soak = maxf(0.0, soak - delta / (900.0 if mode >= 2 else 420.0))
+	# the rivers come up once the ground can't take any more (the runoff
+	# from upstream arrives over a few minutes), and go down slower still
+	var want := _flood_target()
+	flood = move_toward(flood, want, delta / (240.0 if want > flood else 900.0))
 	_apply(delta)
+
+
+## How far up the rivers want to be: only once the ground's saturated, and
+## properly only in a downpour (a shower barely moves them).
+func _flood_target() -> float:
+	var heavy := mode == 3 or (mode == 4 and _fixed > 0.6)
+	return smoothstep(0.55, 1.0, soak) * (1.0 if heavy else 0.45)
 
 
 func _apply(delta: float) -> void:
@@ -121,6 +136,7 @@ func _apply(delta: float) -> void:
 	RenderingServer.global_shader_parameter_set("rain_soak", soak)
 	_terrain.rain_soak = soak
 	_terrain.rain_now = intensity
+	_terrain.set_flood(flood)
 	# overcast: the sun goes in, the haze thickens, the sky greys over
 	var r := smoothstep(0.0, 0.7, intensity)
 	var cloud := maxf(r, smoothstep(0.0, 0.4, soak) * 0.4)
