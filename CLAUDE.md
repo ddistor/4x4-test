@@ -90,7 +90,8 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   V6, straight-six, four, the diesels), each bank down its headers into a pipe,
   muffler and tailpipe that ring at their own lengths; intake pulses and induction
   roar up front, diesel knock / valve tick from the block. Loops baked across the
-  rev range on and off load (~2-3 s, in a thread, the first time) and cached in
+  rev range on and off load (~2.5 s the first time: in the garage in the background,
+  or behind the loading card; `Game.prepare_engine` / `engine_sound`) and cached in
   `user://engine_sound/`; bump `CACHE_VERSION` when changing the synthesis.
   `tests/engine_sound_test.tscn` checks the orders and writes WAVs;
   `tests/engine_listen.tscn -- --rig X` records a rev sweep through the real mix.

@@ -640,6 +640,7 @@ func _rebuild() -> void:
 	_rig.position = Vector3(0, _rig.spec.tire_radius - 0.05 + _rig.spec.lift, 0)
 	_rig.driver.snap()
 	_rig.flex = _flex
+	Game.prepare_engine(_rig.spec)   # its engine sound, made while you look it over
 	if _name:
 		_show_names()
 

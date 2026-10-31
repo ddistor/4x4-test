@@ -66,6 +66,10 @@ var garage_for_park := false
 var park_track := 0
 var yard_damage := false
 var career_flag_used := false   # `--career` on the command line: done once
+# each engine's sound (EngineSynth), kept once made: key -> loops; and the
+# ones being baked in the background (key -> WorkerThreadPool task id)
+var _engines := {}
+var _engine_tasks := {}
 var _free_rig := -1   # the free-play pick, put back when you leave the career
 var _free_weather := -2   # and the free-play weather and trail
 var _free_level := 1
@@ -173,6 +177,49 @@ func rig_damage() -> Dictionary:
 
 
 ## The trail park's track list (after the garage, with its rig).
+## Start making a rig's engine sound in the background (the garage calls it
+## as soon as a rig is picked), so it's ready by the time the stage loads.
+func prepare_engine(spec: RigSpec) -> void:
+	var key := _engine_key(spec)
+	if _engines.has(key) or _engine_tasks.has(key):
+		return
+	var kind: String = CabinKit.layout(spec)["engine"]
+	var idle := spec.idle_rpm
+	var red := spec.redline
+	var cached := EngineSynth.load_cached(kind, idle, red)
+	if not cached.is_empty():
+		_engines[key] = cached
+		return
+	var out := {}
+	_engine_tasks[key] = WorkerThreadPool.add_task(func() -> void:
+		var e := EngineSynth.build(kind, idle, red)
+		EngineSynth.save_cached(kind, idle, red, e)
+		out.merge(e))
+	_engine_tasks[key + "#out"] = out
+
+
+## A rig's engine sound, now: from memory, from the cache, from the bake
+## already under way (waits for it), or made here. Called while the stage
+## loads, behind the loading card.
+func engine_sound(spec: RigSpec) -> Dictionary:
+	var key := _engine_key(spec)
+	if _engines.has(key):
+		return _engines[key]
+	if not _engine_tasks.has(key):
+		prepare_engine(spec)
+		if _engines.has(key):
+			return _engines[key]
+	WorkerThreadPool.wait_for_task_completion(_engine_tasks[key])
+	_engines[key] = _engine_tasks[key + "#out"]
+	_engine_tasks.erase(key)
+	_engine_tasks.erase(key + "#out")
+	return _engines[key]
+
+
+static func _engine_key(spec: RigSpec) -> String:
+	return "%s_%d_%d" % [CabinKit.layout(spec)["engine"], int(spec.idle_rpm), int(spec.redline)]
+
+
 func to_park_select() -> void:
 	bank_damage()
 	playground = false

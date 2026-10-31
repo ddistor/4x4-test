@@ -50,8 +50,9 @@
   off; intake roar up front; gear whine in reverse, first and low range.
 - From the seat: a closed cab ~11 dB quieter and duller; the open tubs as
   loud as outside, the engine right there.
-- First drive in each rig bakes its engine in the background (~2-3 s, quiet
-  till then), then it's cached in user://engine_sound/.
+- Each rig's engine is made while you look it over in the garage, or while
+  the stage loads (first time only, ~2.5 s on the loading card); then it's
+  cached in user://engine_sound/ and kept in memory between stages.
 - Measured (`tests/engine_listen.tscn`, WAVs in snaps/engine/): pitch follows
   rpm x cylinders / 120 on every rig, no clipping, idle ~17 dB under full
   throttle. Not heard by me: listen to snaps/engine/<rig>_outside.wav and

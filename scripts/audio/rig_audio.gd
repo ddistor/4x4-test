@@ -13,7 +13,6 @@ var rig: Rig
 # the engine: its baked loops (EngineSynth.build) once they're ready; two
 # players a layer and load (even and odd rev points, crossfaded between)
 var _eng := {}
-var _baking := false
 var _ex := []          # [slot][0 on load, 1 off] AudioStreamPlayer3D at the tailpipe
 var _in := []          # the same in the engine bay
 var _load := 0.0
@@ -166,23 +165,8 @@ func _engine_setup() -> void:
 		_ex.append([_loop3d(null, 4.0, tail, "EngineOut"), _loop3d(null, 4.0, tail, "EngineOut")])
 		_in.append([_loop3d(null, 3.0, bay, "EngineIn"), _loop3d(null, 3.0, bay, "EngineIn")])
 	_whine = _loop3d(EngineSynth.whine(), 2.5, Vector3(0.0, 0.45, s.seat.z - 0.4), "EngineOut")
-	_eng = EngineSynth.load_cached(_kind, s.idle_rpm, s.redline)
-	if _eng.is_empty():
-		# the first drive in this engine: bake it off the main thread (~3 s)
-		# and keep it; quiet until then
-		_baking = true
-		var kind := _kind
-		var idle := s.idle_rpm
-		var red := s.redline
-		WorkerThreadPool.add_task(func() -> void:
-			var e := EngineSynth.build(kind, idle, red)
-			EngineSynth.save_cached(kind, idle, red, e)
-			_baked.call_deferred(e))
-
-
-func _baked(e: Dictionary) -> void:
-	_eng = e
-	_baking = false
+	# made while the stage loads (usually already, in the garage)
+	_eng = Game.engine_sound(s)
 
 
 ## Two buses the engine plays through, each with a low-pass: outside, wide
