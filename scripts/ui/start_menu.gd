@@ -51,22 +51,20 @@ func _ready() -> void:
 	gap.custom_minimum_size = Vector2(0, 14)
 	left.add_child(gap)
 
-	_drive = UiKit.button("Pick your rig and drive")
-	_drive.pressed.connect(_start)
-	left.add_child(_drive)
-	var yard := UiKit.button("Trail park")
-	yard.pressed.connect(func() -> void:
-		_loading.visible = true
-		await get_tree().process_frame
-		await get_tree().process_frame
-		Game.to_playground())
+	# three ways to play, each its own block: the career, a one-off seeded
+	# run (its seed and settings with it), the trail park
+	var heading := func(text: String) -> void:
+		var h := UiKit.label(text, 18, UiKit.DIM)
+		left.add_child(h)
+	heading.call("CAREER")
 	var career := UiKit.button("Career mode")
 	career.pressed.connect(Game.to_career)
 	left.add_child(career)
-	left.add_child(yard)
-	var reroll := UiKit.button("Reroll the stage")
-	reroll.pressed.connect(func() -> void: _show_seed(Game.random_seed()))
-	left.add_child(reroll)
+	_section_gap(left)
+	heading.call("SEEDED RUN")
+	_drive = UiKit.button("Pick your rig and drive")
+	_drive.pressed.connect(_start)
+	left.add_child(_drive)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var seed_label := UiKit.label("Seed", 20, UiKit.DIM)
@@ -74,7 +72,7 @@ func _ready() -> void:
 	seed_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(seed_label)
 	_seed_edit = LineEdit.new()
-	_seed_edit.custom_minimum_size = Vector2(250, 46)
+	_seed_edit.custom_minimum_size = Vector2(210, 46)
 	_seed_edit.add_theme_font_size_override("font_size", 22)
 	_seed_edit.add_theme_color_override("font_color", UiKit.TEXT)
 	_seed_edit.add_theme_stylebox_override("normal", UiKit.box(Color(0.06, 0.05, 0.04, 0.62)))
@@ -84,8 +82,11 @@ func _ready() -> void:
 			_preview_seed(int(t)))
 	_seed_edit.text_submitted.connect(func(_t: String) -> void: _start())
 	row.add_child(_seed_edit)
+	var reroll := UiKit.button("Reroll", 290)
+	reroll.pressed.connect(func() -> void: _show_seed(Game.random_seed()))
+	row.add_child(reroll)
 	left.add_child(row)
-	var weather := UiKit.button("")
+	var weather := UiKit.button("", 285)
 	var names := {-1: "Weather: random", 0: "Weather: dry season", 1: "Weather: rainy season"}
 	weather.text = names[Game.weather]
 	weather.pressed.connect(func() -> void:
@@ -93,15 +94,28 @@ func _ready() -> void:
 		weather.text = names[Game.weather]
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
-	left.add_child(weather)
-	var trail := UiKit.button("")
+	var trail := UiKit.button("", 285)
 	trail.text = "Trail: " + StagePlan.DIFFICULTY[Game.level][0]
 	trail.pressed.connect(func() -> void:
 		Game.level = (Game.level + 1) % 3  # hard -> extreme -> moderate -> hard
 		trail.text = "Trail: " + StagePlan.DIFFICULTY[Game.level][0]
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
-	left.add_child(trail)
+	var settings := HBoxContainer.new()
+	settings.add_theme_constant_override("separation", 10)
+	settings.add_child(weather)
+	settings.add_child(trail)
+	left.add_child(settings)
+	_section_gap(left)
+	heading.call("TRAIL PARK")
+	var yard := UiKit.button("Bakuran trail park: practise on the obstacles")
+	yard.pressed.connect(func() -> void:
+		_loading.visible = true
+		await get_tree().process_frame
+		await get_tree().process_frame
+		Game.to_playground())
+	left.add_child(yard)
+	_section_gap(left)
 	var gfx := UiKit.button("Graphics", 285)
 	gfx.pressed.connect(func() -> void:
 		left.visible = false
@@ -151,6 +165,12 @@ func _ready() -> void:
 
 	_show_seed(Game.stage_seed)
 	_drive.grab_focus()
+
+
+func _section_gap(box: VBoxContainer) -> void:
+	var g := Control.new()
+	g.custom_minimum_size = Vector2(0, 6)
+	box.add_child(g)
 
 
 ## `--snap-menu`: save a picture of this menu to snaps/ and quit
