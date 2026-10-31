@@ -111,13 +111,14 @@ func _stage_step(_delta: float) -> void:
 			var st: Dictionary = Yard.stations()[i]
 			_stage.text = "Bakuran trail park   ·   %s\n%s" % [st["name"], st["what"]]
 		return
-	if not _finished and z > plan.finish_z:
+	# the nose under the banner counts (the rig's middle is a couple of metres back)
+	if not _finished and z + 2.0 > plan.finish_z:
 		_finished = true
 		_finish.text = "You made it to the end of the trail.\nStage %d  ·  Esc for the menu" % plan.seed_value
 		if Game.in_career and Game.career.started:
 			_finish.text = _career_pay()
+		# it stays up: it's the end of the run, Esc takes you on from here
 		_finish.visible = true
-		get_tree().create_timer(8.0).timeout.connect(func() -> void: _finish.visible = false)
 	var i := plan.index_at(z)
 	_stage.text = "%d / %d   %s\n%d / %d m" % [i + 1, plan.sections.size(), StagePlan.display_name(plan.sections[i]),
 		clampi(int(z), 0, int(plan.finish_z)), int(plan.finish_z)]

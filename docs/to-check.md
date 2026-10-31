@@ -28,6 +28,13 @@
   rinse to a film. Check by driving: the shallow ford leaves a lifted rig's
   body as it was; the deep crossing cleans the lower doors of fresh mud.
 - **The spare** only catches spatter off the rear tires, slowly, low down.
+- **Tires coat per turn** through mud (not per second), dry clay barely
+  sticks, the wheel only clogs when sunk to it or spinning.
+- **Start menu**: Career / Seeded run / Trail park blocks; the park goes
+  through the garage too ("Into the trail park").
+- **Career finish didn't show** (the user drove to the end, no card): now
+  the nose under the banner counts, and the card stays up instead of going
+  after 8 s. Check: finish a career event, the card shows and pays.
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 
