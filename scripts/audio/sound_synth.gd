@@ -118,40 +118,7 @@ static func _burst(into: PackedFloat32Array, at: int, dur: float, freq: float, q
 	_mix(into, b, amp, at)
 
 
-# --- engine ---------------------------------------------------------------------
-
-## A lumpy V8 at a fixed rpm: each firing is a pressure pulse (a thump plus
-## a burst of noise) that rings through the exhaust's resonances. Cross-plane
-## firing makes the pulses uneven in a repeating 8-pulse pattern, which is
-## the burble. `bright` adds the rasp of the high-rpm layer.
-static func engine(rpm: float, bright: float, seed_v: int) -> AudioStreamWAV:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_v
-	var fire := rpm / 60.0 * 4.0
-	var n := RATE  # 1 s holds a whole number of 8-pulse engine cycles at 1200/3000 rpm
-	var pattern := [1.0, 0.78, 1.1, 0.72, 0.95, 0.85, 1.06, 0.68]
-	var exc := _zeros(n)
-	var count := int(round(fire))
-	for k in range(count):
-		var at := int(k * RATE / fire + rng.randf_range(-0.0002, 0.0002) * RATE)
-		var amp: float = pattern[k % 8] * (1.0 + rng.randfn() * 0.08)
-		var len := int(RATE * 0.014)
-		for i in range(len):
-			var t := float(i) / RATE
-			exc[(at + i + n) % n] += amp * (exp(-t / 0.0035) * 0.9 + rng.randf_range(-1.0, 1.0) * exp(-t / 0.0025) * 0.7)
-	var body := exc.duplicate()
-	_bandpass(body, lerpf(95.0, 140.0, bright), 1.8)
-	var pipe := exc.duplicate()
-	_bandpass(pipe, lerpf(320.0, 520.0, bright), 2.5)
-	var rasp := exc.duplicate()
-	_bandpass(rasp, lerpf(1100.0, 1900.0, bright), 1.2)
-	var buf := _zeros(n)
-	for i in range(n):
-		var s := body[i] * 1.0 + pipe[i] * 0.55 + rasp[i] * (0.12 + 0.4 * bright) + exc[i] * 0.06
-		buf[i] = tanh(s * 2.2)
-	_lowpass(buf, lerpf(2200.0, 6000.0, bright))
-	_highpass(buf, 30.0)
-	return _to_wav(buf, true)
+# --- engine: EngineSynth (each rig's own) ------------------------------------------
 
 
 # --- ground and water -------------------------------------------------------------

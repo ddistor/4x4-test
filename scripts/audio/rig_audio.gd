@@ -1,20 +1,24 @@
 class_name RigAudio
 extends Node3D
-## Mixes the synthesised loops from what the rig is doing: engine rpm comes
-## from the gearbox (so gears, wheelspin and stalls all show), squelch follows mud and slip,
+## Mixes the synthesised loops from what the rig is doing: the rig's own
+## engine (EngineSynth: its exhaust from the tailpipe, intake and block from
+## the bay) at the gearbox's rpm, on or off load, through the closed cab's
+## walls when you're inside; gear whine in reverse, first and low range;
+## squelch follows mud and slip,
 ## swash follows water, and the ambience fades from paddies to forest as you
 ## climb. One-shots for the diff lock / low range / winch and big splashes.
 
-const IDLE_RPM := 750.0
-const MAX_RPM := 5200.0
-const LO_RPM := 1200.0   # the rpm each engine loop was synthesised at
-const HI_RPM := 3000.0
-
 var rig: Rig
-var rpm := IDLE_RPM
 
-var _engine_lo: AudioStreamPlayer3D
-var _engine_hi: AudioStreamPlayer3D
+# the engine: its baked loops (EngineSynth.build) once they're ready; two
+# players a layer and load (even and odd rev points, crossfaded between)
+var _eng := {}
+var _baking := false
+var _ex := []          # [slot][0 on load, 1 off] AudioStreamPlayer3D at the tailpipe
+var _in := []          # the same in the engine bay
+var _load := 0.0
+var _whine: AudioStreamPlayer3D
+var _kind := ""
 var _mud: AudioStreamPlayer3D
 var _gravel: AudioStreamPlayer3D
 var _water: AudioStreamPlayer3D
@@ -42,8 +46,7 @@ var _rng := RandomNumberGenerator.new()
 
 func setup(r: Rig) -> void:
 	rig = r
-	_engine_lo = _loop3d(SoundSynth.engine(LO_RPM, 0.0, 1), 4.0)
-	_engine_hi = _loop3d(SoundSynth.engine(HI_RPM, 1.0, 2), 4.0)
+	_engine_setup()
 	_mud = _loop3d(SoundSynth.mud(3), 3.0)
 	_gravel = _loop3d(SoundSynth.gravel(4), 3.0)
 	_water = _loop3d(SoundSynth.water(5), 3.0)
@@ -61,13 +64,16 @@ func setup(r: Rig) -> void:
 	_last = {"diff": rig.diff_locked, "low": rig.low_range, "winch": rig.winch_active}
 
 
-func _loop3d(stream: AudioStream, unit: float, at := Vector3.ZERO) -> AudioStreamPlayer3D:
+func _loop3d(stream: AudioStream, unit: float, at := Vector3.ZERO, bus := "Master") -> AudioStreamPlayer3D:
 	var p := AudioStreamPlayer3D.new()
 	p.stream = stream
 	p.unit_size = unit
 	p.position = at
 	p.volume_db = -80.0
-	p.autoplay = true
+	p.autoplay = stream != null
+	if bus != "Master":
+		_engine_bus(bus)
+		p.bus = bus
 	add_child(p)
 	return p
 
@@ -90,20 +96,7 @@ func _process(delta: float) -> void:
 		return
 	var smooth := 1.0 - exp(-delta * 8.0)
 
-	# --- engine: the gearbox's rpm; quiet when it has stalled -----------------
-	# (each engine's rpm range is mapped onto the loops' so a diesel at its
-	# 4000 redline sounds as wound up as a V8 at 4800)
-	var gb := rig.gearbox
-	var load := maxf(rig.throttle, rig.brake * 0.6)
-	var span := (gb.rpm - gb.idle_rpm) / (gb.redline - gb.idle_rpm)
-	var target := IDLE_RPM + span * (MAX_RPM - IDLE_RPM) if gb.rpm > gb.idle_rpm * 0.5 else gb.rpm
-	rpm = lerpf(rpm, target, 1.0 - exp(-delta * 12.0))
-	var on := 1.0 if gb.running else smoothstep(0.0, 400.0, gb.rpm) * 0.5
-	var x := smoothstep(1500.0, 3400.0, rpm)
-	_engine_lo.pitch_scale = maxf(rpm, 150.0) / LO_RPM
-	_engine_hi.pitch_scale = maxf(rpm, 150.0) / HI_RPM
-	_engine_lo.volume_db = _db((1.0 - x) * (0.55 + 0.45 * load) * on) - 2.0
-	_engine_hi.volume_db = _db(x * (0.45 + 0.55 * load) * on) - 3.0
+	_engine_step(delta)
 
 	# --- tires on the ground ----------------------------------------------------
 	var mud := 0.0
@@ -159,6 +152,129 @@ func _process(delta: float) -> void:
 	_paddy_amb.volume_db = _db((1.0 - f) * 0.5) - 6.0
 	_forest_amb.volume_db = _db(f * 0.55) - 6.0
 	_critter_step(delta, f)
+
+
+# --- the engine ------------------------------------------------------------------
+
+func _engine_setup() -> void:
+	var s := rig.spec
+	var l := CabinKit.layout(s)
+	_kind = l["engine"]
+	var tail := Vector3(0.35, 0.45, float(l["tail"]))
+	var bay := Vector3(0.0, 0.9, float(l["bay"][0]) + 0.45)
+	for slot in range(2):
+		_ex.append([_loop3d(null, 4.0, tail, "EngineOut"), _loop3d(null, 4.0, tail, "EngineOut")])
+		_in.append([_loop3d(null, 3.0, bay, "EngineIn"), _loop3d(null, 3.0, bay, "EngineIn")])
+	_whine = _loop3d(EngineSynth.whine(), 2.5, Vector3(0.0, 0.45, s.seat.z - 0.4), "EngineOut")
+	_eng = EngineSynth.load_cached(_kind, s.idle_rpm, s.redline)
+	if _eng.is_empty():
+		# the first drive in this engine: bake it off the main thread (~3 s)
+		# and keep it; quiet until then
+		_baking = true
+		var kind := _kind
+		var idle := s.idle_rpm
+		var red := s.redline
+		WorkerThreadPool.add_task(func() -> void:
+			var e := EngineSynth.build(kind, idle, red)
+			EngineSynth.save_cached(kind, idle, red, e)
+			_baked.call_deferred(e))
+
+
+func _baked(e: Dictionary) -> void:
+	_eng = e
+	_baking = false
+
+
+## Two buses the engine plays through, each with a low-pass: outside, wide
+## open; from the seat of a closed cab the exhaust comes through the floor
+## and glass dull and low, the bay through the firewall a little brighter.
+static func _engine_bus(name_: String) -> int:
+	var i := AudioServer.get_bus_index(name_)
+	if i >= 0:
+		return i
+	AudioServer.add_bus()
+	i = AudioServer.bus_count - 1
+	AudioServer.set_bus_name(i, name_)
+	AudioServer.set_bus_send(i, "Master")
+	var lp := AudioEffectLowPassFilter.new()
+	lp.cutoff_hz = 20000.0
+	AudioServer.add_bus_effect(i, lp)
+	# and a limiter: right by an open tub's engine at full throttle it must not break up
+	var lim := AudioEffectHardLimiter.new()
+	lim.ceiling_db = -1.5
+	AudioServer.add_bus_effect(i, lim)
+	return i
+
+
+func _engine_step(delta: float) -> void:
+	var gb := rig.gearbox
+	var on := 1.0 if gb.running else smoothstep(0.0, 300.0, gb.rpm) * 0.6
+	# on load: the throttle open and the engine pulling; off: closed, coasting
+	# on engine braking, or the clutch out for a shift
+	var want := clampf(rig.pedal_gas * 1.3, 0.0, 1.0)
+	if gb.shifting > 0.0 or gb.torque_out < 0.0:
+		want = 0.0
+	_load = move_toward(_load, want, delta * (6.0 if want > _load else 3.0))
+	# inside or out: the seat camera in a closed cab hears it through the body
+	var cam := get_viewport().get_camera_3d()
+	var inside: bool = cam != null and cam.get("hood_cam") == true
+	var closed := rig.spec.closed()
+	var out_bus := _engine_bus("EngineOut")
+	var in_bus := _engine_bus("EngineIn")
+	(AudioServer.get_bus_effect(out_bus, 0) as AudioEffectLowPassFilter).cutoff_hz = (650.0 if closed else 5000.0) if inside else 20000.0
+	(AudioServer.get_bus_effect(in_bus, 0) as AudioEffectLowPassFilter).cutoff_hz = (1800.0 if closed else 9000.0) if inside else 20000.0
+	AudioServer.set_bus_volume_db(out_bus, (-13.0 if closed else -3.0) if inside else 0.0)
+	AudioServer.set_bus_volume_db(in_bus, (-10.0 if closed else -4.0) if inside else 0.0)
+	# gear whine: shaft speed x teeth. The straight-cut reverse idler sings
+	# loudest, first a little, the transfer case's reduction gears in low
+	var r := maxf(gb.rpm, 1.0)
+	var ratio: float = gb.reverse_ratio if gb.gear < 0 else float(gb.gears[clampi(gb.gear - 1, 0, gb.gears.size() - 1)])
+	var mesh_hz := r / 60.0 * 23.0
+	var whine := 0.0
+	if gb.gear < 0:
+		whine = 0.5
+	elif rig.low_range:
+		mesh_hz = r / ratio / 60.0 * 31.0
+		whine = 0.3
+	elif gb.gear == 1:
+		whine = 0.12
+	whine *= smoothstep(400.0, 1600.0, r) * on
+	_whine.pitch_scale = clampf(mesh_hz / 500.0, 0.05, 8.0)
+	_whine.volume_db = lerpf(_whine.volume_db, _db(whine) - 10.0, 1.0 - exp(-delta * 6.0))
+	if _eng.is_empty():
+		for slot in range(2):
+			for k in range(2):
+				_ex[slot][k].volume_db = -80.0
+				_in[slot][k].volume_db = -80.0
+		return
+	# between which two rev points, and how far
+	var pts: Array = _eng["rpm"]
+	var i := 0
+	while i < pts.size() - 2 and r > float(pts[i + 1]):
+		i += 1
+	var f := clampf(log(r / float(pts[i])) / log(float(pts[i + 1]) / float(pts[i])), 0.0, 1.0)
+	var weights := {i: cos(f * PI * 0.5), i + 1: sin(f * PI * 0.5)}
+	var size := sqrt(float(_eng["litres"]) / 5.7)   # a big V8 is louder than a 1.6
+	for idx: int in weights:
+		var slot := idx % 2
+		for k in range(2):
+			var key := "on" if k == 0 else "off"
+			_assign(_ex[slot][k], _eng["ex_" + key][idx])
+			_assign(_in[slot][k], _eng["in_" + key][idx])
+			var lw := sqrt(_load) if k == 0 else sqrt(1.0 - _load)
+			var g: float = weights[idx] * lw * on * lerpf(0.75, 1.0, size)
+			for pl: AudioStreamPlayer3D in [_ex[slot][k], _in[slot][k]]:
+				pl.pitch_scale = clampf(r / float(pts[idx]), 0.05, 4.0)
+			_ex[slot][k].volume_db = _db(g) - 1.0
+			_in[slot][k].volume_db = _db(g) - 8.0
+
+
+## Give a player the loop for a rev point (only when it changes: that restarts it).
+func _assign(pl: AudioStreamPlayer3D, w: AudioStream) -> void:
+	if pl.stream == w:
+		return
+	pl.stream = w
+	pl.play()
 
 
 func _play(stream: AudioStream, db: float, pitch: float) -> void:

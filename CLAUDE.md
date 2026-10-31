@@ -85,11 +85,24 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   numbers per rig are in `RigSpec`. Its rpm drives the engine sound.
 - `scripts/vehicle/recovery_kit.gd` — shovel (1), traction boards (2), high-lift
   jack that packs stones under hanging tires (3); stopped only.
-- `scripts/audio/sound_synth.gd` — every sound, synthesised at startup (~0.4 s):
-  V8 engine loops at two rpms, mud/gravel/water/winch loops, quiet paddy and
+- `scripts/audio/engine_synth.gd` — each rig's own engine, from how an engine makes
+  sound: blowdown pulses at the real firing order and crank angles (V8 cross-plane,
+  V6, straight-six, four, the diesels), each bank down its headers into a pipe,
+  muffler and tailpipe that ring at their own lengths; intake pulses and induction
+  roar up front, diesel knock / valve tick from the block. Loops baked across the
+  rev range on and off load (~2-3 s, in a thread, the first time) and cached in
+  `user://engine_sound/`; bump `CACHE_VERSION` when changing the synthesis.
+  `tests/engine_sound_test.tscn` checks the orders and writes WAVs;
+  `tests/engine_listen.tscn -- --rig X` records a rev sweep through the real mix.
+- `scripts/audio/sound_synth.gd` — every other sound, synthesised at startup:
+  mud/gravel/water/winch loops, quiet paddy and
   forest beds plus a bank of separate animal calls (kept sparse on purpose),
   clunk and splash one-shots. No audio files.
-- `scripts/audio/rig_audio.gd` — pitches and mixes those from the rig's state.
+- `scripts/audio/rig_audio.gd` — pitches and mixes those from the rig's state: the
+  engine's loops crossfaded between rev points and on/off load (throttle, engine
+  braking, the clutch out), exhaust at the tail and intake at the bay, heard through
+  the cab from the seat (closed cabs much quieter and duller), gear whine in
+  reverse, first and low range.
 - `scripts/vehicle/winch_aim.gd` — choosing a winch anchor: rings on everything in
   reach, mouse hover or Tab to pick, F to hook.
 - `scripts/vehicle/driver.gd` — the driver (motocross helmet, sleeveless tee with the
@@ -144,7 +157,9 @@ Add `--snap-driver` for just the driver close-ups (`snaps/98_driver*.png`),
   - the rigs and the driver: real dimensions, proportions and ergonomics, parts
     that move as they're used;
   - sound and the UI's numbers.
-  Start from real-world figures (look them up when unsure), build to them, then
+  Research before implementing: look up how the real thing looks, measures,
+  sounds and behaves (and how others have modelled it) before writing code, and
+  say what was found. Start from those real-world figures, build to them, then
   check the result: pictures from where the player sees it (seat cam, chase
   cam, `--snap`) and tests or drives that measure the behaviour. Fix seams, gaps,
   intersections, wrong proportions and unrealistic behaviour before calling it

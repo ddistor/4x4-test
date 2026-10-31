@@ -38,6 +38,27 @@
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 
+## Each rig's own engine sound (branch `engine-sound`)
+
+- `engine_synth.gd`: built from how engines make sound, not one V8 for all.
+  Gera/Gerilya cross-plane V8 (1-8-4-3-6-5-7-2, burble from the banks'
+  uneven pulses and the crossover), Kuwarenta straight-six, Feroz four,
+  Ronda diesel six (1-5-3-6-2-4, knock at idle), Owner diesel four, Rubikon
+  V6. Pipe and muffler ring at fixed frequencies (no chipmunk when revved);
+  on load vs off load (throttle, engine braking, clutch out for a shift)
+  change the sound, not just the volume; overrun pops on a petrol lifting
+  off; intake roar up front; gear whine in reverse, first and low range.
+- From the seat: a closed cab ~11 dB quieter and duller; the open tubs as
+  loud as outside, the engine right there.
+- First drive in each rig bakes its engine in the background (~2-3 s, quiet
+  till then), then it's cached in user://engine_sound/.
+- Measured (`tests/engine_listen.tscn`, WAVs in snaps/engine/): pitch follows
+  rpm x cylinders / 120 on every rig, no clipping, idle ~17 dB under full
+  throttle. Not heard by me: listen to snaps/engine/<rig>_outside.wav and
+  _seat.wav, and drive each rig. Things to listen for: does the V8 burble,
+  does the diesel clatter at idle, is the coast-down/overrun right, is the
+  whine in 4L too much.
+
 ## The driver works the controls; seats where a real driver sits (branch `driver-controls`)
 
 - He drives it: right foot from the throttle to the brake, left foot on the
