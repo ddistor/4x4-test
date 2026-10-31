@@ -58,6 +58,8 @@ var test_damage := false
 ## any rig, or from the career garage with your own (free, and no wear
 ## unless you turn damage on from the pause menu). `--playground` goes there.
 var playground := false
+## the free-play garage is picking the rig for the trail park, not a stage
+var garage_for_park := false
 var yard_damage := false
 var career_flag_used := false   # `--career` on the command line: done once
 var _free_rig := -1   # the free-play pick, put back when you leave the career
@@ -260,9 +262,11 @@ func start_stage(seed_v: int) -> void:
 	get_tree().change_scene_to_file(STAGE)
 
 
-## The garage: see the rig and driver you picked before driving `seed_v`.
-func to_garage(seed_v: int) -> void:
+## The garage: see the rig and driver you picked before driving `seed_v`
+## (`park`: before going to the trail park instead).
+func to_garage(seed_v: int, park := false) -> void:
 	stage_seed = seed_v
+	garage_for_park = park
 	get_tree().paused = false
 	get_tree().change_scene_to_file(GARAGE)
 

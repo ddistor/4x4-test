@@ -62,7 +62,7 @@ func _ready() -> void:
 	left.add_child(career)
 	_section_gap(left)
 	heading.call("SEEDED RUN")
-	_drive = UiKit.button("Pick your rig and drive")
+	_drive = UiKit.button("Pick your rig for this stage")
 	_drive.pressed.connect(_start)
 	left.add_child(_drive)
 	var row := HBoxContainer.new()
@@ -108,12 +108,8 @@ func _ready() -> void:
 	left.add_child(settings)
 	_section_gap(left)
 	heading.call("TRAIL PARK")
-	var yard := UiKit.button("Bakuran trail park: practise on the obstacles")
-	yard.pressed.connect(func() -> void:
-		_loading.visible = true
-		await get_tree().process_frame
-		await get_tree().process_frame
-		Game.to_playground())
+	var yard := UiKit.button("Pick your rig for the trail park")
+	yard.pressed.connect(func() -> void: Game.to_garage(Game.stage_seed, true))
 	left.add_child(yard)
 	_section_gap(left)
 	var gfx := UiKit.button("Graphics", 285)

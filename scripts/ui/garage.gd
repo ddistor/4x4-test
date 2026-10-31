@@ -90,6 +90,8 @@ func _free_panel(col: VBoxContainer) -> void:
 	_gap(col)
 	_drive_btn = UiKit.button("Drive stage %d" % Game.stage_seed, 460)
 	_drive_btn.pressed.connect(_drive)
+	if Game.garage_for_park:
+		_drive_btn.text = "Into the trail park"
 	col.add_child(_drive_btn)
 	var back := UiKit.button("Back", 460)
 	back.pressed.connect(Game.to_menu)
@@ -707,6 +709,9 @@ func _drive() -> void:
 	# let the card draw before the main thread goes off to build the world
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if Game.garage_for_park and not Game.in_career:
+		Game.to_playground()
+		return
 	Game.start_stage(Game.stage_seed)
 
 
