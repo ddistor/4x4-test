@@ -42,6 +42,9 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   *firm floor* (heights minus mud thickness). 1 m cover/soil maps feed the shader
   (forest, paddy, ash, bedrock, cobbles, water level and where water may stand).
   Trees, palms and boulders double as winch anchors.
+- `scripts/world/yard.gd` — Bakuran, the practice yard (`StagePlan.practice_yard()`, a
+  `yard` section the terrain asks for heights, soil, rocks and the pool): an open lot
+  of stations, not a trail. `Game.playground`; `-- --playground`.
 - `scripts/world/rocks.gd` — boulders and river stones, convex colliders; wheels
   treat group "rock" as firm ground.
 - `scripts/world/vegetation.gd` — everything green, modelled in code: broadleaf
@@ -89,6 +92,7 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   thin blades otherwise makes NaNs that glow turns into white blobs).
 - `tests/mud_test.tscn` — mud on the rig: build-up, drying to crust, flaking on
   knocks, washing in a river (`--pictures --close` with a window renders the stages).
+- `tests/yard_test.tscn` — drives every station of the practice yard.
 - `tests/career_test.tscn` — the career ladder's pacing by sum, then garage → stage →
   finish → pay → garage through the real scenes.
 - `tests/parts_test.tscn` — career parts, rigs and money, and the ride height on a stage;

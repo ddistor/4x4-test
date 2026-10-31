@@ -102,6 +102,11 @@ func _career_pay() -> String:
 func _stage_step(_delta: float) -> void:
 	var plan := rig.terrain.plan
 	var z := rig.global_position.z
+	if plan.yard:
+		# the practice yard: which station you're at, and what it's for
+		var st: Array = Yard.STATIONS[Yard.station_at(rig.global_position.x, z)]
+		_stage.text = "Bakuran practice yard   ·   %s\n%s" % [st[0], st[1]]
+		return
 	if not _finished and z > plan.finish_z:
 		_finished = true
 		_finish.text = "You made it to the end of the trail.\nStage %d  ·  Esc for the menu" % plan.seed_value

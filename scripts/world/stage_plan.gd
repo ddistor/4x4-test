@@ -26,6 +26,8 @@ const KINDS := {
 	"ridge": {"name": "Talahib ridge", "place": "Mt. Balagbag, Rodriguez", "len": Vector2(120, 150), "rise": Vector2(8, 16), "wander": 7.0, "freq": 0.025, "pitch": [1, Vector2(0.28, 0.38)]},
 	"sukal": {"name": "Overgrown trail", "place": "Real, Quezon", "len": Vector2(100, 130), "rise": Vector2(4, 10), "wander": 9.0, "freq": 0.04, "pitch": [1, Vector2(0.22, 0.32)], "jitter": 0.5},
 	"end": {"name": "Finish clearing", "place": "", "len": Vector2(35, 35), "rise": Vector2(0, 0), "wander": 4.0, "freq": 0.03, "pitch": [0, Vector2.ZERO]},
+	# the practice yard (yard.gd): not a trail, one open lot
+	"yard": {"name": "Bakuran practice yard", "place": "Morong, Rizal", "len": Vector2(160, 160), "rise": Vector2(0, 0), "wander": 0.0, "freq": 0.0, "pitch": [0, Vector2.ZERO], "jitter": 0.0},
 }
 
 ## Where a river or creek crosses the trail (fraction along the section), and
@@ -51,6 +53,21 @@ var finish_z := 0.0
 ## key into DIFFICULTY, and its multiplier
 var level := 1
 var difficulty := 1.0
+## the practice yard: one open lot, no trail to follow, no finish
+var yard := false
+
+
+## The practice yard (Yard): one section, one terrain tile, between rains.
+static func practice_yard() -> StagePlan:
+	var plan := StagePlan.new()
+	plan.seed_value = 4242
+	plan.yard = true
+	plan.rain = 0.45
+	plan.sections.append({"kind": "yard", "z0": 0.0, "z1": TILE, "h0": 0.0, "h1": 0.0, "wet": 0.45,
+		"phase": 0.0, "cross_t": -1.0, "pitches": []})
+	plan.length = TILE
+	plan.finish_z = INF
+	return plan
 
 
 ## `weather`: -1 let the seed decide, 0 dry season, 1 rainy season.

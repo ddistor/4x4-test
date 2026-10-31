@@ -21,15 +21,15 @@ const NO_WATER := -1000.0
 ## How much of each kind of land is forest (leaf litter, ferns, trees).
 const FOREST := {"paddy": 0.0, "clay": 1.0, "kanal": 0.9, "river": 0.7, "lahar": 0.0, "rocky": 0.6,
 	"gully": 1.0, "bog": 1.0, "cogon": 0.05, "niyog": 0.0, "end": 0.3,
-	"pasture": 0.0, "ridge": 0.0, "sukal": 0.4}
+	"pasture": 0.0, "ridge": 0.0, "sukal": 0.4, "yard": 0.0}
 ## Broadleaf trees per metre of trail.
 const TREES := {"paddy": 0.0, "clay": 4.0, "kanal": 3.5, "river": 2.5, "lahar": 0.6, "rocky": 2.5,
 	"gully": 4.5, "bog": 5.0, "cogon": 0.35, "niyog": 0.2, "end": 1.0,
-	"pasture": 1.4, "ridge": 0.12, "sukal": 1.2}
+	"pasture": 1.4, "ridge": 0.12, "sukal": 1.2, "yard": 0.0}
 ## How lumpy the trail floor is: humps, wallows and potholes (m).
 const LUMPS := {"paddy": 0.03, "clay": 0.16, "kanal": 0.1, "river": 0.12, "lahar": 0.12, "rocky": 0.0,
 	"gully": 0.12, "bog": 0.2, "cogon": 0.1, "niyog": 0.16, "end": 0.06,
-	"pasture": 0.12, "ridge": 0.07, "sukal": 0.12}
+	"pasture": 0.12, "ridge": 0.07, "sukal": 0.12, "yard": 0.0}
 
 @export var seed_value: int = 7
 var plan: StagePlan
@@ -181,6 +181,12 @@ func _plan_features() -> void:
 			"paddy":
 				water_bodies.append({"z_lo": z0 - 1.0, "z_hi": z1 + 2.0, "level": float(s["h0"]) - 0.2,
 					"tint": Color(0.22, 0.26, 0.14, 0.55), "clarity": 0.15, "flow": 0.0})
+			"yard":
+				# the wading pool: clear water, standing only in its own basin
+				var pool: Dictionary = Yard.POOL
+				water_bodies.append({"z_lo": float(pool["z_in"]) - 1.0, "z_hi": float(pool["z_out"]) + 1.0,
+					"x_lo": float(pool["x0"]) - 3.0, "x_hi": float(pool["x1"]) + 3.0, "level": float(pool["level"]),
+					"tint": Color(0.16, 0.27, 0.24, 0.85), "clarity": 1.0, "flow": 0.0, "pool": true})
 
 
 func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void:
@@ -347,6 +353,8 @@ func _kind_height(s: Dictionary, x: float, z: float, sx: float, th: float) -> fl
 	var hills := _noise.get_noise_2d(x, z) * 0.5 + 0.5
 	var detail := _detail.get_noise_2d(x, z)
 	var k: String = s["kind"]
+	if k == "yard":
+		return Yard.height(x, z, _detail)
 	match k:
 		"paddy":
 			# flat terraces either side of the road, pilapil dikes on a rough grid
@@ -461,7 +469,8 @@ func _height_at(x: float, z: float, bl: Array, th: float, tx: float, inv: float,
 		lumps = lerpf(lumps, LUMPS[sb["kind"]], w)
 	h += lumps * _lumps(x, z) * (1.0 - smoothstep(2.5, 5.0, absf(sx)))
 	# the land closes in past the finish clearing, so the trail doesn't just stop at an edge
-	h += smoothstep(length - 30.0, length, z) * (5.0 + 3.0 * _noise.get_noise_2d(x, 0.0))
+	if not plan.yard:
+		h += smoothstep(length - 30.0, length, z) * (5.0 + 3.0 * _noise.get_noise_2d(x, 0.0))
 	for c in near_cross:
 		var ch := _channel(c, x, z)
 		if ch.x > 0.0:
@@ -559,6 +568,8 @@ func _kind_soil(s: Dictionary, x: float, z: float, sx: float, patchy: float) -> 
 	var on := 1.0 - smoothstep(2.6, 4.0, dx)
 	var rain: float = s["wet"]
 	var wheel_line := exp(-pow((dx - 0.8) / 0.35, 2.0))  # churned by the last convoy
+	if s["kind"] == "yard":
+		return Yard.soil(x, z, patchy)
 	match s["kind"]:
 		"paddy":
 			# compacted gravel road, blending into the saturated paddy
@@ -697,6 +708,30 @@ func _author_mud() -> void:
 			grip[i] = m.w
 
 
+## The yard's depth posts in the wading pool: white with a red band every
+## 0.3 m of water, and a sign post at each station's start.
+func _build_yard_posts() -> void:
+	var st := MeshKit.begin()
+	for p in Yard.pool_posts():
+		var bed := get_height(p.x, p.y)
+		var top := float(Yard.POOL["level"]) + 0.5
+		MeshKit.cylinder(st, 0.05, top - bed, Transform3D(Basis.IDENTITY, Vector3(p.x, (top + bed) * 0.5, p.y)), Color(0.9, 0.9, 0.88), 8)
+		# the band at the waterline: the depth there
+		MeshKit.cylinder(st, 0.056, 0.06, Transform3D(Basis.IDENTITY, Vector3(p.x, float(Yard.POOL["level"]), p.y)), Color(0.75, 0.08, 0.05), 8)
+	for s: Array in Yard.STATIONS:
+		var at: Vector2 = s[2]
+		var g := get_height(at.x - 4.0, at.y)
+		MeshKit.cylinder(st, 0.06, 1.6, Transform3D(Basis.IDENTITY, Vector3(at.x - 4.0, g + 0.8, at.y)), Color(0.55, 0.4, 0.22), 8)
+		MeshKit.rounded_box(st, Vector3(0.9, 0.5, 0.05), 0.02, Transform3D(Basis.IDENTITY, Vector3(at.x - 4.0, g + 1.6, at.y)), Color(0.92, 0.85, 0.5))
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.8
+	var mi := MeshInstance3D.new()
+	mi.name = "YardPosts"
+	mi.mesh = MeshKit.commit(st, m)
+	add_child(mi)
+
+
 ## 1 m maps for the ground shader (and vegetation / audio queries).
 func _build_maps() -> void:
 	var nx := int(WIDTH)
@@ -722,8 +757,11 @@ func _build_maps() -> void:
 		# paddies and bogs hold water wherever the ground dips; rivers and
 		# creeks only in their own channel (soil A is that mask)
 		var band_water := 0.0
+		var pool_x := Vector2(INF, -INF)
 		for b in water_bodies:
-			if not b.has("crossing") and not b.has("stream") and zf > b["z_lo"] and zf < b["z_hi"]:
+			if b.has("pool") and zf > b["z_lo"] and zf < b["z_hi"]:
+				pool_x = Vector2(b["x_lo"], b["x_hi"])   # only in its basin
+			elif not b.has("crossing") and not b.has("stream") and zf > b["z_lo"] and zf < b["z_hi"]:
 				band_water = 1.0
 		var near_cross := _near(crossings, zf, "zc", "reach", 1.0)
 		var tx := trail_x_at(zf)
@@ -739,6 +777,9 @@ func _build_maps() -> void:
 			var on := 1.0 - smoothstep(2.6, 4.0, dx)
 			var cobble := 0.0
 			var wet_mask := band_water
+			if xf > pool_x.x and xf < pool_x.y:
+				wet_mask = 1.0
+				cobble = 1.0   # a clean gravel bed
 			for c in near_cross:
 				var k := _channel(c, xf, zf).x
 				if k > 0.02:
@@ -750,8 +791,14 @@ func _build_maps() -> void:
 				if sk > 0.05:
 					wet_mask = 1.0
 				cobble = maxf(cobble, smoothstep(0.25, 0.75, sk))
-			cover_image.set_pixel(x, z, Color(minf(dx / 32.0, 1.0), forest, paddy_k, ash_k))
+			var trail_d := minf(dx / 32.0, 1.0)
+			if plan.yard:
+				forest = 0.0
+				trail_d = 0.0 if Yard._road(xf, zf) > 0.0 else 0.4   # the gravel road, else open field
+			cover_image.set_pixel(x, z, Color(trail_d, forest, paddy_k, ash_k))
 			var bedrock := rock_k * (0.9 * on + 0.3 * (1.0 - on))
+			if plan.yard:
+				bedrock = Yard.bedrock(xf, zf)
 			if gully_k > 0.0 and (xf - tx) * wall_side > 0.0:
 				bedrock = maxf(bedrock, gully_k * smoothstep(1.3, 2.1, dx) * (1.0 - smoothstep(9.0, 13.0, dx)))
 			soil_image.set_pixel(x, z, Color(bedrock, cobble, level, wet_mask))
@@ -995,6 +1042,12 @@ func _place_rocks() -> void:
 				off_trail = 6
 			"pasture", "sukal":
 				off_trail = 3
+			"yard":
+				for v in Yard.rocks():
+					rock_spots.append(Vector4(v.x, get_height(v.x, v.z) + v.y, v.z, v.w))
+					if v.w > 0.9:
+						tree_anchors.append(Vector3(v.x, get_height(v.x, v.z) + v.w * 0.5, v.z))
+				off_trail = 0
 		_straddle_rocks(s)
 		for k in range(off_trail):
 			var z := rng.randf_range(z0, z1)
@@ -1120,6 +1173,18 @@ func _build_trees() -> void:
 							solid.call(x, y, z, 0.8)
 					gx += 8.5
 				gz += 8.5
+	if plan.yard:
+		# a ring of trees on the bank round the yard, and shade by the spawn
+		var t := 6.0
+		while t < Yard.SIZE - 6.0:
+			for p: Vector2 in [Vector2(t, Yard.SIZE - 4.0), Vector2(4.0, t), Vector2(Yard.SIZE - 4.0, t)]:
+				if rng.randf() < 0.6:
+					var q := p + Vector2(rng.randf_range(-2.0, 2.0), rng.randf_range(-2.0, 2.0))
+					var sc := rng.randf_range(0.8, 1.15)
+					var y := low_ground(q.x, q.y, 0.45 * sc)
+					placements.append(Transform3D(Basis().rotated(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(q.x, y - 0.15, q.y)))
+					solid.call(q.x, y, q.y, sc)
+			t += 9.0
 	add_child(anchors_body)
 	var veg := Vegetation.new()
 	veg.name = "Vegetation"
@@ -1128,6 +1193,9 @@ func _build_trees() -> void:
 
 
 func _build_finish() -> void:
+	if plan.yard:
+		_build_yard_posts()
+		return
 	# a bamboo arch with a tarpaulin banner across the trail, barangay-fiesta style
 	var z := plan.finish_z
 	var tx := trail_x_at(z)

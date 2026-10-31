@@ -24,7 +24,7 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	box.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	box.position = Vector2(110, -230)
+	box.position = Vector2(110, -330 if terrain.plan.yard else -230)
 	_root.add_child(box)
 	box.add_child(UiKit.label("PAUSED", 64))
 	_where = UiKit.label("", 20, UiKit.DIM)
@@ -35,6 +35,8 @@ func _ready() -> void:
 	_resume = UiKit.button("Resume")
 	_resume.pressed.connect(_toggle)
 	box.add_child(_resume)
+	if terrain.plan.yard:
+		_yard_buttons(box)
 	# in a career a restart is a new entry: the fee again
 	var fee := 0
 	if Game.in_career and Game.career.started:
@@ -42,10 +44,11 @@ func _ready() -> void:
 	var cost := (" (entry %s)" % Career.pesos_text(fee)) if fee > 0 else ""
 	var restart := UiKit.button("Restart this stage" + cost, 420)
 	restart.pressed.connect(func() -> void: _again(Game.stage_seed))
-	box.add_child(restart)
 	var fresh := UiKit.button("New stage" + cost, 420)
 	fresh.pressed.connect(func() -> void: _again(Game.random_seed()))
-	box.add_child(fresh)
+	if not terrain.plan.yard:
+		box.add_child(restart)
+		box.add_child(fresh)
 	if fee > Game.career.pesos and Game.in_career:
 		restart.disabled = true
 		fresh.disabled = true
@@ -59,11 +62,47 @@ func _ready() -> void:
 		_root.add_child(s))
 	box.add_child(gfx)
 	var menu := UiKit.button("Back to the garage" if Game.in_career else "Back to start menu")
+	if terrain.plan.yard:
+		menu.text = "Leave the yard"
 	menu.pressed.connect(Game.leave_stage)
 	box.add_child(menu)
 	var quit := UiKit.button("Quit")
 	quit.pressed.connect(Game.quit_game)
 	box.add_child(quit)
+
+
+## The practice yard: drive to any station, and damage on or off (off,
+## nothing breaks; on, you see what would, but in the yard it never sticks).
+func _yard_buttons(box: VBoxContainer) -> void:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 8)
+	for i in Yard.STATIONS.size():
+		var b := UiKit.button(Yard.STATIONS[i][0], 260)
+		b.custom_minimum_size.y = 40
+		b.add_theme_font_size_override("font_size", 19)
+		b.pressed.connect(func() -> void:
+			_toggle()
+			rig.go_to_station(i))
+		grid.add_child(b)
+	box.add_child(grid)
+	var dmg := UiKit.button("", 530)
+	var show := func() -> void:
+		dmg.text = "Damage: %s" % ("on (shows what would break; it doesn't stick)" if Game.yard_damage else "off")
+	show.call()
+	dmg.pressed.connect(func() -> void:
+		Game.yard_damage = not Game.yard_damage
+		rig.damage.enabled = Game.yard_damage
+		if Game.yard_damage:
+			rig.contact_monitor = true
+			rig.max_contacts_reported = 16
+		else:
+			rig.damage.cond = {}
+			for k: String in Damage.PARTS:
+				rig.damage.cond[k] = 1.0
+		show.call())
+	box.add_child(dmg)
 
 
 ## Drive it again: in a career, entering again pays the fee.
@@ -88,4 +127,6 @@ func _toggle() -> void:
 		var s := terrain.plan.section_at(rig.global_position.z)
 		_where.text = "Stage %d   ·   section %d of %d: %s" % [
 			Game.stage_seed, terrain.plan.sections.find(s) + 1, terrain.plan.sections.size(), StagePlan.display_name(s)]
+		if terrain.plan.yard:
+			_where.text = "Bakuran practice yard, Morong   ·   free: nothing you do here costs"
 		_resume.grab_focus()

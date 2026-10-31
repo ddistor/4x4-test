@@ -352,7 +352,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func reset_to_spawn() -> void:
 	# Put it back on the road, upright, pointed up the trail.
+	if terrain.plan.yard:
+		place_at(Yard.SPAWN.x, Yard.SPAWN.y, Vector3.BACK)
+		return
 	place_on_trail(6.0)
+
+
+## The practice yard: drop the rig at station `i`'s start, facing up its lane.
+func go_to_station(i: int) -> void:
+	var at: Vector2 = Yard.STATIONS[i][2]
+	place_at(at.x, at.y, Vector3.BACK)
 
 
 ## Back on the trail where you are, a couple of metres behind: the marshal's
@@ -360,6 +369,9 @@ func reset_to_spawn() -> void:
 func recover() -> void:
 	recoveries += 1
 	damage.on_recover()
+	if terrain.plan.yard:
+		go_to_station(Yard.station_at(global_position.x, global_position.z))
+		return
 	place_on_trail(clampf(global_position.z - 2.0, 6.0, terrain.length - 5.0))
 
 
@@ -368,6 +380,11 @@ func place_on_trail(z: float) -> void:
 	var x := terrain.trail_x_at(z)
 	# face along the trail, not just up the map: it curves from the first metre
 	var heading := Vector3(terrain.trail_x_at(z + 3.0) - terrain.trail_x_at(z - 3.0), 0.0, 6.0)
+	place_at(x, z, heading)
+
+
+## Drop the rig at (x, z), upright, facing `heading`.
+func place_at(x: float, z: float, heading: Vector3) -> void:
 	var t := Transform3D(Basis.looking_at(heading, Vector3.UP), Vector3(x, terrain.get_height(x, z) + 1.2, z))
 	global_transform = t
 	# also straight to the server: from inside a physics-frame callback the

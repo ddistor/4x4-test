@@ -37,6 +37,10 @@ func _run() -> void:
 		get_tree().quit()
 		return
 	var terrain: Terrain = get_parent().get_node("Terrain")
+	if terrain.plan.yard:
+		await _yard_shots(terrain)
+		get_tree().quit()
+		return
 	print("stage ", terrain.plan.seed_value, "\n", terrain.plan.describe())
 	var spots: Array = []
 	for i in range(terrain.plan.sections.size()):
@@ -203,3 +207,38 @@ func _rig_shots() -> void:
 func _trail_start() -> float:
 	var terrain: Terrain = get_parent().get_node("Terrain")
 	return lerpf(terrain.plan.sections[0]["z0"], terrain.plan.sections[0]["z1"], 0.5)
+
+
+## The practice yard (`--playground --snap`): the whole lot from high over
+## the spawn, then the rig at each station's start with a view up the lane.
+func _yard_shots(terrain: Terrain) -> void:
+	(get_parent().get_node("HUD") as CanvasLayer).visible = false
+	var cam := Camera3D.new()
+	cam.fov = 55.0
+	cam.far = 900.0
+	get_parent().add_child(cam)
+	for v: Array in [["90_yard_overview", Vector3(80, 95, -40), Vector3(80, 0, 85)],
+			["90_yard_west", Vector3(10, 30, 40), Vector3(45, 0, 80)],
+			["90_yard_east", Vector3(150, 30, 40), Vector3(118, 0, 80)],
+			["90_yard_north", Vector3(80, 28, 105), Vector3(80, 4, 148)]]:
+		cam.global_position = v[1]
+		cam.look_at(v[2], Vector3.UP)
+		cam.make_current()
+		for i in range(8):
+			await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("res://snaps/%s.png" % v[0])
+		print("saved ", v[0])
+	for i in Yard.STATIONS.size():
+		_rig.go_to_station(i)
+		for f in range(SETTLE_FRAMES):
+			await get_tree().physics_frame
+		var p := _rig.global_position
+		var lane: Rect2 = Yard.STATIONS[i][3]
+		cam.global_position = Vector3(p.x + 7.0, p.y + 4.5, p.z - 6.0)
+		cam.look_at(Vector3(lane.get_center().x, terrain.get_height(lane.get_center().x, lane.get_center().y), lane.get_center().y), Vector3.UP)
+		cam.make_current()
+		for f in range(4):
+			await RenderingServer.frame_post_draw
+		var path := "res://snaps/91_yard_%02d.png" % (i + 1)
+		get_viewport().get_texture().get_image().save_png(path)
+		print("saved ", path)

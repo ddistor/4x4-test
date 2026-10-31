@@ -228,9 +228,21 @@ func _career_panel(col: VBoxContainer) -> void:
 	_drive_btn = _small("", 460)
 	_drive_btn.pressed.connect(_drive)
 	col.add_child(_drive_btn)
-	var back := _small("Back to the start menu", 460)
+	# the practice yard with this rig: free, nothing wears
+	var bottom := HBoxContainer.new()
+	bottom.add_theme_constant_override("separation", 10)
+	var yard := _small("Practice yard", 225)
+	yard.pressed.connect(func() -> void:
+		Game.use_career_rig()
+		_loading.visible = true
+		await get_tree().process_frame
+		await get_tree().process_frame
+		Game.to_playground())
+	bottom.add_child(yard)
+	var back := _small("Start menu", 225)
 	back.pressed.connect(Game.to_menu)
-	col.add_child(back)
+	bottom.add_child(back)
+	col.add_child(bottom)
 	_drive_btn.grab_focus()
 	_show_names()
 	_show_career()
