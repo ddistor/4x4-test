@@ -10,6 +10,7 @@ var _incl: Inclinometer
 var _stage: Label
 var _finish: Label
 var _finished := false
+var _off: Label
 
 
 func _ready() -> void:
@@ -51,6 +52,14 @@ func _ready() -> void:
 	_style(_finish, 54)
 	_finish.visible = false
 	add_child(_finish)
+	_off = Label.new()
+	_off.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_off.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_off.position = Vector2(-500, 150)
+	_off.size = Vector2(1000, 90)
+	_style(_off, 30)
+	_off.visible = false
+	add_child(_off)
 
 
 func _style(l: Label, size: int) -> void:
@@ -65,6 +74,10 @@ func _process(_delta: float) -> void:
 	_label.text = rig.status_text()
 	_incl.queue_redraw()
 	_stage_step(_delta)
+	# off the course: how long till the marshals fetch you
+	_off.visible = rig.off_course > 0.0
+	if _off.visible:
+		_off.text = "Off course\nthe marshals bring you back to the trail in %d s (no fee), or drive back in" % ceili(Rig.OFF_COURSE_WAIT - rig.off_course)
 
 
 ## Career: bank the event's pay (bonuses, less the marshals' fees) and say

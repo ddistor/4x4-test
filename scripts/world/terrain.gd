@@ -479,6 +479,11 @@ func _height_at(x: float, z: float, bl: Array, th: float, tx: float, inv: float,
 	# the land closes in past the finish clearing, so the trail doesn't just stop at an edge
 	if not plan.yard:
 		h += smoothstep(length - 30.0, length, z) * (5.0 + 3.0 * _noise.get_noise_2d(x, 0.0))
+		# and it rises into a steep bank at both edges of the strip and behind
+		# the start: you can't just drive off the side of the world
+		var side := minf(x, WIDTH - x)
+		h += (6.0 + 2.0 * _noise.get_noise_2d(z * 0.5, x)) * pow(1.0 - smoothstep(0.0, 14.0, side), 1.5)
+		h += 4.0 * (1.0 - smoothstep(0.0, 5.0, z))
 	for c in near_cross:
 		var ch := _channel(c, x, z)
 		if ch.x > 0.0:
@@ -825,6 +830,51 @@ func _build_park_structures() -> void:
 	m.roughness = 0.85
 	var mi := MeshInstance3D.new()
 	mi.name = "TimberMesh"
+	mi.mesh = MeshKit.commit(st, m)
+	add_child(mi)
+	add_child(body)
+
+
+## The park's boundary: a bamboo fence along the top of the bank all round,
+## posts every 2.5 m and three rails, solid. A rig that climbs the bank
+## stops against it (and it marks where the park ends).
+func _build_park_fence() -> void:
+	const INSET := 3.5
+	const SPAN := 2.5
+	var body := StaticBody3D.new()
+	body.name = "Fence"
+	var st := MeshKit.begin()
+	var bamboo := Color(0.6, 0.55, 0.3)
+	var corners := [Vector2(INSET, INSET), Vector2(WIDTH - INSET, INSET), Vector2(WIDTH - INSET, length - INSET),
+		Vector2(INSET, length - INSET)]
+	for side in 4:
+		var a: Vector2 = corners[side]
+		var b: Vector2 = corners[(side + 1) % 4]
+		var n := int(a.distance_to(b) / SPAN)
+		for k in n:
+			var p0 := a.lerp(b, float(k) / n)
+			var p1 := a.lerp(b, float(k + 1) / n)
+			var y0 := get_height(p0.x, p0.y)
+			var y1 := get_height(p1.x, p1.y)
+			var tint := bamboo * (0.85 + 0.25 * fposmod(k * 0.618 + side * 0.3, 1.0))
+			MeshKit.cylinder(st, 0.055, 1.6, Transform3D(Basis.IDENTITY, Vector3(p0.x, y0 + 0.65, p0.y)), tint, 6)
+			var q0 := Vector3(p0.x, y0, p0.y)
+			var q1 := Vector3(p1.x, y1, p1.y)
+			var run := q1 - q0
+			var lay := Basis.looking_at(run.normalized(), Vector3.UP) * Basis(Vector3.RIGHT, PI * 0.5)
+			for rail: float in [0.35, 0.8, 1.25]:
+				MeshKit.cylinder(st, 0.04, run.length() + 0.1, Transform3D(lay, (q0 + q1) * 0.5 + Vector3(0, rail, 0)), tint * 0.95, 6)
+			var cs := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(0.2, 1.5, run.length())
+			cs.shape = box
+			cs.transform = Transform3D(Basis.looking_at(run.normalized(), Vector3.UP), (q0 + q1) * 0.5 + Vector3(0, 0.75, 0))
+			body.add_child(cs)
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.6
+	var mi := MeshInstance3D.new()
+	mi.name = "FenceMesh"
 	mi.mesh = MeshKit.commit(st, m)
 	add_child(mi)
 	add_child(body)
@@ -1291,6 +1341,7 @@ func _build_finish() -> void:
 	if plan.yard:
 		_build_yard_posts()
 		_build_park_structures()
+		_build_park_fence()
 		return
 	# a bamboo arch with a tarpaulin banner across the trail, barangay-fiesta style
 	var z := plan.finish_z

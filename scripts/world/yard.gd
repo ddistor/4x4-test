@@ -533,7 +533,7 @@ static func _land(x: float, z: float) -> float:
 	# a bank all round, so the park is a park, not the edge of the world (a
 	# lahar wash's are its grey cliffs)
 	var edge := minf(minf(x, SIZE - x), minf(z, LENGTH - z))
-	h += float(t.get("edge", 4.0)) * (1.0 - smoothstep(0.0, 10.0, edge))
+	h += float(t.get("edge", 6.0)) * pow(1.0 - smoothstep(0.0, 11.0, edge), 1.5)
 	return h
 
 
@@ -1092,7 +1092,14 @@ static func recover_point(x: float, z: float, back: float) -> Dictionary:
 	var t: Dictionary = _tracks[maxi(int(near.y), 0)]
 	var s := _local(t, x, z).x - back
 	if near.y < 0.0:
-		s = _local(_tracks[0], x, z).x
+		# far from every path: the nearest bit of the loop, however far
+		var pts: PackedVector2Array = _tracks[0]["pts"]
+		var bd := INF
+		for i in pts.size():
+			var d := pts[i].distance_squared_to(Vector2(x, z))
+			if d < bd:
+				bd = d
+				s = float(i)
 	var tn := _tangent(t, s)
 	return {"at": _at(t, s), "heading": Vector3(tn.x, 0.0, tn.y)}
 

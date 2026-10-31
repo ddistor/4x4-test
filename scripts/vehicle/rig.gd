@@ -66,6 +66,9 @@ const PSI_STEPS: Array[float] = [35.0, 28.0, 22.0, 18.0, 15.0, 12.0]
 const CORNER_PARAMS: Array[StringName] = [&"corner_fl", &"corner_fr", &"corner_rl", &"corner_rr"]
 
 var spare_mat: ShaderMaterial   # set by the body if it carries a spare
+## seconds spent off the course (past the strip's edge); the HUD counts down
+var off_course := 0.0
+const OFF_COURSE_WAIT := 6.0
 ## mud spattered on the spare (0..1): its own, slow, off the rear tires
 var spare_mud := 0.0
 var _spare: MeshInstance3D
@@ -370,6 +373,18 @@ func go_to_station(i: int) -> void:
 	place_at(st["at"].x, st["at"].y, st["heading"])
 
 
+## Off the course too long: back on the nearest bit of trail, facing along
+## it. Not a recovery (no fee, not counted): you got lost, not stuck.
+func return_to_course() -> void:
+	off_course = 0.0
+	var p := global_position
+	if terrain.plan.yard:
+		var rp := Yard.recover_point(clampf(p.x, 0.0, Terrain.WIDTH), clampf(p.z, 0.0, terrain.length), 0.0)
+		place_at(rp["at"].x, rp["at"].y, rp["heading"])
+		return
+	place_on_trail(clampf(p.z, 6.0, terrain.length - 5.0))
+
+
 ## Back on the trail where you are, a couple of metres behind: the marshal's
 ## recovery, not a trip back to the start of the stage.
 func recover() -> void:
@@ -421,9 +436,17 @@ func _physics_process(delta: float) -> void:
 				d = 0.0 if i == 0 or i == 3 else 99.0   # clamped to the bump stop / full droop
 			w._update_mesh(d, delta)
 		return
-	if global_position.y < -25.0 or global_transform.basis.y.y < -0.6 and linear_velocity.length() < 0.3:
-		# fell off the map or settled on the roof
-		recover()
+	if global_transform.basis.y.y < -0.6 and linear_velocity.length() < 0.3:
+		recover()   # settled on the roof: the marshals right it
+	# off the course (over the edge of the strip, out of the park): a few
+	# seconds to drive back in, then the marshals bring you back, free
+	var p := global_position
+	if p.y < -25.0 or p.x < -1.0 or p.x > Terrain.WIDTH + 1.0 or p.z < -1.0 or p.z > terrain.length + 1.0:
+		off_course += delta
+		if off_course > OFF_COURSE_WAIT or p.y < -25.0:
+			return_to_course()
+	else:
+		off_course = 0.0
 	throttle = Input.get_action_strength("throttle")
 	brake = Input.get_action_strength("brake")
 	var steer_in := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")

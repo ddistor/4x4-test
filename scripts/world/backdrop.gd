@@ -10,6 +10,7 @@ const OUTER := 3200.0
 const SIDE_STEP := 6.0     # metres between vertices along the strip's edges, on the inner ring
 const CORNER_SEGS := 8
 const LAKE_LEVEL := -0.25
+const NEAR_SOLID := 250.0  # m past the edge that's solid ground
 
 var terrain: Terrain
 
@@ -77,6 +78,26 @@ func build(t: Terrain) -> void:
 					tri = [tri[0], tri[2], tri[1]]
 				for k: int in tri:
 					st.add_index(k)
+	# the near rings are solid: a rig that gets over the edge lands on the
+	# hills it can see and rolls to a stop, rather than falling out of the
+	# world (the marshals bring it back: Rig's off-course check)
+	var faces := PackedVector3Array()
+	for ri in range(RINGS):
+		if ri > 0 and pow(OUTER, float(ri) / RINGS) > NEAR_SOLID:
+			break
+		for si in range(segs):
+			var a := ri * segs + si
+			var b := ri * segs + (si + 1) % segs
+			faces.append_array([pts[a], pts[b], pts[a + segs], pts[b], pts[b + segs], pts[a + segs]])
+	var shape := ConcavePolygonShape3D.new()
+	shape.backface_collision = true
+	shape.set_faces(faces)
+	var body := StaticBody3D.new()
+	body.name = "FarHillsGround"
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	body.add_child(cs)
+	add_child(body)
 	st.generate_normals()
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/backdrop.gdshader")

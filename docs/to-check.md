@@ -38,6 +38,19 @@
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 
+## Going off the edge (branch `edge-barrier`)
+
+- Was: past the strip's edge there was nothing solid; the rig fell till
+  25 m under and took a marshal recovery (a fee in career).
+- Now: stages rise into a bank at both sides and behind the start; the
+  park's bank is taller with a bamboo fence along its top (solid). The far
+  hills are solid ground for 250 m out. Past the edge an "Off course"
+  banner counts down 6 s, then the marshals put you back on the nearest
+  trail, free (not a recovery). Drive back in to cancel it.
+  `tests/edge_test.tscn` checks it on a stage and in the park.
+- Check by driving: try to leave a stage up a ridge flank and the park over
+  its fence; does the banner read right, does the return face the right way.
+
 ## Trail park tracks (branch `park-tracks`)
 
 - After the garage, "Pick a track" opens the list (`park_select.gd`): the
