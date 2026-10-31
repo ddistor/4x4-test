@@ -55,8 +55,20 @@
   wall only by tumbling. Check by driving: are the 40/45 ones fair with a
   built rig, is the mud deep enough to need the kit, do the ditches lift
   wheels.
-- Next batch (planned): Kanal (ruts and ditches), Ilog (river run), Lahar
-  (ash wash), Sukal (jungle trail).
+- Second batch (branch `park-tracks-2`): **Kanal** (twin ruts, a 1 m
+  washout, cross-axle ditches, rain dips, flex humps, off-camber ruts, 70 cm
+  kanal + winch rock), **Ilog** (three creeks crossed six times: riffle, the
+  Tulay timber bridge with a ford beside it, a boulder ford, a deep pool, a
+  wide ford, a muddy exit bank), **Lahar** (grey ash: soft sand, two braided
+  streams, ash dunes, a boulder cascade, a slot canyon, an ash bog),
+  **Sukal** (jungle: trees to the trail's edge and undergrowth over it, tree
+  squeezes of 2.5 and 2.3 m, fallen logs 30 to 45 cm, a 55 deg winch wall,
+  hairpin switchbacks, a mud hole).
+- Stock Gera: all of Ilog and Lahar; stops at Kanal's washout and Sukal's
+  winch wall (meant); the test bot can't do the switchbacks (it doesn't
+  reverse for a three-point turn). Check by driving: can a rig take the
+  hairpins with a shunt, does the bridge feel narrow enough, is the sand soft
+  enough to need airing down.
 
 ## Practice park
 

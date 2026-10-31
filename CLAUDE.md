@@ -43,10 +43,10 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   (forest, paddy, ash, bedrock, cobbles, water level and where water may stand).
   Trees, palms and boulders double as winch anchors.
 - `scripts/world/yard.gd` — Bakuran trail park (`StagePlan.practice_yard()`, a `yard` section,
-  160 x 320 m): several tracks (`Yard.TRACKS`: Bakuran Loop, Putikan mud, Batuhan rock,
-  Ahon at Lusong slopes), each a clay loop with its obstacles on the trail and a bypass
+  160 x 320 m): eight tracks (`Yard.TRACKS`: Bakuran Loop, Putikan mud, Batuhan rock, Kanal ruts, Ilog river,
+  Lahar ash, Sukal jungle, Ahon at Lusong slopes), each a clay loop with its obstacles on the trail and a bypass
   beside each; `Yard.use(i)` lays one out for the terrain (heights, soil, rock, woods,
-  stones, trees, the creek). Lookups work in a path's own (along, across) coordinates.
+  stones, trees, creeks, a timber bridge and logs). Lookups work in a path's own (along, across) coordinates.
   `scripts/ui/park_select.gd` — the track list after the garage, a map preview drawn
   from the layout. `Game.playground`, `Game.park_track`; `-- --playground --track N`.
 - `scripts/world/rocks.gd` — boulders and river stones, convex colliders; wheels

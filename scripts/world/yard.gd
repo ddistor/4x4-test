@@ -10,6 +10,10 @@ extends RefCounted
 ##   1 Putikan          the mud farm: ruts, wallows, a bog, ditches, the winch
 ##   2 Batuhan          the rock garden: rubble, ledges, boulders, a slab, a stair climb
 ##   3 Ahon at Lusong   the hills: built climbs from 20 to 45 deg, a steep descent
+##   4 Kanal            ruts and ditches: twin ruts, a washout, cross-axle ditches, dips
+##   5 Ilog             the river run: three creeks crossed six times, a timber bridge
+##   6 Lahar            the ash wash: soft sand, braided streams, dunes, a slot canyon
+##   7 Sukal            the jungle trail: tree squeezes, logs, a winch wall, switchbacks
 ##
 ## The terrain asks this file what's where (heights, soil, rock, woods,
 ## stones, trees) for the track in use (`use`); every layout is fixed, so
@@ -28,9 +32,12 @@ const BANK := 3.2            # its cut and fill banks, out to the natural ground
 ##     is (1 the usual); woods: how much of the land is trees (0..1)
 ##   loop: control points (x, z), anticlockwise from the trailhead
 ##   hills: Vector4(x, z, radius, height); noise: how rolling the land is (m)
-##   creek: Terrain's crossing (mid z = zc + amp sin(x freq + phase)), or {}
+##   creeks: Terrain's crossings (mid z = zc + amp sin(x freq + phase)); each
+##     crossing of the loop wants a ford, rockford, deep or bridge obstacle
 ##   stones: loose boulders off the trail; rock: bare rock showing off it (0..1)
 ##   meadow: an open patch kept clear of trees; lot: the trailhead
+##   optional: ash (a lahar wash: grey ash and sand), edge (the bank round
+##     the park, m), clear (how close trees come to the trail), overgrown
 ##   obstacles: [name, what it tests, near (x, z), length along the trail,
 ##     lane half width, bypass side (+1 inside the loop, -1 out, 0 none),
 ##     bypass offset, kind, {kind's own numbers}]
@@ -45,8 +52,8 @@ const TRACKS := [
 			Vector2(30, 192), Vector2(36, 168), Vector2(40, 148), Vector2(36, 124), Vector2(28, 98),
 			Vector2(28, 70), Vector2(40, 44), Vector2(58, 24)],
 		"hills": [Vector4(88, 262, 80, 13)],
-		"creek": {"zc": 152.0, "amp": 9.0, "freq": 0.05, "phase": 0.0, "half_w": 4.0, "bank": 5.0,
-			"drop": 1.6, "depth": 1.2, "pool": 1.4},
+		"creeks": [{"zc": 152.0, "amp": 9.0, "freq": 0.05, "phase": 0.0, "half_w": 4.0, "bank": 5.0,
+			"drop": 1.6, "depth": 1.2, "pool": 1.4}],
 		"meadow": Vector2(84, 76), "lot": Vector2(80, 16),
 		"obstacles": [
 			["Bump strip", "humps of 5 to 30 cm: clay on the left, rock on the right", Vector2(134, 50), 24.0, 3.5, 1, 10.0, "bumps", {}],
@@ -69,7 +76,7 @@ const TRACKS := [
 			Vector2(38, 280), Vector2(22, 240), Vector2(28, 200), Vector2(24, 160), Vector2(28, 120),
 			Vector2(24, 80), Vector2(32, 44), Vector2(52, 22)],
 		"hills": [Vector4(80, 160, 40, 1.5)],
-		"creek": {},
+		"creeks": [],
 		"meadow": Vector2(80, 160), "lot": Vector2(80, 16),
 		"obstacles": [
 			["Wheel ruts", "two ruts 45 cm deep, wandering: stay in them, or climb out and ride the crown", Vector2(140, 72), 40.0, 3.0, 1, 9.0, "ruts", {"depth": 0.45}],
@@ -89,7 +96,7 @@ const TRACKS := [
 			Vector2(44, 274), Vector2(26, 236), Vector2(24, 196), Vector2(30, 156), Vector2(24, 116),
 			Vector2(28, 76), Vector2(38, 42), Vector2(56, 22)],
 		"hills": [Vector4(80, 175, 95, 10)],
-		"creek": {},
+		"creeks": [],
 		"meadow": Vector2(80, 60), "lot": Vector2(80, 16),
 		"obstacles": [
 			["Rubble", "loose broken rock on bare stone: it rolls under the tires", Vector2(140, 66), 30.0, 3.2, 1, 9.0, "boulders", {"n": 45, "r0": 0.14, "r1": 0.32}],
@@ -109,7 +116,7 @@ const TRACKS := [
 			Vector2(42, 278), Vector2(26, 240), Vector2(22, 196), Vector2(26, 156), Vector2(22, 116),
 			Vector2(26, 76), Vector2(36, 42), Vector2(56, 22)],
 		"hills": [Vector4(82, 180, 75, 16)],
-		"creek": {},
+		"creeks": [],
 		"meadow": Vector2(80, 60), "lot": Vector2(80, 16),
 		"obstacles": [
 			["20 deg climb", "a built mound, 20 deg up: the easy one", Vector2(141, 70), 26.0, 3.5, 1, 11.0, "mound", {"h": 2.5, "up": 20.0, "down": 14.0}],
@@ -120,7 +127,98 @@ const TRACKS := [
 			["Side slope", "a sidehill that leans from 5 to 35 deg: where does it tip?", Vector2(23, 208), 28.0, 4.5, -1, 11.0, "tilt", {}],
 			["45 deg wall", "a short wall at 45 deg: most rigs need the winch", Vector2(24, 120), 22.0, 3.5, 1, 11.0, "mound", {"h": 3.0, "up": 45.0, "down": 25.0, "anchor": true}]],
 	},
+	{
+		"name": "Kanal", "place": "an old logging road, Tanay", "grade": "Medium to hard",
+		"teaches": "Ruts and ditches: flex, lockers, when to ride the ruts and when to climb out of them.",
+		"rain": 0.6, "clay": 1.2, "woods": 0.8, "noise": 1.0, "stones": 15, "rock": 0.0,
+		"loop": [Vector2(80, 16), Vector2(112, 22), Vector2(134, 42), Vector2(140, 76), Vector2(138, 116),
+			Vector2(132, 156), Vector2(138, 196), Vector2(128, 238), Vector2(106, 276), Vector2(74, 290),
+			Vector2(44, 274), Vector2(26, 236), Vector2(24, 196), Vector2(30, 156), Vector2(24, 116),
+			Vector2(28, 76), Vector2(38, 42), Vector2(56, 22)],
+		"hills": [Vector4(80, 200, 70, 6)],
+		"creeks": [],
+		"meadow": Vector2(80, 60), "lot": Vector2(80, 16),
+		"obstacles": [
+			["Twin ruts", "two ruts 40 cm deep for fifty metres: ride them, or straddle the crown", Vector2(140, 70), 44.0, 3.0, 1, 9.0, "ruts", {"depth": 0.4}],
+			["Washout", "a gully a metre deep cut across the trail: nose in, climb out", Vector2(139, 116), 16.0, 3.5, 1, 10.0, "trench", {"depth": 1.0, "width": 4.6}],
+			["Cross-axle ditches", "ditches at 45 deg, 65 cm: two wheels in the air at once", Vector2(133, 166), 34.0, 3.5, 1, 10.0, "ditches", {"depth": 0.65}],
+			["Rain dips", "dips across the trail where the water runs off, 80 cm, one after another", Vector2(118, 258), 36.0, 3.5, 1, 10.0, "whoops", {"h": 0.8, "gap": 8.0, "dip": true}],
+			["Flex humps", "humps under one wheel then the other: flex and lockers", Vector2(46, 276), 24.0, 3.5, 1, 10.0, "flex", {}],
+			["Off-camber ruts", "ruts across a sidehill: the low wheels drop in and the rig leans", Vector2(24, 200), 30.0, 4.0, -1, 11.0, "ruts", {"depth": 0.45, "camber": 12.0}],
+			["Kanal", "ruts 70 cm deep: lockers, and the winch if you belly out", Vector2(27, 132), 34.0, 3.0, 1, 9.0, "ruts", {"depth": 0.7, "anchor": true}]],
+	},
+	{
+		"name": "Ilog", "place": "a river valley, Daraitan, Tanay", "grade": "Easy to hard",
+		"teaches": "Water: read the creek, find the riffle, know your wading depth, and a narrow bridge if you'd rather stay dry.",
+		"rain": 0.5, "clay": 0.9, "woods": 0.8, "noise": 1.0, "stones": 30, "rock": 0.0,
+		"loop": [Vector2(80, 16), Vector2(112, 22), Vector2(134, 42), Vector2(140, 76), Vector2(138, 116),
+			Vector2(136, 160), Vector2(138, 200), Vector2(136, 244), Vector2(122, 276), Vector2(96, 292),
+			Vector2(64, 292), Vector2(38, 278), Vector2(26, 244), Vector2(24, 200), Vector2(26, 160),
+			Vector2(24, 118), Vector2(26, 74), Vector2(38, 42), Vector2(56, 22)],
+		"hills": [],
+		"creeks": [
+			{"zc": 70.0, "amp": 4.0, "freq": 0.04, "phase": 0.5, "half_w": 3.5, "bank": 4.0, "drop": 1.4, "depth": 1.0, "pool": 1.0},
+			{"zc": 160.0, "amp": 5.0, "freq": 0.035, "phase": 2.0, "half_w": 5.0, "bank": 5.0, "drop": 1.8, "depth": 1.3, "pool": 1.5, "flow": 0.9},
+			{"zc": 248.0, "amp": 4.0, "freq": 0.045, "phase": 4.0, "half_w": 3.0, "bank": 4.0, "drop": 1.3, "depth": 0.9, "pool": 0.9}],
+		"meadow": Vector2(80, 115), "lot": Vector2(80, 16),
+		"obstacles": [
+			["Riffle", "the first creek at its riffle: shin-deep over stones", Vector2(138, 69), 16.0, 3.0, 0, 0.0, "ford", {"shallow": 0.3}],
+			["Tulay", "a timber bridge a hand wider than the tires, the river under it: or ford beside it", Vector2(136, 162), 20.0, 3.0, 1, 13.0, "bridge", {}],
+			["Boulder ford", "a ford over river boulders: pick a line, the current pushing", Vector2(137, 245), 16.0, 3.0, 0, 0.0, "rockford", {"shallow": 0.4}],
+			["Deep pool", "the third creek's pool, a metre deep: snorkel, or the riffle beside", Vector2(26, 244), 16.0, 3.0, 1, 11.0, "deep", {}],
+			["Wide ford", "the river ten metres across, knee-deep, a current on the bonnet", Vector2(25, 161), 20.0, 3.0, 0, 0.0, "ford", {"shallow": 0.5}],
+			["Ford", "the first creek again, shallow", Vector2(25, 74), 16.0, 3.0, 0, 0.0, "ford", {"shallow": 0.35}],
+			["Exit bank", "a muddy climb out of the creek bed: wet tires on wet clay", Vector2(27, 52), 16.0, 3.5, 1, 9.0, "mound", {"h": 1.8, "up": 24.0, "down": 12.0}]],
+	},
+	{
+		"name": "Lahar", "place": "a lahar wash, Porac, Pampanga", "grade": "Medium to hard",
+		"teaches": "Ash and sand: flotation, air down to 15 or below, keep it rolling, and never stop in the soft stuff.",
+		"rain": 0.4, "clay": 0.6, "woods": 0.25, "noise": 1.4, "stones": 50, "rock": 0.0, "ash": 1.0, "edge": 9.0,
+		"loop": [Vector2(80, 16), Vector2(112, 22), Vector2(134, 42), Vector2(140, 76), Vector2(138, 116),
+			Vector2(132, 156), Vector2(138, 196), Vector2(128, 238), Vector2(106, 276), Vector2(74, 290),
+			Vector2(44, 274), Vector2(26, 236), Vector2(24, 196), Vector2(30, 156), Vector2(24, 116),
+			Vector2(28, 76), Vector2(38, 42), Vector2(56, 22)],
+		"hills": [],
+		"creeks": [
+			{"zc": 110.0, "amp": 10.0, "freq": 0.03, "phase": 1.0, "half_w": 6.0, "bank": 6.0, "drop": 0.8, "depth": 0.35, "pool": 0.35,
+				"braided": true, "tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "flow": 0.7},
+			{"zc": 220.0, "amp": 10.0, "freq": 0.03, "phase": 3.0, "half_w": 6.0, "bank": 6.0, "drop": 0.8, "depth": 0.35, "pool": 0.35,
+				"braided": true, "tint": Color(0.52, 0.5, 0.45, 0.8), "clarity": 0.35, "flow": 0.7}],
+		"meadow": Vector2(80, 165), "lot": Vector2(80, 16),
+		"obstacles": [
+			["Soft sand", "loose ash half a metre deep: air down to 15, keep it rolling", Vector2(140, 66), 40.0, 4.0, 1, 10.0, "sand", {"depth": 0.5}],
+			["Braided stream", "shallow grey water threading between sand bars", Vector2(139, 101), 20.0, 3.0, 0, 0.0, "ford", {}],
+			["Ash dunes", "wind-heaped ash, humps a metre high: momentum, not speed", Vector2(133, 166), 36.0, 4.0, 1, 11.0, "whoops", {"h": 1.0, "gap": 9.0, "sand": true}],
+			["Boulder cascade", "a dry fall of stones where the wash steps down", Vector2(118, 258), 26.0, 3.5, 1, 11.0, "boulders", {"n": 30, "r0": 0.25, "r1": 0.55}],
+			["Slot canyon", "the ash walls close in to a slot barely wider than the rig", Vector2(46, 276), 40.0, 2.6, 0, 0.0, "slot", {"h": 5.0}],
+			["Second stream", "the other stream, braided wide", Vector2(25, 214), 20.0, 3.0, 0, 0.0, "ford", {}],
+			["Ash bog", "ash soaked by the stream: it sets round a stuck tire like wet cement", Vector2(27, 150), 26.0, 4.0, 1, 10.0, "mud", {"depth": 0.35, "soup": 0.7, "anchor": true}]],
+	},
+	{
+		"name": "Sukal", "place": "an overgrown logging trail, Real, Quezon", "grade": "Medium to hard",
+		"teaches": "Tight trail under the trees: precision, three-point turns, logs, and the winch when the bank's too steep.",
+		"rain": 0.6, "clay": 0.9, "woods": 1.0, "noise": 1.3, "stones": 20, "rock": 0.0, "clear": 2.6, "overgrown": true,
+		"loop": [Vector2(80, 16), Vector2(112, 22), Vector2(134, 42), Vector2(140, 80), Vector2(136, 120),
+			Vector2(140, 160), Vector2(134, 200), Vector2(138, 240), Vector2(122, 276), Vector2(96, 292),
+			Vector2(66, 292), Vector2(42, 280), Vector2(30, 258), Vector2(54, 242), Vector2(30, 226),
+			Vector2(54, 210), Vector2(30, 194), Vector2(30, 150), Vector2(24, 110), Vector2(28, 74),
+			Vector2(38, 42), Vector2(56, 22)],
+		"hills": [Vector4(80, 170, 80, 8)],
+		"creeks": [],
+		"meadow": Vector2(80, 60), "lot": Vector2(80, 16),
+		"obstacles": [
+			["Tree squeeze", "trunks either side, a hand's width past the mirrors", Vector2(140, 72), 24.0, 3.0, 1, 9.0, "trees", {"gap": 2.5}],
+			["Logs", "trunks fallen across the trail, 30 to 45 cm: take them square and slow", Vector2(137, 128), 26.0, 3.0, 1, 9.0, "logs", {}],
+			["Winch wall", "a clay bank too steep to drive: winch to the tree at the top", Vector2(135, 200), 20.0, 3.5, 1, 11.0, "mound", {"h": 2.5, "up": 55.0, "down": 20.0, "anchor": true}],
+			["Overgrown", "the trail narrows under tall grass, a rut or two hidden in it", Vector2(118, 280), 40.0, 3.0, 0, 0.0, "ruts", {"depth": 0.3}],
+			["Switchbacks", "hairpins down the hillside: turn tight, or three-point it", Vector2(42, 226), 80.0, 3.0, 0, 0.0, "none", {}],
+			["Mud hole", "soup under the trees, the winch rock past it", Vector2(28, 150), 24.0, 4.0, 1, 10.0, "mud", {"depth": 0.45, "soup": 0.7, "anchor": true}],
+			["Narrow gap", "two trees closer still: fold the mirrors", Vector2(26, 95), 18.0, 3.0, 1, 9.0, "trees", {"gap": 2.3}]],
+	},
 ]
+
+## obstacles that are a crossing of a creek (they sit where the loop crosses it)
+const WATER_KINDS := ["ford", "rockford", "deep", "bridge"]
 
 static var _track := 0
 static var _built := false
@@ -153,8 +251,16 @@ static func info() -> Dictionary:
 	return TRACKS[_track]
 
 
-static func creek() -> Dictionary:
-	return TRACKS[_track]["creek"]
+static func creeks() -> Array:
+	return TRACKS[_track]["creeks"]
+
+
+## How the track's ground looks: 1 grey lahar ash and sand, 0 red clay and grass.
+static func ash(x: float, z: float) -> float:
+	var a := float(TRACKS[_track].get("ash", 0.0))
+	if a <= 0.0:
+		return 0.0
+	return a * (1.0 - forest(x, z))
 
 
 static func meadow() -> Vector2:
@@ -178,9 +284,15 @@ static func _setup() -> void:
 	for o: Array in t["obstacles"]:
 		var near: Vector2 = o[2]
 		var sc := _local(main, near.x, near.y).x
+		var ci := -1
+		if o[7] in WATER_KINDS:
+			# centred on where the loop actually crosses the nearest creek
+			ci = _nearest_creek(near.x, near.y)
+			if ci >= 0:
+				sc = _crossing_s(main, ci, sc - 20.0, sc + 20.0)
 		var half := float(o[3]) * 0.5
 		var ob := {"name": o[0], "what": o[1], "sc": sc, "len": float(o[3]), "w": float(o[4]),
-			"side": int(o[5]), "off": float(o[6]), "kind": o[7], "p": o[8], "track": -1,
+			"side": int(o[5]), "off": float(o[6]), "kind": o[7], "p": o[8], "track": -1, "creek": ci,
 			"h0": _prof(main, sc - half), "h1": _prof(main, sc + half)}
 		# which way the natural ground rises across the trail here (+1: to the left)
 		var p := _at(main, sc)
@@ -384,25 +496,44 @@ static func _num(o: Dictionary, key: String, def: float) -> float:
 
 # --- the land -----------------------------------------------------------------------
 
-static func creek_mid(x: float) -> float:
-	var c := creek()
-	if c.is_empty():
-		return INF
+## Where creek `ci` runs at `x` (its middle, in z).
+static func creek_mid(ci: int, x: float) -> float:
+	var c: Dictionary = creeks()[ci]
 	return float(c["zc"]) + float(c["amp"]) * sin(x * float(c["freq"]) + float(c["phase"]))
+
+
+## How far (x, z) is from the middle of the nearest creek (INF with none).
+static func _creek_d(x: float, z: float) -> float:
+	var d := INF
+	for ci in creeks().size():
+		d = minf(d, absf(z - creek_mid(ci, x)))
+	return d
+
+
+static func _nearest_creek(x: float, z: float) -> int:
+	var best := -1
+	var bd := INF
+	for ci in creeks().size():
+		var d := absf(z - creek_mid(ci, x))
+		if d < bd:
+			bd = d
+			best = ci
+	return best
 
 
 ## The natural ground, before the trail is cut into it.
 static func _land(x: float, z: float) -> float:
 	var t: Dictionary = TRACKS[_track]
-	var near_creek := smoothstep(8.0, 30.0, absf(z - creek_mid(x)))
+	var near_creek := smoothstep(8.0, 30.0, _creek_d(x, z))
 	var h := float(t["noise"]) * _noise.get_noise_2d(x, z) * near_creek
 	for hl: Vector4 in t["hills"]:
 		var d := Vector2(x, z).distance_to(Vector2(hl.x, hl.y)) / hl.z
 		if d < 1.0:
 			h += hl.w * (1.0 - smoothstep(0.0, 1.0, d))
-	# a bank all round, so the park is a park, not the edge of the world
+	# a bank all round, so the park is a park, not the edge of the world (a
+	# lahar wash's are its grey cliffs)
 	var edge := minf(minf(x, SIZE - x), minf(z, LENGTH - z))
-	h += 4.0 * (1.0 - smoothstep(0.0, 10.0, edge))
+	h += float(t.get("edge", 4.0)) * (1.0 - smoothstep(0.0, 10.0, edge))
 	return h
 
 
@@ -488,7 +619,19 @@ static func _obstacle_height(l: Vector3) -> float:
 				var hh := _num(o, "h", 0.6)
 				var gap := _num(o, "gap", 6.0)
 				if u > 2.0 and u < L - 2.0:
-					h += hh * 0.5 * (1.0 - cos(TAU * (u - 2.0) / gap)) * lane
+					var bump := hh * 0.5 * (1.0 - cos(TAU * (u - 2.0) / gap)) * lane
+					# (or dips: where the water runs off across the trail)
+					h += -bump if (o["p"] as Dictionary).get("dip", false) else bump
+			"trench":
+				# a gully cut across the trail: steep sides, a rounded bottom
+				var d := absf(u - L * 0.5) / (_num(o, "width", 3.5) * 0.5)
+				if d < 1.0:
+					h -= _num(o, "depth", 1.0) * (1.0 - pow(d, 3.0)) * (1.0 - smoothstep(w, w + 3.0, absf(lat)))
+			"slot":
+				# the wash's walls closing in to a slot just wider than a rig
+				var fade := smoothstep(-6.0, 4.0, u) * (1.0 - smoothstep(L - 4.0, L + 6.0, u))
+				var wall := smoothstep(w - 0.2, w + 0.9, absf(lat)) * (1.0 - smoothstep(8.0, 11.5, absf(lat)))
+				h += _num(o, "h", 5.0) * wall * fade
 			"flex":
 				var k := 0
 				var zk := 3.0
@@ -520,6 +663,10 @@ static func _obstacle_height(l: Vector3) -> float:
 				var fade := smoothstep(-2.0, 2.0, u) * (1.0 - smoothstep(L - 2.0, L + 2.0, u))
 				var deep := _num(o, "depth", 0.45) * (0.8 + 0.2 * sin(u * 0.4))
 				h -= deep * 0.5 * (1.0 + cos(PI * minf(d / 0.55, 1.0))) * fade
+				# ruts across a sidehill: the trail leans, high side the hill's
+				var camber := _num(o, "camber", 0.0)
+				if camber > 0.0:
+					h += tan(deg_to_rad(camber)) * lat * float(o["up"]) * fade * (1.0 - smoothstep(w - 1.0, w + 2.0, absf(lat)))
 			"ditches":
 				# ditches dug across the trail at 45 deg, alternating: one front
 				# wheel drops while the other's still up, then the rear, then the
@@ -559,6 +706,13 @@ static func soil(x: float, z: float, patchy: float) -> Vector4:
 		var clay := Vector4(thick, minf(1.0, (0.35 + 0.2 * patchy + 0.15 * lines) * (1.0 - 0.4 * steep) * lerpf(1.0, 1.3, clay_k - 1.0)),
 			minf(thick, 0.06 * lines * clay_k), 1.0 + 0.2 * steep)
 		m = m.lerp(clay, on)
+	# a lahar wash: loose grey ash and sand all across the floor, packed
+	# thinner where the trail runs (Terrain's lahar numbers)
+	var a := ash(x, z)
+	if a > 0.0:
+		var packed := 1.0 - smoothstep(1.5, 3.0, near.x)
+		var sand := Vector4((0.22 + 0.3 * patchy) * (1.0 - 0.5 * packed), 0.1 + 0.15 * patchy, 0.0, 0.8)
+		m = m.lerp(sand, a)
 	# the trailhead: packed dirt and gravel
 	var lot := 1.0 - smoothstep(10.0, 14.0, Vector2(x, z).distance_to(t["lot"]))
 	m = m.lerp(Vector4(0.04, 0.15, 0.0, 1.0), lot)
@@ -578,10 +732,15 @@ static func soil(x: float, z: float, patchy: float) -> Vector4:
 						var k := 1.0 - e
 						var soup := _num(o, "soup", 0.62)
 						m = Vector4(maxf(m.x, 0.05 + soup * k * (0.85 + 0.3 * patchy)), maxf(m.y, minf(1.0, 0.55 + 0.8 * k)), 0.0, 1.0)
-				"ruts", "ditches":
+				"ruts", "ditches", "trench":
 					# churned and wet in the bottoms, where the water sits
 					if u > -2.0 and u < L + 2.0 and absf(lm.y) < w:
 						m = Vector4(maxf(m.x, 0.22 + 0.15 * patchy), maxf(m.y, 0.8), minf(maxf(m.x, 0.22), 0.05), 1.0)
+				"sand":
+					# deep loose ash: it floats an aired-down tire, swallows a hard one
+					var e := pow((u - L * 0.5) / (L * 0.5 + 2.0), 2.0) + pow(lm.y / (w + 1.5), 2.0)
+					if e < 1.0:
+						m = Vector4(maxf(m.x, _num(o, "depth", 0.5) * (0.8 + 0.4 * patchy) * (1.0 - e * e)), 0.12, 0.0, 0.75)
 				"mound":
 					if (o["p"] as Dictionary).get("rock", false) and u > 0.0 and u < L and absf(lm.y) < w:
 						m = Vector4(0.0, 0.1, 0.0, 1.1)
@@ -639,8 +798,8 @@ static func forest(x: float, z: float) -> float:
 		f = maxf(f, woods * smoothstep(0.3, 0.45, hd) * (1.0 - smoothstep(0.9, 1.05, hd)))
 		f *= smoothstep(0.22, 0.32, hd)
 	# trees along the creek
-	if not creek().is_empty():
-		f = maxf(f, 1.0 - smoothstep(7.0, 16.0, absf(z - creek_mid(x))))
+	if not creeks().is_empty() and float(t.get("ash", 0.0)) <= 0.0:
+		f = maxf(f, 1.0 - smoothstep(7.0, 16.0, _creek_d(x, z)))
 	# the meadow and the trailhead stay open
 	f *= smoothstep(22.0, 34.0, Vector2(x, z).distance_to(t["meadow"]))
 	f *= smoothstep(14.0, 22.0, Vector2(x, z).distance_to(t["lot"]))
@@ -702,6 +861,12 @@ static func rocks() -> Array[Vector4]:
 					var p := _obs_point(o, rng.randf_range(2.0, L - 2.0), rng.randf_range(-float(o["w"]) + 0.4, float(o["w"]) - 0.4))
 					var r := rng.randf_range(r0, r1)
 					out.append(Vector4(p.x, -0.3 * r, p.y, r))
+			"rockford":
+				# river boulders in the ford itself, across the line
+				for k in 22:
+					var p := _obs_point(o, rng.randf_range(2.0, L - 2.0), rng.randf_range(-float(o["w"]) + 0.3, float(o["w"]) - 0.3))
+					var r := rng.randf_range(0.22, 0.48)
+					out.append(Vector4(p.x, -0.3 * r, p.y, r))
 		if (o["p"] as Dictionary).get("anchor", false):
 			# the winch rock past it, on the far side from its bypass, and a
 			# second to try a redirect off
@@ -710,14 +875,16 @@ static func rocks() -> Array[Vector4]:
 			out.append(Vector4(w1.x, 0.1, w1.y, 1.5))
 			var w2 := _obs_point(o, L * 0.5, away * 7.5)
 			out.append(Vector4(w2.x, 0.1, w2.y, 1.1))
-	# stones along the creek and loose boulders about, off the trail
-	if not creek().is_empty():
+	# stones along the creeks and loose boulders about, off the trail
+	for ci in creeks().size():
+		if (creeks()[ci] as Dictionary).get("braided", false):
+			continue   # (a lahar stream's bed is sand bars, its stones come below)
 		var placed := 0
 		var tries := 0
 		while placed < 70 and tries < 2000:
 			tries += 1
 			var x := rng.randf_range(12.0, SIZE - 12.0)
-			var z := creek_mid(x) + rng.randf_range(-9.0, 9.0)
+			var z := creek_mid(ci, x) + rng.randf_range(-9.0, 9.0)
 			if _nearest(x, z).x < 6.0:
 				continue
 			var r := 0.25 + pow(rng.randf(), 2.0) * 0.8
@@ -731,7 +898,7 @@ static func rocks() -> Array[Vector4]:
 		tries += 1
 		var x := rng.randf_range(12.0, SIZE - 12.0)
 		var z := rng.randf_range(12.0, LENGTH - 12.0)
-		if _nearest(x, z).x < 6.0 or (rocky <= 0.0 and forest(x, z) < 0.6):
+		if _nearest(x, z).x < 6.0 or (rocky <= 0.0 and ash(x, z) <= 0.0 and forest(x, z) < 0.6):
 			continue
 		var r := rng.randf_range(0.5, 1.3)
 		out.append(Vector4(x, -0.35 * r, z, r))
@@ -746,18 +913,36 @@ static func tree_spots() -> Array[Vector3]:
 	var out: Array[Vector3] = []   # x, z, scale
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4242 + 3 + _track * 17
+	var t: Dictionary = TRACKS[_track]
+	# how close the trees come to the trail (a jungle trail: right to its edge)
+	var clear := float(t.get("clear", 3.4))
+	var step := 5.0 if clear >= 3.0 else 3.6
 	var z := 8.0
 	while z < LENGTH - 6.0:
 		var x := 8.0
 		while x < SIZE - 6.0:
-			var px := x + rng.randf_range(-2.2, 2.2)
-			var pz := z + rng.randf_range(-2.2, 2.2)
+			var px := x + rng.randf_range(-step * 0.44, step * 0.44)
+			var pz := z + rng.randf_range(-step * 0.44, step * 0.44)
 			var f := forest(px, pz)
+			if clear < 3.0:
+				f = maxf(f, (1.0 - smoothstep(4.0, 9.0, _nearest(px, pz).x)) * float(t["woods"]))
 			var lone := rng.randf() < 0.012
-			if (rng.randf() < 0.6 * f or lone) and _nearest(px, pz).x > 3.4 and bedrock(px, pz) < 0.5:
+			if (rng.randf() < 0.6 * f or lone) and _nearest(px, pz).x > clear and bedrock(px, pz) < 0.5:
 				out.append(Vector3(px, pz, rng.randf_range(0.75, 1.2)))
-			x += 5.0
-		z += 5.0
+			x += step
+		z += step
+	# tree squeezes: a pair of trunks every few metres, the gap between them
+	# (trunk to trunk) what the obstacle says
+	for o in _obs:
+		if o["kind"] != "trees":
+			continue
+		var gap := _num(o, "gap", 2.5)
+		var u := 4.0
+		while u < float(o["len"]) - 3.0:
+			for side: float in [-1.0, 1.0]:
+				var p := _obs_point(o, u + side * 0.6, side * (gap * 0.5 + 0.3))
+				out.append(Vector3(p.x, p.y, 1.0))
+			u += 6.5
 	# where there's a winch rock, trees close on the same side too
 	for o in _obs:
 		if not (o["p"] as Dictionary).get("anchor", false):
@@ -769,32 +954,70 @@ static func tree_spots() -> Array[Vector3]:
 	return out
 
 
-## The creek's riffles: Vector3(x, width, water depth there). One where the
-## loop fords it, one where the deep crossing's bypass does.
-static func fords() -> Array[Vector3]:
+## Creek `ci`'s riffles: Vector3(x, width, water depth there). One where the
+## loop fords it (a ford or a rocky ford), one where a deep crossing's or a
+## bridge's bypass does; the rest of the creek is its deep runs.
+static func fords(ci: int) -> Array[Vector3]:
 	_setup()
 	var out: Array[Vector3] = []
-	var ford := _find("ford")
-	if not ford.is_empty():
-		out.append(Vector3(_crossing_x(_tracks[0], float(ford["sc"]) - 20.0, float(ford["sc"]) + 20.0), 4.0, 0.35))
-	var deep := _find("deep")
-	if not deep.is_empty() and int(deep["track"]) >= 0:
-		var bt: Dictionary = _tracks[int(deep["track"])]
-		out.append(Vector3(_crossing_x(bt, 0.0, float((bt["pts"] as PackedVector2Array).size() - 1)), 3.5, 0.45))
+	for o in _obs:
+		if int(o["creek"]) != ci:
+			continue
+		match o["kind"]:
+			"ford", "rockford":
+				out.append(Vector3(_at(_tracks[0], float(o["sc"])).x, 4.0, _num(o, "shallow", 0.35)))
+			"deep", "bridge":
+				if int(o["track"]) >= 0:
+					var bt: Dictionary = _tracks[int(o["track"])]
+					var s := _crossing_s(bt, ci, 0.0, float((bt["pts"] as PackedVector2Array).size() - 1))
+					out.append(Vector3(_at(bt, s).x, 3.5, 0.45))
 	return out
 
 
-static func _crossing_x(t: Dictionary, s0: float, s1: float) -> float:
+## Where along path `t` (between s0 and s1) it crosses creek `ci`'s middle.
+static func _crossing_s(t: Dictionary, ci: int, s0: float, s1: float) -> float:
 	var s := s0
 	var prev := 0.0
 	while s <= s1:
 		var p := _at(t, s)
-		var side := p.y - creek_mid(p.x)
+		var side := p.y - creek_mid(ci, p.x)
 		if s > s0 and signf(side) != signf(prev):
-			return p.x
+			return s
 		prev = side
 		s += 0.25
-	return _at(t, (s0 + s1) * 0.5).x
+	return (s0 + s1) * 0.5
+
+
+## Things built on the trail, for Terrain to make solid: a timber bridge
+## ({type "bridge", from, to (Vector3, the deck's ends), width}) and fallen
+## logs ({type "log", from, to, radius}). Heights are the trail's own.
+static func structures() -> Array[Dictionary]:
+	_setup()
+	var out: Array[Dictionary] = []
+	var main: Dictionary = _tracks[0]
+	for o in _obs:
+		var L: float = o["len"]
+		match o["kind"]:
+			"bridge":
+				# a deck from bank to bank, a little proud of the banks
+				var a := _obs_point(o, 0.0, 0.0)
+				var b := _obs_point(o, L, 0.0)
+				var s0 := float(o["sc"]) - L * 0.5
+				var y := maxf(_prof(main, s0), _prof(main, s0 + L)) + 0.22
+				out.append({"type": "bridge", "from": Vector3(a.x, y, a.y), "to": Vector3(b.x, y, b.y), "width": 2.9})
+			"logs":
+				# trunks across the trail, a little skew, each bigger than the last
+				var k := 0
+				for r: float in [0.15, 0.2, 0.23]:
+					var u := 5.0 + 7.0 * k
+					var skew := 0.5 if k % 2 == 0 else -0.5
+					var a := _obs_point(o, u - skew, -3.2)
+					var b := _obs_point(o, u + skew, 3.2)
+					var s := float(o["sc"]) - L * 0.5 + u
+					var y := _prof(main, s) + r * 0.8   # bedded in a little
+					out.append({"type": "log", "from": Vector3(a.x, y, a.y), "to": Vector3(b.x, y, b.y), "radius": r})
+					k += 1
+	return out
 
 
 ## Along the deep crossing's centre line: [point, the left normal] every 0.25 m
@@ -910,7 +1133,7 @@ static func preview(i: int) -> Dictionary:
 		for xi in nx:
 			hts[zi * nx + xi] = height(xi * 2.0 + 1.0, zi * 2.0 + 1.0)
 	var img := Image.create(nx, nz, false, Image.FORMAT_RGB8)
-	var c := creek()
+	var cs := creeks()
 	for zi in nz:
 		for xi in nx:
 			var x := xi * 2.0 + 1.0
@@ -921,11 +1144,13 @@ static func preview(i: int) -> Dictionary:
 			# light from the north-west
 			var shade := clampf(1.0 + (-hx + hz) * 0.35, 0.55, 1.35)
 			var col := Color(0.42, 0.55, 0.24).lerp(Color(0.2, 0.33, 0.14), forest(x, z))
+			col = col.lerp(Color(0.62, 0.6, 0.55), ash(x, z))
 			col = col.lerp(Color(0.52, 0.5, 0.46), bedrock(x, z))
 			col = col.lightened(clampf(h * 0.015, 0.0, 0.25))
-			if not c.is_empty() and absf(z - creek_mid(x)) < float(c["half_w"]):
-				col = Color(0.25, 0.38, 0.42)
-				shade = 1.0
+			for ci in cs.size():
+				if absf(z - creek_mid(ci, x)) < float(cs[ci]["half_w"]):
+					col = Color(0.25, 0.38, 0.42)
+					shade = 1.0
 			img.set_pixel(xi, zi, col * shade)
 	var paths := []
 	for t in _tracks:

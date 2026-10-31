@@ -111,7 +111,7 @@ func _pick(i: int) -> void:
 	for k in (pv["marks"] as Array).size():
 		var m: Dictionary = pv["marks"][k]
 		lines.append("%d  %s" % [k + 1, m["name"]])
-	_list.text = "Round the loop from the trailhead (the flag):   " + "    ".join(lines) + ("\nEvery obstacle but the creek ford has a bypass beside it (the thin line)." if not (t["creek"] as Dictionary).is_empty() else "\nEvery obstacle has a bypass beside it (the thin line).")
+	_list.text = "Round the loop from the trailhead (the flag):   " + "    ".join(lines) + ("\nThe thin lines are the bypasses; the fords and a few others have none." if (t["obstacles"] as Array).any(func(o: Array) -> bool: return o[5] == 0) else "\nEvery obstacle has a bypass beside it (the thin line).")
 	_map.show_preview(pv)
 
 

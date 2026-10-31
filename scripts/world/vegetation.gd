@@ -619,6 +619,11 @@ func _place_ground_cover() -> void:
 			var thick := cover.thickness[cover.idx(cell.x, cell.y)]
 			var map := terrain._cover(x, zz)
 			var sdx := dx * terrain._across(zz)   # across the trail, not across the map
+			if terrain.plan.yard:
+				# the park: across its own trails; an overgrown track grows like the stages' sukal
+				sdx = Yard.trail_dist(x, zz)
+				if Yard.info().get("overgrown", false):
+					kind = "sukal"
 			if kind == "pasture" and map.b <= 0.5:
 				# lush grass everywhere but the two muddy wheel ruts, the hump
 				# between them grassed over

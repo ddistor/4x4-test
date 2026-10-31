@@ -182,17 +182,19 @@ func _plan_features() -> void:
 				water_bodies.append({"z_lo": z0 - 1.0, "z_hi": z1 + 2.0, "level": float(s["h0"]) - 0.2,
 					"tint": Color(0.22, 0.26, 0.14, 0.55), "clarity": 0.15, "flow": 0.0})
 			"yard":
-				# the park track's creek, if it has one: deep runs, a riffle where
-				# the loop fords it and another where the deep crossing's bypass does
-				var creek := Yard.creek()
-				if not creek.is_empty():
+				# the park track's creeks: deep runs, a riffle wherever the loop
+				# fords one and wherever a deep crossing's or a bridge's bypass does
+				var creeks := Yard.creeks()
+				for ci in creeks.size():
+					var creek: Dictionary = creeks[ci]
 					var c := creek.duplicate()
-					c.merge({"tint": Color(0.2, 0.24, 0.17, 0.85), "clarity": 0.6, "stones": true, "flow": 0.5, "ford": true})
+					c.merge({"tint": Color(0.2, 0.24, 0.17, 0.85), "clarity": 0.6, "stones": not creek.get("braided", false),
+						"flow": 0.5, "ford": true})
 					_add_crossing(float(c["zc"]), c, rng)
 					c["phase"] = creek["phase"]
 					c["freq"] = creek["freq"]
 					c["pool"] = creek["pool"]
-					c["fords"] = Yard.fords()
+					c["fords"] = Yard.fords(ci)
 
 
 func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void:
@@ -752,6 +754,82 @@ func _build_yard_posts() -> void:
 	add_child(mi)
 
 
+## The park track's timber: a bridge (planks on two stringers, posts down to
+## the bed, low kerbs along the edges) and logs fallen across the trail.
+## Solid, and in group "rock" so the wheels take them as firm ground.
+func _build_park_structures() -> void:
+	var list := Yard.structures()
+	if list.is_empty():
+		return
+	var body := StaticBody3D.new()
+	body.name = "Timber"
+	body.add_to_group("rock")
+	var st := MeshKit.begin()
+	var timber := Color(0.42, 0.3, 0.19)
+	var bark := Color(0.3, 0.22, 0.15)
+	for s: Dictionary in list:
+		var a: Vector3 = s["from"]
+		var b: Vector3 = s["to"]
+		var along := b - a
+		var mid := (a + b) * 0.5
+		var basis := Basis.looking_at(along.normalized(), Vector3.UP)   # -Z along it
+		if s["type"] == "bridge":
+			var wd: float = s["width"]
+			var span := along.length()
+			# the deck, as one solid box; planks drawn across it
+			var cs := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(wd, 0.16, span)
+			cs.shape = box
+			cs.transform = Transform3D(basis, mid + Vector3(0, -0.08, 0))
+			body.add_child(cs)
+			var n := int(span / 0.32)
+			for k in n:
+				var z := -span * 0.5 + (k + 0.5) * span / n
+				var c := timber * (0.85 + 0.25 * fposmod(k * 0.618, 1.0))
+				MeshKit.rounded_box(st, Vector3(wd, 0.07, span / n - 0.03), 0.01, Transform3D(basis, mid + basis * Vector3(0, -0.035, z)), c)
+			# kerbs along each edge, and the stringers and posts under it
+			for side: float in [-1.0, 1.0]:
+				MeshKit.rounded_box(st, Vector3(0.14, 0.14, span), 0.02, Transform3D(basis, mid + basis * Vector3(side * (wd * 0.5 - 0.07), 0.07, 0.0)), timber * 0.8)
+				var kerb := CollisionShape3D.new()
+				var kb := BoxShape3D.new()
+				kb.size = Vector3(0.14, 0.14, span)
+				kerb.shape = kb
+				kerb.transform = Transform3D(basis, mid + basis * Vector3(side * (wd * 0.5 - 0.07), 0.07, 0.0))
+				body.add_child(kerb)
+				MeshKit.rounded_box(st, Vector3(0.22, 0.3, span), 0.03, Transform3D(basis, mid + basis * Vector3(side * wd * 0.32, -0.24, 0.0)), timber * 0.7)
+				for k in 3:
+					var p := mid + basis * Vector3(side * wd * 0.32, 0.0, (k - 1) * span * 0.33)
+					var bed := get_height(p.x, p.z)
+					var top := p.y - 0.38
+					if top > bed:
+						MeshKit.cylinder(st, 0.12, top - bed + 0.3, Transform3D(Basis.IDENTITY, Vector3(p.x, (top + bed - 0.3) * 0.5, p.z)), timber * 0.6, 8)
+		else:
+			# a log: a capsule lying along it, bark-brown
+			var r: float = s["radius"]
+			var len := along.length()
+			var lay := Basis(Vector3.RIGHT, PI * 0.5)   # cylinder's Y to -Z
+			var cs := CollisionShape3D.new()
+			var cap := CylinderShape3D.new()
+			cap.radius = r
+			cap.height = len
+			cs.shape = cap
+			cs.transform = Transform3D(basis * lay, mid)
+			body.add_child(cs)
+			MeshKit.cylinder(st, r, len, Transform3D(basis * lay, mid), bark, 12)
+			# its cut ends, paler wood
+			for e: float in [-1.0, 1.0]:
+				MeshKit.cylinder(st, r * 0.92, 0.02, Transform3D(basis * lay, mid + along * 0.5 * e), Color(0.62, 0.5, 0.34), 12)
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.85
+	var mi := MeshInstance3D.new()
+	mi.name = "TimberMesh"
+	mi.mesh = MeshKit.commit(st, m)
+	add_child(mi)
+	add_child(body)
+
+
 ## 1 m maps for the ground shader (and vegetation / audio queries).
 func _build_maps() -> void:
 	var nx := int(WIDTH)
@@ -815,6 +893,7 @@ func _build_maps() -> void:
 			if plan.yard:
 				forest = Yard.forest(xf, zf)
 				trail_d = Yard.trail_dist(xf, zf) / 32.0
+				ash_k = Yard.ash(xf, zf)   # a lahar wash's grey (and the rig's mud grey too)
 			cover_image.set_pixel(x, z, Color(trail_d, forest, paddy_k, ash_k))
 			var bedrock := rock_k * (0.9 * on + 0.3 * (1.0 - on))
 			if plan.yard:
@@ -1211,6 +1290,7 @@ func _build_trees() -> void:
 func _build_finish() -> void:
 	if plan.yard:
 		_build_yard_posts()
+		_build_park_structures()
 		return
 	# a bamboo arch with a tarpaulin banner across the trail, barangay-fiesta style
 	var z := plan.finish_z
