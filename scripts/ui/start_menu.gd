@@ -87,10 +87,10 @@ func _ready() -> void:
 	row.add_child(reroll)
 	left.add_child(row)
 	var weather := UiKit.button("", 285)
-	var names := {-1: "Weather: random", 0: "Weather: dry season", 1: "Weather: rainy season"}
+	var names := {-1: "Weather: random", 0: "Weather: dry season", 1: "Weather: rainy season", 2: "Weather: downpour"}
 	weather.text = names[Game.weather]
 	weather.pressed.connect(func() -> void:
-		Game.weather = (Game.weather + 2) % 3 - 1  # random -> dry -> rainy -> random
+		Game.weather = (Game.weather + 2) % 4 - 1  # random -> dry -> rainy -> downpour -> random
 		weather.text = names[Game.weather]
 		if _seed_edit.text.is_valid_int():
 			_preview_seed(int(_seed_edit.text)))
@@ -190,9 +190,11 @@ func _show_seed(s: int) -> void:
 
 
 func _preview_seed(s: int) -> void:
-	var plan := StagePlan.generate(s, Game.weather, Game.level)
+	var plan := StagePlan.generate(s, mini(Game.weather, 1), Game.level)
 	_title.text = "Stage %d   ·   %.1f km" % [s, plan.length / 1000.0]
 	_preview.text = plan.describe()
+	if Game.weather == 2:
+		_preview.text += "\nDownpour: raining hard all the way, the trail getting wetter as you go"
 
 
 func _start() -> void:

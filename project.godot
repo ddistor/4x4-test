@@ -152,3 +152,14 @@ anti_aliasing/quality/msaa_3d=2
 lights_and_shadows/directional_shadow/size=8192
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
 environment/defaults/default_clear_color=Color(0.55, 0.65, 0.6, 1)
+
+[shader_globals]
+
+rain_now={
+"type": "float",
+"value": 0.0
+}
+rain_soak={
+"type": "float",
+"value": 0.0
+}

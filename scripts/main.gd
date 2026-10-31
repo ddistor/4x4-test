@@ -16,8 +16,13 @@ func _ready() -> void:
 		Yard.use(Game.park_track)
 		terrain.plan = StagePlan.practice_yard()
 	else:
-		terrain.plan = StagePlan.generate(Game.stage_seed, Game.weather, Game.level, Game.stage_must())
+		# (a downpour is a rainy-season stage with the rain coming down all the way)
+		terrain.plan = StagePlan.generate(Game.stage_seed, mini(Game.weather, 1), Game.level, Game.stage_must())
 	add_child(terrain)
+	var weather := Weather.new()
+	weather.name = "Weather"
+	add_child(weather)
+	weather.setup(terrain, _env, _sun, Game.weather == 2 and not Game.playground)
 	var backdrop := Backdrop.new()
 	backdrop.name = "Backdrop"
 	add_child(backdrop)

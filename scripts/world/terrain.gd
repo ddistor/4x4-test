@@ -55,6 +55,9 @@ var soil_image: Image   # 1 m: R bedrock, G river cobbles, B water level, A wher
 var soil_texture: ImageTexture
 var bed_texture: ImageTexture   # 1 m: ground height, so water knows how deep it is anywhere
 var water_mats: Array[ShaderMaterial] = []   # the rig stirs these (wakes, mud plumes)
+## the day's rain, kept up by Weather: how soaked the surfaces are, how hard it's coming down
+var rain_soak := 0.0
+var rain_now := 0.0
 
 var _noise: FastNoiseLite
 var _detail: FastNoiseLite
@@ -1407,7 +1410,22 @@ func ground_sample(world_pos: Vector3) -> Dictionary:
 	s["surface_y"] = surface
 	var c := mud.world_to_cell(xz)
 	s["grip"] = grip[mud.idx(c.x, c.y)]
-	s["ash"] = _cover(world_pos.x, world_pos.z).a   # grey lahar ash rather than red clay
+	var cov := _cover(world_pos.x, world_pos.z)
+	s["ash"] = cov.a   # grey lahar ash rather than red clay
+	# rain on the day (Weather): the surface soaks, less under the canopy. Wet
+	# grass and packed dirt go slick, clay greasy and softer (the wheel takes
+	# grip and sinkage from wetness); the soft layer's depth doesn't change,
+	# so the tires still sit on the ground you see
+	# How slick rain makes it depends on what it falls on (wetness 1 is greasy
+	# clay, ~0.3 grip): laterite clay goes to grease (0.95); thin soil, packed
+	# dirt and a gravel road only so far (~0.55: wet gravel grips about 0.6);
+	# lahar sand drains and packs firmer when wet (0.4)
+	if rain_soak > 0.0:
+		var clayey := smoothstep(0.03, 0.12, float(s["thickness"]))
+		var most := lerpf(0.55, 0.95, clayey) * (1.0 - 0.55 * cov.a)
+		if absf(float(s["grip"]) - 1.0) > 0.01:
+			most = minf(most, 0.7)   # stony dirt, gritty clay: the stones keep some bite
+		s["wetness"] = maxf(float(s["wetness"]), rain_soak * most * (1.0 - 0.55 * cov.g))
 	return s
 
 

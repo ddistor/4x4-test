@@ -74,6 +74,8 @@ float speckle_reach(vec3 p) {
 	return total;
 }
 
+global uniform float rain_soak;
+
 void fragment() {
 	vec3 p = rig_pos;
 	float n = mud_fbm(p * 7.0);
@@ -148,7 +150,9 @@ void fragment() {
 	stained = mix(stained, vec3(0.42, 0.41, 0.4), scrape);
 	stained *= 1.0 - 0.25 * dent;
 	ALBEDO = mix(stained, mud_col, mud);
-	ROUGHNESS = mix(mix(mix(paint_roughness, 0.75, stain), 0.45, scrape), mud_rough, mud);
+	// rain on the body: a film of water over paint and stain alike, beading
+	float rained = rain_soak * (1.0 - step(0.5, float(cabin_hi.x > 0.0 && abs(p.x) < cabin_hi.x && p.y > cabin_lo.y && p.y < cabin_hi.y && p.z > cabin_lo.z && p.z < cabin_hi.z) * (cabin_open ? 0.0 : 1.0)));
+	ROUGHNESS = mix(mix(mix(paint_roughness, 0.75, stain), 0.45, scrape), mud_rough, mud) * (1.0 - 0.45 * rained);
 	METALLIC = mix(mix(paint_metallic, 0.85, scrape), 0.0, mud);
 	SPECULAR = mix(0.35, mud_spec, mud);
 	CLEARCOAT = clearcoat * 0.6 * (1.0 - mud) * (1.0 - 0.8 * stain) * (1.0 - scrape);

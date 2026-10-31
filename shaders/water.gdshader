@@ -51,6 +51,24 @@ float noise(vec2 p) {
 	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
 }
 
+// how hard it's raining (Weather)
+global uniform float rain_now;
+
+// Raindrop rings: in each small cell a drop lands at its own moment and a
+// ring spreads out and fades (two layers, out of step). As the terrain's.
+float rain_rings(vec2 p, float t) {
+	float r = 0.0;
+	for (int k = 0; k < 2; k++) {
+		vec2 q = p * 4.0 + float(k) * 0.5;
+		vec2 c = floor(q);
+		vec2 o = vec2(hash(c + 3.1 + float(k)), hash(c + 7.7 + float(k))) * 0.6 + 0.2;
+		float ph = fract(t * 1.1 + hash(c + 13.0 + float(k)));
+		float d = length(fract(q) - o);
+		r += sin((d - ph * 0.45) * 60.0) * exp(-pow((d - ph * 0.45) * 14.0, 2.0)) * (1.0 - ph);
+	}
+	return r;
+}
+
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
@@ -112,6 +130,8 @@ void fragment() {
 	}
 	stir = clamp(stir * 0.5, 0.0, 0.85);
 
+	// raindrops ringing the surface (the current tears them up where it runs)
+	w += rain_rings(p, TIME) * 2.2 * rain_now * (1.0 - 0.6 * smoothstep(0.3, 1.2, run));
 	NORMAL_MAP = normalize(vec3(w * (0.08 + 0.06 * run), 1.0, w * (0.06 + 0.06 * run))) * 0.5 + 0.5;
 
 	// --- colour and see-through --------------------------------------------------

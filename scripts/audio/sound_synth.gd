@@ -298,6 +298,50 @@ static func forest_bed() -> AudioStreamWAV:
 	return _to_wav(buf, true)
 
 
+## Rain: the steady hiss of drops on leaves and ground (broadband, soft at
+## the top), with a patter of nearer drops picked out over it, and a low
+## roar under heavy rain. Loops; Weather sets the volume.
+static func rain() -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 610
+	var n := RATE * 6
+	var hiss := _noise(n, rng)
+	_highpass(hiss, 700.0)
+	_lowpass(hiss, 7500.0)
+	var roar := _noise(n, rng)
+	_lowpass(roar, 300.0)
+	var buf := _zeros(n)
+	for i in range(n):
+		var t := float(i) / n
+		# gusts: the rain sheets come and go a little
+		var gust := 0.8 + 0.12 * sin(TAU * 2.0 * t + 0.7) + 0.08 * sin(TAU * 5.0 * t)
+		buf[i] = hiss[i] * 0.55 * gust + roar[i] * 0.9
+	# individual drops close by: a short tick on a leaf, a duller tap on the ground
+	for k in range(2600):
+		_burst(buf, rng.randi() % n, rng.randf_range(0.006, 0.02), rng.randf_range(1800.0, 5200.0), 3.0,
+			rng.randf_range(0.05, 0.22), rng, 9.0)
+	for k in range(500):
+		_burst(buf, rng.randi() % n, 0.03, rng.randf_range(500.0, 1100.0), 2.5, rng.randf_range(0.08, 0.2), rng, 7.0)
+	return _to_wav(buf, true)
+
+
+## Distant thunder: a low rumble that rolls in, grumbles on and dies away.
+static func thunder(seed_v: int) -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v
+	var n := int(RATE * rng.randf_range(4.0, 6.0))
+	var buf := _noise(n, rng)
+	_lowpass(buf, 120.0)
+	_lowpass(buf, 160.0)
+	var crackle := _noise(n, rng)
+	_bandpass(crackle, 420.0, 0.8)
+	for i in range(n):
+		var t := float(i) / n
+		var env := smoothstep(0.0, 0.08, t) * exp(-t * 2.2) * (0.75 + 0.25 * sin(t * 37.0 + seed_v))
+		buf[i] = (buf[i] * 5.0 + crackle[i] * 0.4 * exp(-t * 6.0)) * env
+	return _to_wav(buf, false)
+
+
 ## One palaka bout: a run of knocking croaks at one frog's pitch.
 static func frog_call(seed_v: int) -> AudioStreamWAV:
 	var rng := RandomNumberGenerator.new()

@@ -57,6 +57,8 @@ void vertex() {
 	plant_tint = mix(plant_tint, vec3(0.95, 0.8, 0.5), smoothstep(0.05, 0.4, worn) * 0.6);
 }
 
+global uniform float rain_soak;
+
 void fragment() {
 	vec4 tx = use_tex ? texture(leaf_tex, UV) : vec4(1.0);
 	// vertex colours are authored as sRGB, like the source_color uniforms;
@@ -66,7 +68,9 @@ void fragment() {
 	ALBEDO = col;
 	ALPHA = tx.a;
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
-	ROUGHNESS = roughness;
+	// rain on the leaves: darker and glossy
+	ALBEDO *= 1.0 - 0.15 * rain_soak;
+	ROUGHNESS = mix(roughness, 0.3, rain_soak);
 	SPECULAR = 0.35;
 	BACKLIGHT = col * translucency;
 }

@@ -38,6 +38,28 @@
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 
+## Rain (branch `rain`)
+
+- `weather.gd`: showers come and go in the rainy season (about half the
+  time, building over a minute), a light one now and then between the
+  rains, none in the dry season; "Weather: downpour" on the start menu
+  (`--weather downpour`) rains hard all the way; `-- --rain X` fixes it.
+- Surfaces soak over a couple of minutes of hard rain, dry over 7 to 15
+  minutes. Grip in the rain (seed 7): gravel road 0.84 dry -> 0.57, grass
+  -> 0.44, kanal clay -> 0.28 (greasy), lahar sand -> 0.45 (wet sand packs),
+  stony ridge capped ~0.4, wet rock ~0.55. Clay sinks more (wetter).
+- Looks: overcast sky, dim sun, thicker haze; ground dark and glossy,
+  puddles in the hollows with rain rings, rings on rivers; wet stone,
+  leaves, bark, paint. Streaks stop on roofs and under the canopy (no rain
+  in a closed cab), splashes where they land. Sound: rain loop, distant
+  thunder in heavy rain.
+- The rig: no dust off wet dirt, the mud on it stays wet and won't bake, a
+  thin film of dust rinses off over minutes; caked mud stays.
+- Check by driving: does it feel right on the clay (greasy, slides), on
+  the gravel road (still drivable), on rock; is the rain loud enough
+  inside a closed cab; the sky through a shower coming and going.
+- Not done: drops on the windscreen, wipers, rivers rising.
+
 ## Going off the edge (branch `edge-barrier`)
 
 - Was: past the strip's edge there was nothing solid; the rig fell till

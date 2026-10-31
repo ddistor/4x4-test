@@ -16,7 +16,7 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 
 - `scripts/game.gd` — autoload `Game`: the stage seed and weather, and switching
   between the start menu (`scenes/menu.tscn`, the main scene) and a stage
-  (`scenes/main.tscn`). `-- --seed N --weather dry|rain` on the command line.
+  (`scenes/main.tscn`). `-- --seed N --weather dry|rain|downpour` on the command line.
 - `scripts/ui/start_menu.gd` — start menu (painted backdrop, stage preview, seed,
   weather, trail); `garage.gd` — rig, paint, shirt, jorts and print, with the rig
   and driver shown turning on a pad (the Rig in preview mode) before you drive; `pause_menu.gd` — Esc; `settings_menu.gd` — the graphics screen over either
@@ -54,6 +54,13 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 - `scripts/world/vegetation.gd` — everything green, modelled in code: broadleaf
   trees (sweep trunks + procedural leaf-card canopies), bamboo, saging, niyog,
   grass/talahib/ferns, rice in rows, placed per section. Chunked with visibility ranges.
+- `scripts/world/weather.gd` — rain on the day: how hard it's raining (`rain_now`) and how
+  soaked things are (`rain_soak`), global shader values every surface reads (wet ground,
+  puddles and rain rings, wet stone, leaves, bark, paint); the terrain's `ground_sample`
+  wetness (grip and sinkage, as slick as each surface really gets); sky, sun and haze;
+  streaks that stop on roofs and under the canopy, splashes; rain and thunder sound.
+  Showers in the rainy season, a light one now and then between the rains, none in the
+  dry season; `Game.weather` 2 is a downpour. `-- --rain X` fixes it.
 - `scripts/world/backdrop.gd` — far hills in rings round the strip, Laguna de Bay.
 - `scripts/world/mud_field.gd` — per-cell soft-ground data: thickness, wetness, rut.
   Baked into an RGB float texture the terrain shader reads (ruts displace vertices).

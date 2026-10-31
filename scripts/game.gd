@@ -12,7 +12,8 @@ const GARAGE := "res://scenes/garage.tscn"
 const PARK_SELECT := "res://scenes/park_select.tscn"
 
 var stage_seed := 0
-## -1 random (the seed decides), 0 dry season, 1 rainy season
+## -1 random (the seed decides), 0 dry season, 1 rainy season (showers come
+## and go), 2 downpour (rainy season, raining hard all the way: Weather)
 var weather := -1
 ## key into StagePlan.DIFFICULTY: 0 moderate, 1 hard, 2 extreme
 var level := 1
@@ -82,7 +83,7 @@ func _ready() -> void:
 		stage_seed = random_seed()
 	var wi := args.find("--weather")
 	if wi >= 0 and wi + 1 < args.size():
-		weather = {"dry": 0, "rain": 1}.get(args[wi + 1], -1)
+		weather = {"dry": 0, "rain": 1, "downpour": 2}.get(args[wi + 1], -1)
 	var li := args.find("--level")
 	if li >= 0 and li + 1 < args.size():
 		level = clampi(int(args[li + 1]), 0, 2)

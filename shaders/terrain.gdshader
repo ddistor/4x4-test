@@ -31,6 +31,10 @@ uniform vec3 ash_dry : source_color = vec3(0.64, 0.61, 0.55);     // Pinatubo la
 uniform vec3 ash_wet : source_color = vec3(0.36, 0.35, 0.33);
 uniform vec3 bedrock : source_color = vec3(0.44, 0.42, 0.39);
 
+// the weather (Weather): how hard it's raining, how soaked the surfaces are
+global uniform float rain_now;
+global uniform float rain_soak;
+
 varying vec3 world_pos;
 
 // Integer hash of the float's bits: exact at any distance from the origin.
@@ -61,6 +65,21 @@ float fbm(vec2 p) {
 		a *= 0.5;
 	}
 	return v;
+}
+
+// Raindrop rings on standing water: in each small cell a drop lands at its
+// own moment and a ring spreads out and fades (two layers, out of step).
+float rain_rings(vec2 p, float t) {
+	float r = 0.0;
+	for (int k = 0; k < 2; k++) {
+		vec2 q = p * 4.0 + float(k) * 0.5;
+		vec2 c = floor(q);
+		vec2 o = vec2(hash(c + 3.1 + float(k)), hash(c + 7.7 + float(k))) * 0.6 + 0.2;
+		float ph = fract(t * 1.1 + hash(c + 13.0 + float(k)));
+		float d = length(fract(q) - o);
+		r += sin((d - ph * 0.45) * 60.0) * exp(-pow((d - ph * 0.45) * 14.0, 2.0)) * (1.0 - ph);
+	}
+	return r;
 }
 
 // x: distance to nearest cell point, y: that cell's random id
@@ -102,6 +121,10 @@ void vertex() {
 
 void fragment() {
 	vec3 m = texture(mud_tex, UV).rgb;
+	// rain: the surface soaks (less under the trees' canopy); wet clay goes
+	// dark and slick and its hollows fill (all through m.g, as after rain)
+	float soak = rain_soak * (1.0 - 0.55 * texture(cover_tex, UV).g);
+	m.g = max(m.g, soak * 0.95);
 	vec4 cov = texture(cover_tex, UV);
 	vec4 soil = texture(soil_tex, UV);
 	float forest = cov.g;
@@ -260,6 +283,14 @@ void fragment() {
 	rough = mix(rough, 0.22, puddle);
 	spec = mix(spec, 0.25, puddle);
 	h = mix(h, 0.0015 * sin(p.x * 9.0 + TIME * 1.3) * sin(p.y * 7.0 - TIME), puddle);
+	// raindrops ringing the puddles
+	h += rain_rings(p, TIME) * 0.004 * rain_now * puddle;
+	// everything else rain-wet: darker, with a sheen (grass and leaves less
+	// than bare rock and packed dirt)
+	float film = soak * (1.0 - soft) * (1.0 - puddle);
+	col *= 1.0 - 0.22 * film;
+	rough = mix(rough, mix(0.32, 0.6, forest * (1.0 - rock)), film * (0.35 + 0.65 * rock));
+	spec = mix(spec, 0.45, film * rock);
 	// under a river, creek or paddy (the water sheet draws the surface):
 	// soaked and dark, plus a wet band just above the waterline
 	float wetline = (1.0 - smoothstep(water_level, water_level + 0.3, world_pos.y)) * smoothstep(0.3, 0.7, soil.a);

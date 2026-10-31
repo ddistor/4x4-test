@@ -27,6 +27,8 @@ void vertex() {
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
+global uniform float rain_soak;
+
 void fragment() {
 	float around = (lp.x + lp.z) * streak_scale;
 	float streak = noise(vec2(around, lp.y * 0.6)) * 0.6 + noise(vec2(around * 3.0, lp.y * 2.0)) * 0.4;
@@ -38,7 +40,8 @@ void fragment() {
 	col = mix(col, vec3(0.34, 0.36, 0.28), patch * lichen);
 	// clay splash near the ground
 	col = mix(col, vec3(0.15, 0.04, 0.012), (1.0 - smoothstep(0.1, 0.6, lp.y)) * 0.6 * COLOR.a);
-	ALBEDO = col;
-	ROUGHNESS = 0.9;
+	// rain runs down the trunk: darker, a dull sheen
+	ALBEDO = col * (1.0 - 0.3 * rain_soak);
+	ROUGHNESS = mix(0.9, 0.5, rain_soak);
 	SPECULAR = 0.25;
 }

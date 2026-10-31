@@ -316,7 +316,7 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		var level := terrain.water_at(hit.position.x, hit.position.z)
 		ground["thickness"] = 0.0
 		ground["rut"] = 0.0
-		ground["wetness"] = 0.7 if level > hit.position.y - 0.25 else 0.2
+		ground["wetness"] = 0.7 if level > hit.position.y - 0.25 else maxf(0.2, terrain.rain_soak * 0.6)   # rain-wet stone: ~0.55 grip
 		ground["water_depth"] = maxf(0.0, level - hit.position.y)
 		ground["grip"] = 1.0
 		if (hit.collider as Node).is_in_group("boards"):

@@ -606,6 +606,7 @@ func _physics_process(delta: float) -> void:
 		# dust: rolling on dry dirt films the corners behind the tires, a light
 		# coat that builds over a minute or two of driving (never a plaster)
 		var dust: float = s.get("dirt", 0.0) * (1.0 - float(s["in_mud"])) * minf(absf(w.omega) * w.radius, 15.0) * 0.006
+		dust *= 1.0 - 0.6 * smoothstep(0.5, 0.85, float(s["wet"]))   # rain-wet dirt: a spatter, not a cloud
 		if corner_mud[i] < 0.6:
 			corner_mud[i] = minf(0.6, corner_mud[i] + dust * delta * 0.09)
 			# wet grit goes on wet: it keeps the coat looking fresh, like spray does
@@ -652,6 +653,15 @@ func _physics_process(delta: float) -> void:
 	washed = maxf(0.0, washed - thrown * delta * 0.03)
 	if washed <= 0.0:
 		wash_y = -10.0
+	# rain on the body: the mud on it stays wet (it doesn't bake or set), a
+	# light film of dust rinses off in a few minutes; caked mud stays put
+	var rain := terrain.rain_now
+	if rain > 0.02:
+		rinse = maxf(rinse, rain * 0.25)
+		for i in range(corner_mud.size()):
+			if corner_mud[i] < 0.6:
+				corner_mud[i] = maxf(0.0, corner_mud[i] - delta * 0.004 * rain)
+		spare_mud = maxf(0.0, spare_mud - delta * 0.003 * rain * (1.0 - spare_mud))
 	# fresh mud goes on wet and glossy; it takes a good few minutes to bake pale
 	if thrown > 0.05 or rinse > 0.0:
 		dryness = move_toward(dryness, 0.0, delta * (0.25 * thrown + 0.4 * rinse))

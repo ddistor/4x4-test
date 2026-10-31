@@ -68,6 +68,8 @@ void vertex() {
 	ashy = INSTANCE_CUSTOM.g;
 }
 
+global uniform float rain_soak;
+
 void fragment() {
 	// project the noise along the dominant axis so steep faces don't smear
 	vec2 p = abs(wn.y) > 0.6 ? wp.xz : (abs(wn.x) > abs(wn.z) ? wp.zy : wp.xy);
@@ -88,6 +90,7 @@ void fragment() {
 
 	float level = texture(soil_tex, wp.xz / world_size).b;
 	float wet = 1.0 - smoothstep(level - 0.05, level + 0.25, wp.y);
+	wet = max(wet, rain_soak * 0.7);   // rain-wet stone: darker, a sheen
 	col *= mix(1.0, 0.5, wet);
 	ALBEDO = col;
 	ROUGHNESS = mix(mix(0.82, 0.35, smear * coat), 0.2, wet);
