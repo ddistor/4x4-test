@@ -210,6 +210,19 @@ void fragment() {
 		soft *= 1.0 - cob;
 	}
 
+	// --- worn by tires: grass flattened and yellowed, then rubbed through to
+	// packed dirt where the wheels keep running (mud field alpha); bare rock
+	// and the gravel road don't change, the forest floor scuffs to dirt too
+	float worn = texture(mud_tex, UV).a * (1.0 - rock) * (1.0 - 0.8 * paddy_k);
+	if (worn > 0.01) {
+		vec3 flat_grass = mix(grass, grass_b * 0.95, 0.5) * 0.9;
+		vec3 dirt = mix(clay_dry * 0.78, gravel, 0.35) * (0.82 + 0.25 * g2 + 0.12 * (g4 - 0.5) * detail);
+		dirt = mix(dirt, clay_wet * 0.85, smoothstep(0.35, 0.8, m.g));
+		ground = mix(ground, flat_grass, smoothstep(0.04, 0.3, worn) * (1.0 - forest) * 0.7);
+		ground = mix(ground, dirt, smoothstep(0.25, 0.85, worn + (g3 - 0.5) * 0.15));
+		h = mix(h, g4 * 0.008, smoothstep(0.25, 0.85, worn));
+	}
+
 	// mud piled up by the tires (negative rut) is clay wherever it landed,
 	// grass and gravel road included
 	float pile = smoothstep(0.004, 0.04, -m.r);

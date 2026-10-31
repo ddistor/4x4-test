@@ -100,6 +100,9 @@ func _ready() -> void:
 			if p.size() == 2:
 				test_parts[p[0]] = p[1]
 	test_damage = "--damage" in args
+	var mi := args.find("--must")
+	if mi >= 0 and mi + 1 < args.size():
+		test_must = Array(args[mi + 1].split(","))
 	playground = "--playground" in args
 	var gi := args.find("--logo")
 	if gi >= 0 and gi + 1 < args.size():
@@ -145,7 +148,13 @@ func fitted_parts() -> Dictionary:
 
 ## The section kinds the stage must have: the career event's own trail.
 func stage_must() -> Array:
-	return Career.EVENTS[career.event].get("trail", []) if in_career and career.started else []
+	if in_career and career.started:
+		return Career.EVENTS[career.event].get("trail", [])
+	return test_must
+
+
+## `--must clay,bog`: stages that have to include these kinds (tests)
+var test_must: Array = []
 
 
 ## Damage carried into the stage: the career rig's, none in free play.

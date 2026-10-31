@@ -578,6 +578,8 @@ func _physics_process(delta: float) -> void:
 		var dust: float = s.get("dirt", 0.0) * (1.0 - float(s["in_mud"])) * minf(absf(w.omega) * w.radius, 15.0) * 0.006
 		if corner_mud[i] < 0.6:
 			corner_mud[i] = minf(0.6, corner_mud[i] + dust * delta * 0.09)
+			# wet grit goes on wet: it keeps the coat looking fresh, like spray does
+			thrown += dust * smoothstep(0.45, 0.8, float(s["wet"])) * 0.5
 		# what it throws is what it's rolling in: a fresh coat of grey ash over
 		# red clay turns the rig grey, by how much goes on against what's there
 		var ash: float = w.ground.get("ash", 0.0)

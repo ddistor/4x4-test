@@ -16,6 +16,11 @@ uniform float sway_height = 10.0;
 uniform float flutter = 0.03;
 uniform float translucency = 0.45;
 uniform float roughness = 0.7;
+// ground plants under the tires: the mud field (alpha: how worn) flattens
+// them, then wears them away to nothing where the wheels keep running
+uniform bool use_wear = false;
+uniform sampler2D wear_tex : filter_linear, repeat_disable;
+uniform vec2 wear_world = vec2(160.0, 160.0);
 
 varying vec3 plant_tint;
 
@@ -25,6 +30,14 @@ float hash(vec2 p) {
 
 void vertex() {
 	vec3 origin = MODEL_MATRIX[3].xyz;
+	float worn = 0.0;
+	if (use_wear) {
+		worn = textureLod(wear_tex, origin.xz / wear_world, 0.0).a;
+		// laid flat first (pressed down and outward), then gone
+		VERTEX.y *= 1.0 - 0.8 * smoothstep(0.03, 0.4, worn);
+		VERTEX.xz *= 1.0 + 0.35 * smoothstep(0.03, 0.4, worn);
+		VERTEX *= 1.0 - smoothstep(0.45, 0.85, worn);
+	}
 	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float ph = dot(origin.xz, vec2(0.13, 0.17));
 	float h = clamp(VERTEX.y / sway_height, 0.0, 1.5);
@@ -40,6 +53,8 @@ void vertex() {
 	// spread between yellower and bluer greens, and a little light/dark
 	plant_tint = mix(vec3(1.0 + hue_jitter, 1.0 + hue_jitter * 0.4, 0.8), vec3(0.85, 1.0, 1.0 + hue_jitter * 0.5), r);
 	plant_tint *= 0.85 + 0.3 * r2;
+	// crushed grass goes yellow-brown
+	plant_tint = mix(plant_tint, vec3(0.95, 0.8, 0.5), smoothstep(0.05, 0.4, worn) * 0.6);
 }
 
 void fragment() {

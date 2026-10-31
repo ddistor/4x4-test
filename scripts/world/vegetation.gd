@@ -24,6 +24,10 @@ func build(t: Terrain, tree_spots: Array[Transform3D]) -> void:
 	terrain = t
 	_rng.seed = t.seed_value + 101
 	_make_materials()
+	# grass, ferns, saging: flattened and worn away where the tires run
+	_plant_mat.set_shader_parameter("use_wear", true)
+	_plant_mat.set_shader_parameter("wear_tex", t.mud.texture)
+	_plant_mat.set_shader_parameter("wear_world", Vector2(Terrain.WIDTH, t.length))
 	_place_trees(tree_spots)
 	_place_bamboo()
 	_place_paddy_edge_plants()

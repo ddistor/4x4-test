@@ -537,8 +537,9 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 	if not on_rock and water < 0.05:
 		terrain.mud.wear_at(Vector2(contact_point.x, contact_point.z), width * 0.5,
 			(planar.length() * 0.8 + slip * 1.5) * delta)
-		# dry dirt under it: the tire throws dust up the body as it rolls
-		result["dirt"] = 1.0 - smoothstep(0.3, 0.7, wet)
+		# firm dirt under it: dry, the tire throws dust up the body as it
+		# rolls; wet (a greasy gravel road), a spatter of wet grit
+		result["dirt"] = 1.0
 
 	# --- feedback for rig ------------------------------------------------
 	result["slip"] = slip
