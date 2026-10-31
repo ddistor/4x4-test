@@ -21,9 +21,13 @@
   **reaction test** (every ground reacts; the paddy road now dusts the rig).
 - Main menu: the column no longer runs off the bottom (title smaller,
   Graphics and Quit side by side).
-- **Next up: water washes the rig too clean** (the user: "water completely
-  cleans the car"): a dip should rinse what's below the waterline and soften
-  fresh mud, not take baked crust and everything above the water.
+- **Water no longer washes the rig spotless** (branch `water-wash`): only the
+  wash line cleans (below the water), fresh mud in ~20-30 s of wading, mud
+  that had baked on when you went in only about half (it takes a scrub),
+  a clay stain left either way; the splash above the water stays; tires
+  rinse to a film. Check by driving: the shallow ford leaves a lifted rig's
+  body as it was; the deep crossing cleans the lower doors of fresh mud.
+- **The spare** only catches spatter off the rear tires, slowly, low down.
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 

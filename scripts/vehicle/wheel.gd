@@ -575,7 +575,9 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 		# washes it off from there
 		tire_mud = move_toward(tire_mud, minf(tire_mud, 0.5), delta * 0.01 * surf_speed)
 	if water > 0.15:
-		tire_mud = move_toward(tire_mud, 0.0, delta * 0.15 * planar.length())
+		# rolling through water rinses a tire quickly (every bit of it goes
+		# under), down to a film of clay left in the grooves
+		tire_mud = move_toward(tire_mud, minf(tire_mud, 0.12), delta * 0.15 * planar.length())
 	# Packing: crawling slowly through sticky clay (wet, but not soup) fills
 	# the tread until it's a slick. Wheel speed flings it out - the reason you
 	# keep the revs up in mud - and water washes it.

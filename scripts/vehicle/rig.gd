@@ -44,6 +44,7 @@ var crust := 0.0         # 0..1 how set the old mud is: dried hard, it grips the
 var flaked := 0.0        # 0..1 how much dried crust has chipped off (leaves pale stains)
 var wash_y := -10.0      # rig-space height the last wade reached; mud below it is washed
 var washed := 0.0        # 0..1 how clean the wade has got the body below wash_y
+var _wash_hold := 0.0    # how set the mud was when this wade began: that much won't rinse off
 var _last_vel := Vector3.ZERO
 var _flake_chips: GPUParticles3D
 var _no_flake := 0.0
@@ -591,12 +592,12 @@ func _physics_process(delta: float) -> void:
 		var ash: float = w.ground.get("ash", 0.0)
 		mud_ash = move_toward(mud_ash, ash, fling * delta * 0.09 / maxf(0.15, corner_mud[i] * 0.5))
 		cake = minf(1.0, cake + s["in_mud"] * maxf(0.0, w.sink - 0.18) * delta * 0.025)
-		# a corner only washes once the water is up over the wheel's patch
+		# water over the wheel's patch wets and softens the mud there; what it
+		# washes off is the wash line's business (below), never the whole
+		# splash: what's above the water stays put
 		var hub := w.position + Vector3(0, -0.21, 0)
 		var under := clampf((water_top - hub.y + 0.15) / 0.8, 0.0, 1.0)
 		if under > 0.0:
-			var soft := lerpf(1.0, 0.12, crust)
-			corner_mud[i] = maxf(0.0, corner_mud[i] - delta * 0.035 * under * soft * (0.4 + 0.25 * minf(ground_speed, 4.0)))
 			rinse = maxf(rinse, under)
 		thrown += fling
 		# the spare hangs up in the rear tires' roost: a little of what they
@@ -612,12 +613,20 @@ func _physics_process(delta: float) -> void:
 	if belly_under > 0.0:
 		cake = maxf(0.0, cake - delta * 0.03 * belly_under * lerpf(1.0, 0.12, crust))
 	# the wash line: everything below the water gets cleaner the longer it sits in it
+	# (moving water rinses fresh mud off in seconds; clay that had baked on
+	# when you went in only partly comes off: soaking softens it, it takes a
+	# scrub to shift the rest, and the paint keeps a clay stain either way)
 	if water_top > -5.0:
+		if washed < 0.05:
+			_wash_hold = crust   # a fresh wade: how set the mud was going in
 		if water_top > wash_y or washed < 0.05:
 			wash_y = maxf(wash_y, water_top)
-		washed = minf(1.0, washed + delta * 0.06 * lerpf(1.0, 0.15, crust) * (0.5 + 0.2 * minf(ground_speed, 4.0)))
+		var most := lerpf(1.0, 0.45, _wash_hold)
+		if washed < most:
+			washed = minf(most, washed + delta * 0.06 * lerpf(1.0, 0.15, crust) * (0.5 + 0.2 * minf(ground_speed, 4.0)))
 	# fresh mud thrown over the washed part dirties it again
-	washed = maxf(0.0, washed - thrown * delta * 0.15)
+	# (slowly: it takes a good few metres of clay to plaster the rinsed part again)
+	washed = maxf(0.0, washed - thrown * delta * 0.03)
 	if washed <= 0.0:
 		wash_y = -10.0
 	# fresh mud goes on wet and glossy; it takes a good few minutes to bake pale
@@ -627,7 +636,7 @@ func _physics_process(delta: float) -> void:
 		dryness = move_toward(dryness, 1.0, delta * 0.006)
 	# drying sets it; water softens it; a fresh coat goes on soft over the old
 	if rinse > 0.0:
-		crust = move_toward(crust, 0.0, delta * 0.02 * rinse)
+		crust = move_toward(crust, 0.0, delta * 0.006 * rinse)
 	elif dryness > 0.7:
 		crust = move_toward(crust, 1.0, delta * 0.004)
 	crust = maxf(0.0, crust - thrown * delta * 0.05)
@@ -784,7 +793,10 @@ func mud_amount() -> float:
 	var corners := 0.0
 	for m in corner_mud:
 		corners += m
-	return clampf(corners / 8.0 * 0.75 + cake * 0.4, 0.0, 1.0)
+	# less what a wade has rinsed off below its line (the splash sits low, so
+	# a wade to the sills takes most of it)
+	var rinsed := smoothstep(0.3, 1.0, washed) * clampf((wash_y + 0.2) / 1.4, 0.0, 1.0) * 0.8
+	return clampf((corners / 8.0 * 0.75 + cake * 0.4) * (1.0 - rinsed), 0.0, 1.0)
 
 
 ## Air down / up toward psi_target, but only while stopped: you get out and
