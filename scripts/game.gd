@@ -9,6 +9,7 @@ extends Node
 const MENU := "res://scenes/menu.tscn"
 const STAGE := "res://scenes/main.tscn"
 const GARAGE := "res://scenes/garage.tscn"
+const PARK_SELECT := "res://scenes/park_select.tscn"
 
 var stage_seed := 0
 ## -1 random (the seed decides), 0 dry season, 1 rainy season
@@ -60,6 +61,8 @@ var test_damage := false
 var playground := false
 ## the free-play garage is picking the rig for the trail park, not a stage
 var garage_for_park := false
+## which of the trail park's tracks (Yard.TRACKS); `--track N`
+var park_track := 0
 var yard_damage := false
 var career_flag_used := false   # `--career` on the command line: done once
 var _free_rig := -1   # the free-play pick, put back when you leave the career
@@ -106,6 +109,9 @@ func _ready() -> void:
 	if mi >= 0 and mi + 1 < args.size():
 		test_must = Array(args[mi + 1].split(","))
 	playground = "--playground" in args
+	var tk := args.find("--track")
+	if tk >= 0 and tk + 1 < args.size():
+		park_track = clampi(int(args[tk + 1]), 0, Yard.TRACKS.size() - 1)
 	var gi := args.find("--logo")
 	if gi >= 0 and gi + 1 < args.size():
 		logo = clampi(int(args[gi + 1]), 0, LOGOS.size() - 1)
@@ -163,6 +169,14 @@ var test_must: Array = []
 ## (In the yard your rig is as it is, but nothing new sticks.)
 func rig_damage() -> Dictionary:
 	return career.damage if in_career and career.started else {}
+
+
+## The trail park's track list (after the garage, with its rig).
+func to_park_select() -> void:
+	bank_damage()
+	playground = false
+	get_tree().paused = false
+	get_tree().change_scene_to_file(PARK_SELECT)
 
 
 ## Into the practice yard with the rig the garage shows.

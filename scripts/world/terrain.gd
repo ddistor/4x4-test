@@ -182,15 +182,17 @@ func _plan_features() -> void:
 				water_bodies.append({"z_lo": z0 - 1.0, "z_hi": z1 + 2.0, "level": float(s["h0"]) - 0.2,
 					"tint": Color(0.22, 0.26, 0.14, 0.55), "clarity": 0.15, "flow": 0.0})
 			"yard":
-				# the park's creek: deep runs, a riffle where the loop fords it and
-				# another where the deep crossing's bypass does
-				var c := Yard.CREEK.duplicate()
-				c.merge({"tint": Color(0.2, 0.24, 0.17, 0.85), "clarity": 0.6, "stones": true, "flow": 0.5, "ford": true})
-				_add_crossing(float(c["zc"]), c, rng)
-				c["phase"] = Yard.CREEK["phase"]
-				c["freq"] = Yard.CREEK["freq"]
-				c["pool"] = Yard.CREEK["pool"]
-				c["fords"] = Yard.fords()
+				# the park track's creek, if it has one: deep runs, a riffle where
+				# the loop fords it and another where the deep crossing's bypass does
+				var creek := Yard.creek()
+				if not creek.is_empty():
+					var c := creek.duplicate()
+					c.merge({"tint": Color(0.2, 0.24, 0.17, 0.85), "clarity": 0.6, "stones": true, "flow": 0.5, "ford": true})
+					_add_crossing(float(c["zc"]), c, rng)
+					c["phase"] = creek["phase"]
+					c["freq"] = creek["freq"]
+					c["pool"] = creek["pool"]
+					c["fords"] = Yard.fords()
 
 
 func _add_crossing(zc: float, c: Dictionary, rng: RandomNumberGenerator) -> void:

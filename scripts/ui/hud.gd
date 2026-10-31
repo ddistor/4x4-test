@@ -106,10 +106,10 @@ func _stage_step(_delta: float) -> void:
 		# the practice park: which obstacle you're at, and what it's for
 		var i := Yard.station_at(rig.global_position.x, z)
 		if i < 0:
-			_stage.text = "Bakuran trail park   ·   the loop\nround the hill; every obstacle has a bypass beside it"
+			_stage.text = "%s   ·   the loop\nevery obstacle has a bypass beside it" % Yard.info()["name"]
 		else:
 			var st: Dictionary = Yard.stations()[i]
-			_stage.text = "Bakuran trail park   ·   %s\n%s" % [st["name"], st["what"]]
+			_stage.text = "%s   ·   %s\n%s" % [Yard.info()["name"], st["name"], st["what"]]
 		return
 	# the nose under the banner counts (the rig's middle is a couple of metres back)
 	if not _finished and z + 2.0 > plan.finish_z:

@@ -38,6 +38,26 @@
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 
+## Trail park tracks (branch `park-tracks`)
+
+- After the garage, "Pick a track" opens the list (`park_select.gd`): the
+  tracks on the left, a map from above, what it teaches and its obstacles on
+  the right. Pause menu: "Change track". `-- --playground --track N`;
+  `--snap-park` on the list scene saves `snaps/89_park_*`.
+- New: **Putikan** (rainy mud farm: ruts, wallow, wet clay bank, long bog,
+  mud hole + winch rock, V-ditches, 65 cm kanal ruts), **Batuhan** (dry
+  quarry: rubble, ledges, boulder garden, rock slab, a stair climb of 0.5,
+  0.8 and 1 m steps with a winch rock, squeeze, straddle line), **Ahon at
+  Lusong** (built laterite mounds at 20, 30, 40 deg, whoops, a 35 deg
+  descent, side slope, a 45 deg wall with a winch rock).
+- Stock Gera (bot, 4L, lockers): through all of Putikan; stops at the stair
+  climb; can't make the 40 deg climb (rolls off it) and gets over the 45 deg
+  wall only by tumbling. Check by driving: are the 40/45 ones fair with a
+  built rig, is the mud deep enough to need the kit, do the ditches lift
+  wheels.
+- Next batch (planned): Kanal (ruts and ditches), Ilog (river run), Lahar
+  (ash wash), Sukal (jungle trail).
+
 ## Practice park
 
 - "Trail park" on the start menu (the last rig you picked), or the career

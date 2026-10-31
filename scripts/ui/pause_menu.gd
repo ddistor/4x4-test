@@ -64,6 +64,9 @@ func _ready() -> void:
 	var menu := UiKit.button("Back to the garage" if Game.in_career else "Back to start menu")
 	if terrain.plan.yard:
 		menu.text = "Leave the park"
+		var change := UiKit.button("Change track")
+		change.pressed.connect(Game.to_park_select)
+		box.add_child(change)
 	menu.pressed.connect(Game.leave_stage)
 	box.add_child(menu)
 	var quit := UiKit.button("Quit")
@@ -129,5 +132,5 @@ func _toggle() -> void:
 		_where.text = "Stage %d   ·   section %d of %d: %s" % [
 			Game.stage_seed, terrain.plan.sections.find(s) + 1, terrain.plan.sections.size(), StagePlan.display_name(s)]
 		if terrain.plan.yard:
-			_where.text = "Bakuran trail park, Morong   ·   free: nothing you do here costs"
+			_where.text = "Bakuran trail park: %s   ·   free: nothing you do here costs" % Yard.info()["name"]
 		_resume.grab_focus()

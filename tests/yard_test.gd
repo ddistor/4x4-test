@@ -66,17 +66,20 @@ func _run() -> void:
 	var names := []
 	for s in stations:
 		names.append(s["name"])
-	var deepest := 0.0
-	var ford_deepest := 0.0
-	for a in range(0, 40):
-		deepest = maxf(deepest, _depth_on_line(stations[names.find("Deep crossing")], float(a)))
-		ford_deepest = maxf(ford_deepest, _depth_on_line(stations[names.find("Creek ford")], float(a)))
-	_check("the deep crossing is about 1.4 m", absf(deepest - 1.4) < 0.25, deepest)
-	_check("the ford is knee-deep", ford_deepest > 0.15 and ford_deepest < 0.6, ford_deepest)
-	_check("no water on the meadow", terrain.water_at(Yard.MEADOW.x, Yard.MEADOW.y) == Terrain.NO_WATER)
-	var mud_at := Yard.ahead_on_loop(stations[names.find("Mud hole")]["at"].x, stations[names.find("Mud hole")]["at"].y, 23.0)
-	var g := terrain.ground_sample(Vector3(mud_at.x, 0.0, mud_at.y))
-	_check("the mud hole is soup in the middle", float(g["thickness"]) > 0.45 and float(g["wetness"]) > 0.8, [g["thickness"], g["wetness"]])
+	print("    track %d: %s, %d obstacles" % [Yard.current(), Yard.info()["name"], stations.size()])
+	if names.has("Deep crossing"):
+		var deepest := 0.0
+		var ford_deepest := 0.0
+		for a in range(0, 40):
+			deepest = maxf(deepest, _depth_on_line(stations[names.find("Deep crossing")], float(a)))
+			ford_deepest = maxf(ford_deepest, _depth_on_line(stations[names.find("Creek ford")], float(a)))
+		_check("the deep crossing is about 1.4 m", absf(deepest - 1.4) < 0.25, deepest)
+		_check("the ford is knee-deep", ford_deepest > 0.15 and ford_deepest < 0.6, ford_deepest)
+	_check("no water on the meadow", terrain.water_at(Yard.meadow().x, Yard.meadow().y) == Terrain.NO_WATER)
+	if names.has("Mud hole"):
+		var mud_at := Yard.ahead_on_loop(stations[names.find("Mud hole")]["at"].x, stations[names.find("Mud hole")]["at"].y, 23.0)
+		var g := terrain.ground_sample(Vector3(mud_at.x, 0.0, mud_at.y))
+		_check("the mud hole is soup in the middle", float(g["thickness"]) > 0.45 and float(g["wetness"]) > 0.8, [g["thickness"], g["wetness"]])
 	# how steep the loop gets (over 4 m), and where
 	var steepest := 0.0
 	var where := 0.0

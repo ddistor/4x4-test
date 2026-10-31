@@ -42,11 +42,13 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   *firm floor* (heights minus mud thickness). 1 m cover/soil maps feed the shader
   (forest, paddy, ash, bedrock, cobbles, water level and where water may stand).
   Trees, palms and boulders double as winch anchors.
-- `scripts/world/yard.gd` — Bakuran trail park, the practice ground (`StagePlan.practice_yard()`,
-  a `yard` section, 160 x 320 m, the terrain asks it for heights, soil, rock, woods, stones
-  and trees): a clay loop round a wooded hill, a creek crossed twice (the terrain's crossing,
-  two riffles), each obstacle on the trail with a bypass beside it. Lookups work in a
-  track's own (along, across) coordinates. `Game.playground`; `-- --playground`.
+- `scripts/world/yard.gd` — Bakuran trail park (`StagePlan.practice_yard()`, a `yard` section,
+  160 x 320 m): several tracks (`Yard.TRACKS`: Bakuran Loop, Putikan mud, Batuhan rock,
+  Ahon at Lusong slopes), each a clay loop with its obstacles on the trail and a bypass
+  beside each; `Yard.use(i)` lays one out for the terrain (heights, soil, rock, woods,
+  stones, trees, the creek). Lookups work in a path's own (along, across) coordinates.
+  `scripts/ui/park_select.gd` — the track list after the garage, a map preview drawn
+  from the layout. `Game.playground`, `Game.park_track`; `-- --playground --track N`.
 - `scripts/world/rocks.gd` — boulders and river stones, convex colliders; wheels
   treat group "rock" as firm ground.
 - `scripts/world/vegetation.gd` — everything green, modelled in code: broadleaf

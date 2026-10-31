@@ -91,7 +91,7 @@ func _free_panel(col: VBoxContainer) -> void:
 	_drive_btn = UiKit.button("Drive stage %d" % Game.stage_seed, 460)
 	_drive_btn.pressed.connect(_drive)
 	if Game.garage_for_park:
-		_drive_btn.text = "Into the trail park"
+		_drive_btn.text = "Pick a track"
 	col.add_child(_drive_btn)
 	var back := UiKit.button("Back", 460)
 	back.pressed.connect(Game.to_menu)
@@ -236,10 +236,7 @@ func _career_panel(col: VBoxContainer) -> void:
 	var yard := _small("Trail park", 225)
 	yard.pressed.connect(func() -> void:
 		Game.use_career_rig()
-		_loading.visible = true
-		await get_tree().process_frame
-		await get_tree().process_frame
-		Game.to_playground())
+		Game.to_park_select())
 	bottom.add_child(yard)
 	var back := _small("Start menu", 225)
 	back.pressed.connect(Game.to_menu)
@@ -710,7 +707,7 @@ func _drive() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	if Game.garage_for_park and not Game.in_career:
-		Game.to_playground()
+		Game.to_park_select()   # the track list next
 		return
 	Game.start_stage(Game.stage_seed)
 

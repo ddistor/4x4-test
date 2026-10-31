@@ -13,6 +13,7 @@ func _ready() -> void:
 	var terrain := Terrain.new()
 	terrain.name = "Terrain"
 	if Game.playground:
+		Yard.use(Game.park_track)
 		terrain.plan = StagePlan.practice_yard()
 	else:
 		terrain.plan = StagePlan.generate(Game.stage_seed, Game.weather, Game.level, Game.stage_must())

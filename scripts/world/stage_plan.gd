@@ -62,8 +62,9 @@ static func practice_yard() -> StagePlan:
 	var plan := StagePlan.new()
 	plan.seed_value = 4242
 	plan.yard = true
-	plan.rain = 0.45
-	plan.sections.append({"kind": "yard", "z0": 0.0, "z1": Yard.LENGTH, "h0": 0.0, "h1": 0.0, "wet": 0.45,
+	# the track's own season
+	plan.rain = float(Yard.info()["rain"])
+	plan.sections.append({"kind": "yard", "z0": 0.0, "z1": Yard.LENGTH, "h0": 0.0, "h1": 0.0, "wet": plan.rain,
 		"phase": 0.0, "cross_t": -1.0, "pitches": []})
 	plan.length = Yard.LENGTH
 	plan.finish_z = INF

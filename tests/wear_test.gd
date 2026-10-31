@@ -26,7 +26,7 @@ func _wait(s: float) -> void:
 func _run() -> void:
 	await _wait(1.0)
 	# out on the open meadow inside the loop
-	rig.place_at(Yard.MEADOW.x, Yard.MEADOW.y - 8.0, Vector3.BACK)
+	rig.place_at(Yard.meadow().x, Yard.meadow().y - 8.0, Vector3.BACK)
 	await _wait(1.5)
 	var start := rig.global_position
 	# no drawing while it drives (a software display would take an age)
