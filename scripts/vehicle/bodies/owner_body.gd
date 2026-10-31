@@ -125,8 +125,6 @@ static func build(rig: Rig) -> void:
 		rb.call(trim, Vector3(0.3, 0.1, TAIL_Z - OPEN_Z - 0.35), 0.03, at.call(Vector3(sx * (HALF_W - 0.2), bench_y, (TAIL_Z + OPEN_Z) * 0.5 + 0.1)))
 		rb.call(trim, Vector3(0.06, 0.28, TAIL_Z - OPEN_Z - 0.35), 0.025, at.call(Vector3(sx * (HALF_W - 0.06), bench_y + 0.12, (TAIL_Z + OPEN_Z) * 0.5 + 0.1)))
 	MeshKit.tube(chassis, Vector3(seat.x, BELT - 0.08, COWL_Z + 0.04), spec.wheel_at, 0.022, Transform3D.IDENTITY, c)
-	MeshKit.tube(chassis, Vector3(0.02, 0.55, -0.22), Vector3(0.0, 0.93, -0.12), 0.012, Transform3D.IDENTITY, c, 6)
-	MeshKit.tube(chassis, Vector3(0.1, 0.55, -0.22), Vector3(0.12, 0.87, -0.14), 0.01, Transform3D.IDENTITY, c, 6)
 
 	# chrome bumpers, the winch up front
 	rb.call(chrome, Vector3(1.9, 0.13, 0.13), 0.04, at.call(Vector3(0, 0.6, -1.98)))

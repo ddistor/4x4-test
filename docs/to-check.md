@@ -38,6 +38,29 @@
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 
+## Inside the rigs (branch `car-detail`)
+
+- `cabin_kit.gd` on every rig: an engine under the hood (Gera/Gerilya V8
+  in orange with a carb and round air cleaner, Kuwarenta grey-blue straight
+  six with an oil-bath cleaner, Feroz four, Ronda 4.2 diesel six with an
+  injection pump, Owner 2.8 diesel four, Rubikon V6 under a cover), radiator,
+  fan and shroud, hoses, battery, master cylinder, exhaust down beside the
+  gearbox to a muffler and out the tail.
+- Pedals (clutch, brake, throttle, dead pedal) where the feet are: the legs
+  now reach to them by a two-bone solve. Before, every rig used the Gera's
+  pose: the Gera's toes went into the firewall, the Ronda's and Rubikon's
+  feet floated 12 cm off the floor.
+- Dash: a gauge pod seen through the top of the wheel (tach and speedo
+  needles move with the engine and speed), oil/temp/fuel/volts, switches,
+  ignition, centre stack, vents, grab handle; the Willys keeps a flat dash
+  panel in the body colour. Tunnel, gear and transfer-case levers with
+  boots, handbrake, rubber mats. Closed cabs: door cards (front only on the
+  two-door Feroz), headliner, mirror, sun visors.
+- `tests/interior_snap.tscn -- --rig X` pictures seat, footwell, engine bay
+  and underneath. well_test PASS.
+- Check by driving: the seat camera on each rig (does the cluster read,
+  do the needles move right), and the engine bay through the grille.
+
 ## Rain (branch `rain`)
 
 - `weather.gd`: showers come and go in the rainy season (about half the

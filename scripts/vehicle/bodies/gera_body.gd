@@ -141,8 +141,6 @@ static func _build(rig: Rig, trail: bool) -> void:
 	rb.call(trim, Vector3(0.82, 0.4, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.95, 1.46)))
 	# the steering wheel itself turns, so the driver builds it (driver.gd)
 	MeshKit.tube(chassis, Vector3(-0.33, 0.98, -0.42), rig.spec.wheel_at, 0.022, Transform3D.IDENTITY, c)
-	MeshKit.tube(chassis, Vector3(0.02, 0.58, -0.1), Vector3(0.0, 0.98, 0.0), 0.012, Transform3D.IDENTITY, c, 6)
-	MeshKit.tube(chassis, Vector3(0.1, 0.58, -0.1), Vector3(0.12, 0.92, -0.02), 0.01, Transform3D.IDENTITY, c, 6)
 
 	# roll cage: main hoop behind the seats, bars to the windshield and the back corners
 	var top_l := Vector3(-0.62, 1.95, 0.62)

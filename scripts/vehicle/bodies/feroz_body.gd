@@ -132,8 +132,6 @@ static func build(rig: Rig) -> void:
 	rb.call(trim, Vector3(bench_w, 0.12, 0.4), 0.05, at.call(Vector3(0, 0.66, 1.15)))
 	rb.call(trim, Vector3(bench_w, 0.45, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.95, 1.4)))
 	MeshKit.tube(chassis, Vector3(seat.x, BELT - 0.08, COWL_Z + 0.05), rig.spec.wheel_at, 0.022, Transform3D.IDENTITY, c)
-	MeshKit.tube(chassis, Vector3(0.02, 0.58, -0.18), Vector3(0.0, 0.96, -0.08), 0.012, Transform3D.IDENTITY, c, 6)
-	MeshKit.tube(chassis, Vector3(0.1, 0.58, -0.18), Vector3(0.12, 0.9, -0.1), 0.01, Transform3D.IDENTITY, c, 6)
 
 	# front bumper with the winch
 	rb.call(plastic, Vector3(1.64, 0.14, 0.14), 0.03, at.call(Vector3(0, 0.58, -1.84)))

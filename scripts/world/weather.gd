@@ -73,7 +73,7 @@ func setup(terrain: Terrain, env: Environment, sun: DirectionalLight3D, downpour
 		_fixed = clampf(float(args[ri + 1]), 0.0, 1.0)
 		mode = 4
 	intensity = _target()
-	soak = clampf(intensity * 1.2, 0.0, 1.0) if intensity > 0.05 else (0.25 if mode >= 2 else 0.0)
+	soak = clampf(intensity * 1.2, 0.0, 1.0) if intensity > 0.05 else (0.25 if mode == 2 or mode == 3 else 0.0)
 	# a downpour's been going a while already: the rivers are well up
 	flood = _flood_target() * (0.7 if mode == 3 else 0.0)
 	_build_rain()

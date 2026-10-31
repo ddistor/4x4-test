@@ -256,12 +256,18 @@ func _build_legs() -> void:
 	# seated: thighs forward and a little up off the seat, shins down to the pedals
 	var st := MeshKit.begin()
 	MeshKit.rounded_box(st, Vector3(0.36, 0.16, 0.3), 0.07, Transform3D(Basis.IDENTITY, HIP + Vector3(0, -0.01, 0.0)), DENIM, 3)
+	# where the feet go in this rig's footwell (CabinKit): the right on the
+	# throttle, toes up on the pad; the left back on the rest beside the clutch
+	var feet := CabinKit.pedal_targets((rig as Rig).spec)
 	for sx: float in [-1.0, 1.0]:
 		var hip := HIP + Vector3(sx * 0.1, 0.0, -0.04)
-		# a Willys footwell is short and high: knees up, feet flat on the floor
-		# just behind the firewall (z -0.33)
-		var knee := HIP + Vector3(sx * 0.14, 0.2, -0.38)
-		var ankle := HIP + Vector3(sx * 0.15, -0.1, -0.43)
+		var ankle: Vector3 = feet[0] if sx > 0.0 else feet[2]
+		var toe_up: float = feet[1] if sx > 0.0 else feet[3]
+		# two-bone reach: thigh and shin at their lengths, the knee up and a
+		# little out (a short footwell puts the knees up high, a long one
+		# stretches the legs out)
+		var knee := _knee(hip, ankle, 0.4, 0.31, sx)
+		ankle = knee + (ankle - knee).normalized() * minf(0.31, (ankle - knee).length())
 		# jorts: denim to just above the knee, frayed cuff
 		var cuff := hip.lerp(knee, 0.82)
 		var thigh := (knee - hip).normalized()
@@ -275,7 +281,7 @@ func _build_legs() -> void:
 		MeshKit.sweep(st, PackedVector3Array([knee, knee.lerp(ankle, 0.3) + back * 0.008, knee.lerp(ankle, 0.65), ankle]),
 			PackedFloat32Array([0.047, 0.05, 0.04, 0.032]), Transform3D.IDENTITY, SKIN, 14)
 		# bare foot on a tsinelas: thin white-and-blue sole, a Y strap between the toes
-		var foot := Transform3D(Basis(Vector3.RIGHT, -0.15), ankle + Vector3(0, -0.04, -0.07))
+		var foot := Transform3D(Basis(Vector3.RIGHT, toe_up), ankle + Vector3(0, -0.04, -0.07))
 		MeshKit.rounded_box(st, Vector3(0.09, 0.05, 0.22), 0.022, foot, SKIN, 2)
 		MeshKit.rounded_box(st, Vector3(0.1, 0.018, 0.25), 0.007, foot * Transform3D(Basis.IDENTITY, Vector3(0, -0.033, 0.0)), SOLE, 2)
 		MeshKit.rounded_box(st, Vector3(0.102, 0.008, 0.252), 0.003, foot * Transform3D(Basis.IDENTITY, Vector3(0, -0.02, 0.0)), SLIPPER, 2)
@@ -283,6 +289,18 @@ func _build_legs() -> void:
 		for s2: float in [-1.0, 1.0]:
 			MeshKit.tube(st, toe + foot.basis * Vector3(0, 0.02, 0), foot * Vector3(s2 * 0.048, -0.02, 0.03), 0.008, Transform3D.IDENTITY, SLIPPER, 5)
 	_part(st, self, "Legs")
+
+
+## The knee for a leg from `hip` to `ankle`, thigh `a` and shin `b` long:
+## bent up (and splayed out by side `sx`); straight, if the ankle's out of reach.
+static func _knee(hip: Vector3, ankle: Vector3, a: float, b: float, sx: float) -> Vector3:
+	var d := ankle - hip
+	var dist := clampf(d.length(), 0.05, a + b - 0.001)
+	var dir := d.normalized()
+	var along := (a * a - b * b + dist * dist) / (2.0 * dist)
+	var up := (Vector3.UP - dir * dir.dot(Vector3.UP)).normalized()
+	up = (up + Vector3(sx * 0.15, 0, 0)).normalized()
+	return hip + dir * along + up * sqrt(maxf(a * a - along * along, 0.0))
 
 
 ## Torso cross-sections (torso space, before the lean): height, half-width,

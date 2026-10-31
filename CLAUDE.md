@@ -72,6 +72,13 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
   with `mesh_kit.gd`, one file each in `scripts/vehicle/bodies/`
   (`gera_body.gd`: the Gera, the lifted black Willys-style flatfender, and its
   trail-built variant the Gerilya via `build_trail`).
+- `scripts/vehicle/bodies/cabin_kit.gd` — what every rig has inside and under the hood, from a
+  per-rig LAYOUT (floor, firewall, dash, engine bay, closed cab): its own engine (V8, V6,
+  straight-six, four, diesels) with radiator, fan, battery and an exhaust to a muffler;
+  pedals where the driver's feet land (Driver reaches its legs to `pedal_targets`),
+  tunnel, levers, mats; a dash with a gauge pod and live tach/speedo needles; door
+  cards, headliner, mirror and visors in a closed cab. `tests/interior_snap.tscn`
+  pictures it.
 - `scripts/vehicle/gearbox.gd` — engine (torque curve, idle, redline), gears,
   final drive, low range, engine braking, auto/manual (E/Q, T), stalling; the
   numbers per rig are in `RigSpec`. Its rpm drives the engine sound.

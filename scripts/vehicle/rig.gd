@@ -151,6 +151,10 @@ func _build_body() -> void:
 	spec.build_body.call(self)
 	Armor.underbody(self)
 	Armor.build(self)
+	# engine bay, pedals, dash and gauges, levers, a closed cab's trim
+	var cabin := CabinKit.new()
+	add_child(cabin)
+	cabin.build(self)
 	_rain_glass()
 
 
