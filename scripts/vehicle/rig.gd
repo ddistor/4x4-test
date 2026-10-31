@@ -573,6 +573,11 @@ func _physics_process(delta: float) -> void:
 		var fling: float = s["in_mud"] * (1.1 * spin + 0.012 * absf(w.omega) * w.radius) * (0.3 + 0.9 * s["wet"])
 		# slow at first, slower again as the corner fills
 		corner_mud[i] = minf(2.0, corner_mud[i] + fling * delta * 0.09 * (1.0 - corner_mud[i] / 2.3))
+		# dust: rolling on dry dirt films the corners behind the tires, a light
+		# coat that builds over a minute or two of driving (never a plaster)
+		var dust: float = s.get("dirt", 0.0) * (1.0 - float(s["in_mud"])) * minf(absf(w.omega) * w.radius, 15.0) * 0.006
+		if corner_mud[i] < 0.6:
+			corner_mud[i] = minf(0.6, corner_mud[i] + dust * delta * 0.09)
 		# what it throws is what it's rolling in: a fresh coat of grey ash over
 		# red clay turns the rig grey, by how much goes on against what's there
 		var ash: float = w.ground.get("ash", 0.0)

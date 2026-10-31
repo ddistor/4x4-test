@@ -532,6 +532,14 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 				var scatter := Vector2(back.y, -back.x) * randf_range(-0.6, 0.6)
 				terrain.mud.deposit(at + back * reach + scatter, 0.3, flung * 0.5, wet_here)
 
+	# Wear: rolling over grass flattens it and wears it to bare dirt, a few
+	# passes to wear through (sooner spinning); rock and water don't wear
+	if not on_rock and water < 0.05:
+		terrain.mud.wear_at(Vector2(contact_point.x, contact_point.z), width * 0.5,
+			(planar.length() * 0.8 + slip * 1.5) * delta)
+		# dry dirt under it: the tire throws dust up the body as it rolls
+		result["dirt"] = 1.0 - smoothstep(0.3, 0.7, wet)
+
 	# --- feedback for rig ------------------------------------------------
 	result["slip"] = slip
 	result["in_mud"] = soft

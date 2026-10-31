@@ -21,6 +21,9 @@ var origin: Vector2  # world XZ of cell (0,0)
 var thickness: PackedFloat32Array
 var wetness: PackedFloat32Array
 var rut: PackedFloat32Array  # negative = mud piled above the surface (berms, flung clods)
+## 0..1 how worn the cover is: tires rolling over grass flatten it and wear it
+## to bare dirt (the texture's alpha: the ground and grass shaders read it)
+var wear: PackedFloat32Array
 
 const MAX_PILE := 0.3
 
@@ -39,10 +42,12 @@ func _init(p_width: int, p_height: int, p_cell_size: float, p_origin: Vector2) -
 	thickness.resize(n)
 	wetness.resize(n)
 	rut.resize(n)
+	wear.resize(n)
+	wear.fill(0.0)
 	thickness.fill(0.0)
 	wetness.fill(0.0)
 	rut.fill(0.0)
-	image = Image.create(width, height, false, Image.FORMAT_RGBF)
+	image = Image.create(width, height, false, Image.FORMAT_RGBAF)
 	texture = ImageTexture.create_from_image(image)
 
 
@@ -107,7 +112,7 @@ func carve(world_xz: Vector2, radius: float, amount: float) -> float:
 			var dr := minf(room, amount * falloff)
 			rut[i] += dr
 			carved = maxf(carved, dr)
-			image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i]))
+			image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i], wear[i]))
 	if carved > 0.0:
 		_dirty = true
 	return carved
@@ -142,7 +147,7 @@ func carve_to(world_xz: Vector2, radius: float, depth: float) -> float:
 			if want > rut[i] + 0.001:
 				cut = maxf(cut, want - maxf(rut[i], 0.0))
 				rut[i] = want
-				image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i]))
+				image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i], wear[i]))
 	if cut > 0.0:
 		_dirty = true
 	return cut
@@ -169,11 +174,34 @@ func deposit(world_xz: Vector2, radius: float, amount: float, wet: float) -> voi
 			var i := idx(c.x, c.y)
 			rut[i] = maxf(rut[i] - amount * falloff, -MAX_PILE)
 			wetness[i] = lerpf(wetness[i], maxf(wetness[i], wet), falloff * 0.5)
-			image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i]))
+			image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i], wear[i]))
 	_dirty = true
 
 
 ## Push the whole image to the GPU if anything changed. Call once per frame.
+## A tire rolling over `world_xz` (`radius` across) wears the cover there a
+## little: `amount` per pass at the middle, softer at the edge.
+func wear_at(world_xz: Vector2, radius: float, amount: float) -> void:
+	if amount <= 0.0:
+		return
+	var centre := world_to_cell(world_xz)
+	var r_cells := maxi(1, int(ceil(radius / cell_size)))
+	for dy in range(-r_cells, r_cells + 1):
+		for dx in range(-r_cells, r_cells + 1):
+			var c := centre + Vector2i(dx, dy)
+			if not in_bounds(c):
+				continue
+			var d := (origin + (Vector2(c) + Vector2(0.5, 0.5)) * cell_size).distance_to(world_xz)
+			if d > radius + cell_size * 0.5:
+				continue
+			var i := idx(c.x, c.y)
+			if wear[i] >= 1.0:
+				continue
+			wear[i] = minf(1.0, wear[i] + amount * (1.0 - clampf(d / (radius + cell_size * 0.5), 0.0, 1.0)))
+			image.set_pixel(c.x, c.y, Color(rut[i], wetness[i], thickness[i], wear[i]))
+			_dirty = true
+
+
 func flush() -> void:
 	if _dirty:
 		texture.update(image)
@@ -185,6 +213,6 @@ func bake_image() -> void:
 	for y in range(height):
 		for x in range(width):
 			var i := idx(x, y)
-			image.set_pixel(x, y, Color(rut[i], wetness[i], thickness[i]))
+			image.set_pixel(x, y, Color(rut[i], wetness[i], thickness[i], wear[i]))
 	texture.update(image)
 	_dirty = false
