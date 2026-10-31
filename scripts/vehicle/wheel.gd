@@ -566,7 +566,16 @@ func physics_step(rig: RigidBody3D, terrain: Terrain, delta: float, drive_force:
 
 	# the tire gets coated fast in the slop, flings clean slowly on firm ground
 	if soft > 0.3:
-		tire_mud = move_toward(tire_mud, 1.0, delta * soft * (0.4 + 1.5 * slip))
+		# it coats as the tread turns through it, a revolution or two of wet clay
+		# fills it (sitting still it doesn't); wheelspin plasters it at once.
+		# Dry clay barely sticks. How far up it goes is how deep the tire is in
+		# it: tread and sidewall in a few centimetres, the wheel itself only
+		# once you've sunk to it, or spin and sling it up there
+		var sticky := lerpf(0.2, 1.0, smoothstep(0.2, 0.65, wet))
+		var turns := surf_speed * delta / (TAU * r)
+		var reach := clampf(0.55 + 0.6 * depth / r + 0.5 * slip, 0.0, 1.0)
+		if tire_mud < reach:
+			tire_mud = minf(reach, tire_mud + soft * sticky * (0.7 * turns + 1.2 * slip * delta))
 		# the tread takes on what it's rolling in: red clay, or grey lahar ash
 		mud_ash = move_toward(mud_ash, float(ground.get("ash", 0.0)), delta * soft * (0.5 + 1.5 * slip))
 	else:
