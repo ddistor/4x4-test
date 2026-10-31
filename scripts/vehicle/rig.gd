@@ -65,6 +65,9 @@ const PSI_STEPS: Array[float] = [35.0, 28.0, 22.0, 18.0, 15.0, 12.0]
 const CORNER_PARAMS: Array[StringName] = [&"corner_fl", &"corner_fr", &"corner_rl", &"corner_rr"]
 
 var spare_mat: ShaderMaterial   # set by the body if it carries a spare
+## mud spattered on the spare (0..1): its own, slow, off the rear tires
+var spare_mud := 0.0
+var _spare: MeshInstance3D
 var _body_mats: Array[ShaderMaterial] = []
 var _axles: Array = []   # [MeshInstance3D, ShaderMaterial, diff x]
 var _shafts: Array = []  # [MeshInstance3D, ShaderMaterial]
@@ -596,6 +599,12 @@ func _physics_process(delta: float) -> void:
 			corner_mud[i] = maxf(0.0, corner_mud[i] - delta * 0.035 * under * soft * (0.4 + 0.25 * minf(ground_speed, 4.0)))
 			rinse = maxf(rinse, under)
 		thrown += fling
+		# the spare hangs up in the rear tires' roost: a little of what they
+		# throw (and of their dust) reaches it, nothing like what plasters the arches
+		if i >= 2 and spare_mat:
+			spare_mud = minf(0.75, spare_mud + fling * delta * 0.012 * (1.0 - spare_mud))
+			if spare_mud < 0.3:
+				spare_mud = minf(0.3, spare_mud + dust * delta * 0.03)
 		# where the clay was thrown from: the wheel at ride height, fixed to the
 		# body, so the splatter stays put instead of sliding with the suspension
 		corners.append(Vector4(hub.x, hub.y, hub.z, corner_mud[i]))
@@ -653,14 +662,29 @@ func _physics_process(delta: float) -> void:
 	for w in wheels:
 		w.tire_mat.set_shader_parameter("dryness", dryness)
 	if spare_mat:
+		if _spare == null:
+			_find_spare()
+		# washes only if the water comes up over it
+		if _spare and water_top > _spare.position.y - 0.3:
+			spare_mud = maxf(0.0, spare_mud - delta * 0.04 * lerpf(1.0, 0.15, crust))
 		spare_mat.set_shader_parameter("mud_ash", mud_ash)
-		spare_mat.set_shader_parameter("tire_mud", minf(1.0, (corner_mud[2] + corner_mud[3]) * 0.25))
+		spare_mat.set_shader_parameter("spatter", spare_mud)
 		spare_mat.set_shader_parameter("dryness", dryness)
 
 	_dents_shown = damage.dent_version
 	damage.step(delta)
 	_stir_water(delta)
 	terrain.mud.flush()
+
+
+## The body's spare (the mesh wearing spare_mat): where it hangs, and which
+## way is down in its own space, for the spatter.
+func _find_spare() -> void:
+	for c in get_children():
+		if c is MeshInstance3D and (c as MeshInstance3D).mesh and (c as MeshInstance3D).mesh.surface_get_material(0) == spare_mat:
+			_spare = c
+			spare_mat.set_shader_parameter("spatter_down", (_spare.transform.basis.inverse() * Vector3.DOWN).normalized())
+			return
 
 
 ## Tell the water where the tires are (wakes, white water) and drop clay into
