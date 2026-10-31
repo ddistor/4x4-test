@@ -86,10 +86,11 @@ func _physics_process(delta: float) -> void:
 		_pitch = lerpf(_pitch, 0.0, clampf(delta * 1.5, 0.0, 1.0))
 
 	if hood_cam:
-		# driver's seat (left-hand drive), free look within a head-turn
+		# the driver's eyes over his own seat (left-hand drive), free look within a head-turn
 		_yaw = clampf(_yaw, -2.2, 2.2)
 		_pitch = clampf(_pitch, -0.9, 0.7)
-		var eye := target.global_transform.translated_local(Vector3(-0.33, 1.6, 0.2))
+		var seat: Vector3 = (target as Rig).spec.seat if target is Rig else Vector3(-0.33, 0.8, 0.27)
+		var eye := target.global_transform.translated_local(seat + Vector3(0, 0.8, -0.07))
 		global_transform = eye
 		rotate_object_local(Vector3.UP, _yaw)
 		rotate_object_local(Vector3.RIGHT, _pitch)

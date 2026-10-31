@@ -24,7 +24,9 @@ varying float skin;    // 1 on skin, 0 on clothes
 varying float tee;     // 1 on the shirt body, where the print may go
 
 void vertex() {
-	lp = VERTEX;
+	// the limbs are rebuilt as they move: they carry a fixed place on the skin
+	// in UV/UV2 (UV2.y = 1), so the mud stays where it landed
+	lp = UV2.y > 0.5 ? vec3(UV.x, UV.y, UV2.x) : VERTEX;
 	ln = NORMAL;
 	vec3 c = clamp(COLOR.rgb, 0.0, 1.0);
 	base = pow(c, vec3(2.2));

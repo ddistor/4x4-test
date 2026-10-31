@@ -12,7 +12,7 @@ extends RefCounted
 const SILL := 0.5
 const BELT := 1.0
 const STEP_TOP := 0.8      # the doorless opening dips to here
-const OPEN_Z := 0.36       # where the opening ends and the deck sides start
+const OPEN_Z := 0.74       # where the opening ends and the deck sides start
 const HALF_W := 0.76
 const COWL_Z := -0.5
 const TAIL_Z := 1.72

@@ -7,13 +7,15 @@ extends Node3D
 ##     battery, hoses; exhaust manifold down to a pipe beside the gearbox, back
 ##     under the floor to a muffler and out the tail
 ##   - the footwell: a transmission tunnel, pedals (clutch, brake, throttle)
-##     hung where the driver's feet land on them (Driver reaches its legs to
-##     `pedal_targets`), rubber mats
+##     that swing on their pivots as the driver's feet press them (Driver
+##     reaches its legs to `foot_on`), a dead pedal, rubber mats
 ##   - the dash: a gauge cluster in front of the wheel, tach and speedo with
 ##     live needles plus oil, temperature, fuel and volts, switches, a centre
 ##     stack; the open Willys gets its flat painted dash panel
-##   - the levers: gear lever, transfer-case lever with boots on the tunnel,
-##     a handbrake between the seats
+##   - the levers: gear lever (through an H, `set_gear_lever`), transfer-case
+##     lever (forward 4H, back 4L) with boots on the tunnel, a handbrake between
+##     the seats that comes up when it's pulled; the driver's right hand goes
+##     to each (`grip_at`)
 ##   - a closed cab: door cards with armrests and pulls, a headliner, the
 ##     rear-view mirror and sun visors
 ## Everything bar the gauges takes the body's mud shader (so the cab box
@@ -28,9 +30,9 @@ extends Node3D
 ## windscreen top z, doors (2 or 4)
 const LAYOUT := {
 	"gera": {"floor": 0.58, "wall": -0.305, "dash": [1.17, -0.32, 0.66, true], "cab": 0.66,
-		"bay": [-1.57, 0.46, 1.16], "engine": "v8", "tail": 1.58},
+		"bay": [-1.57, 0.46, 1.16], "engine": "v8", "tail": 1.58, "floor_pedals": true},
 	"gerilya": {"floor": 0.58, "wall": -0.305, "dash": [1.17, -0.32, 0.66, true], "cab": 0.66,
-		"bay": [-1.57, 0.46, 1.16], "engine": "v8", "tail": 1.58},
+		"bay": [-1.57, 0.46, 1.16], "engine": "v8", "tail": 1.58, "floor_pedals": true},
 	"kuwarenta": {"floor": 0.53, "wall": -0.44, "dash": [1.14, -0.24, 0.65, false], "cab": 0.765,
 		"bay": [-1.72, 0.5, 1.03], "engine": "i6", "tail": 1.74},
 	"feroz": {"floor": 0.53, "wall": -0.48, "dash": [1.08, -0.22, 0.69, false], "cab": 0.705,
@@ -40,13 +42,16 @@ const LAYOUT := {
 		"bay": [-2.33, 0.6, 1.13], "engine": "i6d", "tail": 2.24,
 		"closed": [0.885, 1.18, 1.955, -0.5, 4]},
 	"owner": {"floor": 0.53, "wall": -0.48, "dash": [1.005, -0.32, 0.65, false], "cab": 0.725,
-		"bay": [-1.83, 0.47, 1.0], "engine": "i4d", "tail": 1.72},
+		"bay": [-1.83, 0.47, 1.0], "engine": "i4d", "tail": 1.72, "floor_pedals": true},
 	"rubikon": {"floor": 0.58, "wall": -0.74, "dash": [1.26, -0.42, 0.83, false], "cab": 0.845,
 		"bay": [-2.27, 0.6, 1.17], "engine": "v6", "tail": 2.2,
 		"closed": [0.845, 1.2, 1.93, -0.4, 4]},
 }
 
 ## Engine paint: the classic small-block's orange, Toyota grey-blue, diesel grey...
+## How far the pedal pads stand off the firewall (m)
+const PEDAL_OFF := 0.13
+
 const BLOCK := {"v8": Color(0.62, 0.2, 0.06), "i6": Color(0.32, 0.38, 0.44), "i4": Color(0.2, 0.2, 0.22),
 	"i6d": Color(0.38, 0.4, 0.4), "i4d": Color(0.18, 0.24, 0.3), "v6": Color(0.14, 0.14, 0.15)}
 
@@ -56,23 +61,22 @@ var _speedo: Node3D
 var _temp: Node3D
 var _fuel: Node3D
 var _redline := 4800.0
+# the parts that move (rig space pivots)
+var _pedals := {}            # name -> [pivot Node3D, the pad in pivot space, full travel (rad)]
+var _rest_pad := Transform3D.IDENTITY   # the dead pedal
+var _gear: Node3D
+var _gear_knob := Vector3.ZERO           # in the lever's space
+var _tc: Node3D
+var _tc_knob := Vector3.ZERO
+var _hb: Node3D
+var _hb_grip := Vector3.ZERO
+var _black: ShaderMaterial
+var _trim: ShaderMaterial
+var _bright: ShaderMaterial
 
 
 static func layout(spec: RigSpec) -> Dictionary:
 	return LAYOUT.get(spec.id, LAYOUT["gera"])
-
-
-## Where the driver's feet go (rig space): the right on the throttle pad, the
-## left on the floor left of the clutch. [right foot, its toe-up angle, left foot, angle]
-static func pedal_targets(spec: RigSpec) -> Array:
-	var l := layout(spec)
-	var floor_y: float = l["floor"]
-	var wall: float = l["wall"]
-	var x := spec.seat.x
-	# (ankle heights put the heel on the mat, toes tipped up onto the pad)
-	var gas := Vector3(x + 0.16, floor_y + 0.12, wall + 0.29)
-	var rest := Vector3(x - 0.2, floor_y + 0.11, wall + 0.34)
-	return [gas, 0.42, rest, 0.18]
 
 
 func build(r: Rig) -> void:
@@ -90,6 +94,9 @@ func build(r: Rig) -> void:
 	var trim := MeshKit.begin()      # dash, door cards, headliner, levers: soft black
 	var bright := MeshKit.begin()    # chrome: bezels, pedal arms, mirror
 	var paint := MeshKit.begin()     # the Willys' flat dash, in the body colour
+	_black = r._body_mat(Color(0.03, 0.03, 0.03), 0.85, 0.0, 0.0)
+	_trim = r._body_mat(Color(0.055, 0.052, 0.05), 0.75, 0.0, 0.0)
+	_bright = r._body_mat(Color(0.7, 0.7, 0.72), 0.15, 1.0, 0.0)
 	_engine_bay(l, block, iron, alu, black, rust, rad, c)
 	_footwell(l, black, trim, bright, c)
 	_dash(l, trim, bright, paint, c)
@@ -98,11 +105,11 @@ func build(r: Rig) -> void:
 	r._add_mesh(MeshKit.commit(block, r._body_mat(BLOCK.get(l["engine"], BLOCK["v8"]), 0.55, 0.1, 0.3)))
 	r._add_mesh(MeshKit.commit(iron, r._body_mat(Color(0.12, 0.12, 0.12), 0.7, 0.4, 0.0)))
 	r._add_mesh(MeshKit.commit(alu, r._body_mat(Color(0.62, 0.62, 0.6), 0.35, 0.8, 0.0)))
-	r._add_mesh(MeshKit.commit(black, r._body_mat(Color(0.03, 0.03, 0.03), 0.85, 0.0, 0.0)))
+	r._add_mesh(MeshKit.commit(black, _black))
 	r._add_mesh(MeshKit.commit(rust, r._body_mat(Color(0.26, 0.15, 0.09), 0.85, 0.3, 0.0)))
 	r._add_mesh(MeshKit.commit(rad, r._body_mat(Color(0.08, 0.08, 0.07), 0.6, 0.5, 0.0)))
-	r._add_mesh(MeshKit.commit(trim, r._body_mat(Color(0.055, 0.052, 0.05), 0.75, 0.0, 0.0)))
-	r._add_mesh(MeshKit.commit(bright, r._body_mat(Color(0.7, 0.7, 0.72), 0.15, 1.0, 0.0)))
+	r._add_mesh(MeshKit.commit(trim, _trim))
+	r._add_mesh(MeshKit.commit(bright, _bright))
 	if l["dash"][3]:
 		r._add_mesh(MeshKit.commit(paint, r.paint_mat(0.2, 0.8)))
 
@@ -256,42 +263,154 @@ func _footwell(l: Dictionary, black: SurfaceTool, trim: SurfaceTool, bright: Sur
 	for sx: float in [-1.0, 1.0]:
 		var mx := sx * (0.16 + (cab - 0.16) * 0.45)
 		MeshKit.rounded_box(black, Vector3(cab - 0.24, 0.012, 0.5), 0.004, at.call(Vector3(mx, floor_y + 0.006, wall + 0.3)), c)
-	# pedals: clutch and brake hung from under the dash, the throttle beside
-	# them; pads where the feet go (Driver puts them there)
-	var tg := pedal_targets(s)
-	var gas: Vector3 = tg[0]
-	# (pivots up under the dash, out of sight; short dark arms down to the pads)
-	var pivot_y := minf(dash_top - 0.2, floor_y + 0.4)
-	for p: Array in [[s.seat.x - 0.13, 0.07, 0.06], [s.seat.x + 0.03, 0.08, 0.07]]:
-		var x: float = p[0]
-		var pad := Vector3(x, floor_y + 0.16, wall + 0.2)
-		var top := Vector3(x, pivot_y, wall + 0.06)
-		MeshKit.sweep(black, PackedVector3Array([top, top.lerp(pad, 0.5) + Vector3(0, 0, 0.04), pad + Vector3(0, 0.03, -0.01)]),
+	# pedals: clutch and brake side by side, the throttle to their right. Hung
+	# from a pivot up under the dash on an arm ~0.3 m long; the Willys-type
+	# tubs have them on a shaft under the floor instead, the arms up through
+	# the toe board. Pressed, the pad swings toward the firewall, 10-25 deg.
+	var x := s.seat.x
+	var floor_mount: bool = l.get("floor_pedals", false)
+	var pivot_y := minf(dash_top - 0.12, floor_y + 0.5)
+	# name, pad x, width, height, height off the floor, tilt, travel at the pad (m)
+	for p: Array in [["clutch", x - 0.13, 0.07, 0.06, 0.17, -0.75, 0.12], ["brake", x + 0.03, 0.08, 0.07, 0.17, -0.75, 0.06],
+			["gas", x + 0.16, 0.06, 0.13, 0.15, -0.6, 0.05]]:
+		var pad_at := Vector3(p[1], floor_y + float(p[4]), wall + PEDAL_OFF)
+		var piv := Vector3(p[1], floor_y - 0.1, pad_at.z - 0.07) if floor_mount else Vector3(p[1], pivot_y, wall + 0.06)
+		var pad := pad_at - piv
+		var st := MeshKit.begin()
+		# the arm meets the pad's top edge (hung) or its bottom edge (from the floor)
+		var end := pad + Basis(Vector3.RIGHT, p[5]) * Vector3(0, float(p[3]) * (-0.4 if floor_mount else 0.4), -0.012)
+		var bow := Vector3(0, 0, -0.02) if floor_mount else Vector3(0, 0, 0.03)
+		MeshKit.sweep(st, PackedVector3Array([Vector3.ZERO, end * 0.5 + bow, end]),
 			PackedFloat32Array([0.011, 0.011, 0.011]), Transform3D.IDENTITY, c, 6)
-		MeshKit.rounded_box(black, Vector3(p[1], p[2], 0.025), 0.01, Transform3D(Basis(Vector3.RIGHT, -0.35), pad), c)
-	# throttle: a tall pad on its arm, toe of the foot on it
-	var gas_pad := gas + Vector3(0, 0.07, -0.09)
-	MeshKit.tube(black, Vector3(gas.x, pivot_y, wall + 0.06), gas_pad + Vector3(0, 0.05, 0.0), 0.009, Transform3D.IDENTITY, c, 6)
-	MeshKit.rounded_box(black, Vector3(0.06, 0.13, 0.02), 0.008, Transform3D(Basis(Vector3.RIGHT, -0.55), gas_pad), c)
+		var pad_xf := Transform3D(Basis(Vector3.RIGHT, p[5]), pad)
+		MeshKit.rounded_box(st, Vector3(p[2], p[3], 0.025), 0.01, pad_xf, c)
+		var node := Node3D.new()
+		node.name = String(p[0]).capitalize() + "Pedal"
+		node.position = piv
+		add_child(node)
+		_attach(node, st, _black)
+		# (a hung pedal swings forward turning +X, one from the floor -X)
+		_pedals[p[0]] = [node, pad_xf, float(p[6]) / pad.length() * (-1.0 if floor_mount else 1.0)]
+	if floor_mount:
+		# rubber boots where the arms come up through the floor
+		for p: Array in [[x - 0.13], [x + 0.03], [x + 0.16]]:
+			MeshKit.lathe(black, [Vector2(0.03, 0.0), Vector2(0.022, 0.025), Vector2(0.013, 0.04)],
+				at.call(Vector3(p[0], floor_y, wall + PEDAL_OFF - 0.06)), c, 8)
 	# the dead pedal, a ribbed rest the left foot finds
-	var rest: Vector3 = tg[2]
-	MeshKit.rounded_box(black, Vector3(0.09, 0.12, 0.02), 0.008, Transform3D(Basis(Vector3.RIGHT, -0.9), rest + Vector3(0, 0.03, -0.14)), c)
+	_rest_pad = Transform3D(Basis(Vector3.RIGHT, -0.8), Vector3(x - 0.24, floor_y + 0.1, wall + PEDAL_OFF - 0.02))
+	MeshKit.rounded_box(black, Vector3(0.09, 0.14, 0.02), 0.008, _rest_pad, c)
 	# gear lever and the transfer-case lever out of the tunnel, booted; a
 	# handbrake lever between the seats
 	var tun_top := floor_y + 0.13
 	var gear_base := Vector3(0.03, tun_top, wall + 0.32)
-	var gear_top := gear_base + Vector3(-0.04, 0.42, 0.12)
-	MeshKit.tube(bright, gear_base, gear_top, 0.011, Transform3D.IDENTITY, c, 8)
-	MeshKit.sphere(trim, 0.035, at.call(gear_top), c, 12)
+	_gear = _pivot("GearLever", gear_base)
+	_gear_knob = Vector3(-0.04, 0.42, 0.12)
+	var gs := MeshKit.begin()
+	MeshKit.tube(gs, Vector3.ZERO, _gear_knob, 0.011, Transform3D.IDENTITY, c, 8)
+	_attach(_gear, gs, _bright)
+	var gk := MeshKit.begin()
+	MeshKit.sphere(gk, 0.035, at.call(_gear_knob), c, 12)
+	_attach(_gear, gk, _trim)
 	MeshKit.lathe(black, [Vector2(0.06, 0.0), Vector2(0.045, 0.05), Vector2(0.02, 0.1), Vector2(0.014, 0.12)], at.call(gear_base), c, 12)
 	var tc_base := Vector3(0.12, tun_top, wall + 0.38)
-	var tc_top := tc_base + Vector3(0.02, 0.32, 0.1)
-	MeshKit.tube(bright, tc_base, tc_top, 0.009, Transform3D.IDENTITY, c, 8)
-	MeshKit.rounded_box(trim, Vector3(0.035, 0.06, 0.035), 0.012, at.call(tc_top), c)
+	_tc = _pivot("TransferLever", tc_base)
+	_tc_knob = Vector3(0.02, 0.32, 0.1)
+	var ts := MeshKit.begin()
+	MeshKit.tube(ts, Vector3.ZERO, _tc_knob, 0.009, Transform3D.IDENTITY, c, 8)
+	_attach(_tc, ts, _bright)
+	var tk := MeshKit.begin()
+	MeshKit.rounded_box(tk, Vector3(0.035, 0.06, 0.035), 0.012, at.call(_tc_knob), c)
+	_attach(_tc, tk, _trim)
 	MeshKit.lathe(black, [Vector2(0.045, 0.0), Vector2(0.03, 0.05), Vector2(0.012, 0.09)], at.call(tc_base), c, 10)
+	# the handbrake: a console between the seats, the lever pivoting at its
+	# back end, the release button in the tip of the handle
 	var hb := Vector3(0.0, floor_y + 0.14, s.seat.z - 0.02)
 	MeshKit.rounded_box(trim, Vector3(0.1, 0.07, 0.22), 0.02, at.call(hb), c)
-	MeshKit.rounded_box(trim, Vector3(0.035, 0.035, 0.26), 0.012, Transform3D(Basis(Vector3.RIGHT, 0.25), hb + Vector3(0, 0.07, -0.08)), c)
+	_hb = _pivot("Handbrake", hb + Vector3(0, 0.04, 0.06))
+	var hs := MeshKit.begin()
+	MeshKit.rounded_box(hs, Vector3(0.035, 0.035, 0.27), 0.012, at.call(Vector3(0, 0, -0.135)), c)
+	_attach(_hb, hs, _trim)
+	var hbt := MeshKit.begin()
+	MeshKit.cylinder(hbt, 0.009, 0.01, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(0, 0, -0.272)), c, 8)
+	_attach(_hb, hbt, _bright)
+	_hb_grip = Vector3(0, 0.0, -0.2)
+	set_handbrake(0.0)
+	set_gear_lever(Vector2.ZERO)
+	set_transfer(0.0)
+
+
+func _pivot(name_: String, at: Vector3) -> Node3D:
+	var n := Node3D.new()
+	n.name = name_
+	n.position = at
+	add_child(n)
+	return n
+
+
+func _attach(parent: Node3D, st: SurfaceTool, mat: Material) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = MeshKit.commit(st, mat)
+	parent.add_child(mi)
+
+
+# --- what moves: pedals and levers ------------------------------------------------------
+
+## Press the pedals, 0 up .. 1 to the floor.
+func set_pedals(clutch: float, brake: float, gas: float) -> void:
+	var press := {"clutch": clutch, "brake": brake, "gas": gas}
+	for k: String in _pedals:
+		var p: Array = _pedals[k]
+		(p[0] as Node3D).rotation.x = float(p[2]) * clampf(press[k], 0.0, 1.0)
+
+
+## A foot on a pedal as it is pressed now ("clutch", "brake", "gas", or
+## "rest" for the dead pedal): where its ankle is and how the foot is turned
+## (rig space). The ball of the foot sits on the pad, the sole on its face.
+func foot_on(pedal: String) -> Transform3D:
+	var pad := _rest_pad
+	if _pedals.has(pedal):
+		var p: Array = _pedals[pedal]
+		pad = (p[0] as Node3D).transform * (p[1] as Transform3D)
+	var face := pad * Vector3(0, 0, 0.022)
+	var b := pad.basis * Basis(Vector3.RIGHT, PI * 0.5)
+	return Transform3D(b, face - b * Driver.BALL)
+
+
+## The gear lever through its H: x -1 left .. 1 right across the gate,
+## y 1 forward .. -1 back (0, 0 neutral).
+func set_gear_lever(at: Vector2) -> void:
+	_gear.rotation = Vector3(-at.y * 0.22, 0.0, -at.x * 0.16)
+
+
+## Where a gear sits in the H: 1-2 on the left, 3-4 the middle, 5 the right;
+## reverse right and back (right and forward on a four-speed).
+static func gate(gear: int, gears: int) -> Vector2:
+	if gear == 0:
+		return Vector2.ZERO
+	if gear < 0:
+		return Vector2(1, 1 if gears <= 4 else -1)
+	return Vector2(float((gear - 1) / 2) - 1.0, 1.0 if gear % 2 == 1 else -1.0)
+
+
+## The transfer case: forward is high range, back is low; `f` 0 high .. 1 low.
+func set_transfer(f: float) -> void:
+	_tc.rotation.x = lerpf(-0.2, 0.28, f)
+
+
+## The handbrake, 0 down .. 1 pulled up.
+func set_handbrake(f: float) -> void:
+	_hb.rotation.x = lerpf(0.1, 0.55, f)
+
+
+## What the right hand takes hold of ("gear", "tc", "hb"), rig space: the
+## centre of the knob or the handle, turned with its lever.
+func grip_at(what: String) -> Transform3D:
+	match what:
+		"gear":
+			return _gear.transform * Transform3D(Basis.IDENTITY, _gear_knob)
+		"tc":
+			return _tc.transform * Transform3D(Basis.IDENTITY, _tc_knob)
+	return _hb.transform * Transform3D(Basis.IDENTITY, _hb_grip)
 
 
 # --- the dash ---------------------------------------------------------------------------
@@ -311,22 +430,18 @@ func _dash(l: Dictionary, trim: SurfaceTool, bright: SurfaceTool, paint: Surface
 		# a padded lower dash under the body's own dash top, the full width
 		MeshKit.rounded_box(trim, Vector3(half * 2.0, 0.2, 0.08), 0.03, at.call(Vector3(0, top - 0.18, face - 0.03)), c)
 		face += 0.01
-	# the instrument binnacle in front of the wheel, a hood over it
-	# (seen through the top half of the wheel: on a low dash it stands up in
-	# a pod on top; the Willys keeps its gauges down in the flat panel)
+	# the instrument cluster in the dash face in front of the driver, its top
+	# level with the dash top, a short hood over it to keep the glare off
+	# (never a pod standing up above the dash: no real cab has one)
 	var gx := s.seat.x
-	var gy := top - 0.08 if d[3] else s.wheel_at.y + 0.04
-	# and a good hand's span ahead of the wheel rim, set back into its pod
-	var pod := minf(face, s.wheel_at.z - 0.2)
-	if gy + 0.08 > top:
-		var pod_lo := top - 0.06
-		MeshKit.rounded_box(trim, Vector3(0.38, gy + 0.08 - pod_lo, 0.1), 0.03, at.call(Vector3(gx, (gy + 0.08 + pod_lo) * 0.5, pod - 0.04)), c)
-	MeshKit.rounded_box(trim, Vector3(0.36, 0.15, 0.06), 0.03, at.call(Vector3(gx, gy, pod + 0.02)), c)
-	MeshKit.rounded_box(trim, Vector3(0.38, 0.03, 0.07), 0.015, Transform3D(Basis(Vector3.RIGHT, 0.2), Vector3(gx, gy + 0.085, pod + 0.04)), c)
+	var gy := top - 0.085
+	var pod := face
+	MeshKit.rounded_box(trim, Vector3(0.36, 0.15, 0.05), 0.02, at.call(Vector3(gx, gy, pod + 0.015)), c)
+	MeshKit.rounded_box(trim, Vector3(0.38, 0.025, 0.06), 0.01, Transform3D(Basis(Vector3.RIGHT, 0.15), Vector3(gx, top + 0.005, pod + 0.03)), c)
 	var dials := Node3D.new()
 	dials.name = "Gauges"
 	add_child(dials)
-	var gz := pod + 0.052
+	var gz := pod + 0.042
 	_speedo = _gauge(dials, Vector3(gx - 0.085, gy, gz), 0.058, 9)
 	_tach = _gauge(dials, Vector3(gx + 0.085, gy, gz), 0.058, 9)
 	_temp = _gauge(dials, Vector3(gx - 0.02, gy - 0.045, gz + 0.002), 0.022, 3)

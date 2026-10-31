@@ -96,8 +96,8 @@ var max_steer := deg_to_rad(32.0)
 var axle_roll_stiffness := 18000.0
 # where the winch cable leaves the bumper, the seat and the steering wheel
 var fairlead := Vector3(0, 0.75, -1.86)
-var seat := Vector3(-0.33, 0.8, 0.27)       # the driver's hips
-var wheel_at := Vector3(-0.33, 1.2, -0.1)   # steering wheel hub
+var seat := Vector3(-0.33, 0.8, 0.65)       # the driver's hips
+var wheel_at := Vector3(-0.33, 1.27, 0.2)   # steering wheel hub
 var build_body: Callable
 ## A closed cab (glass all round): the box inside it, rig space, that mud
 ## doesn't reach: just inside the body skin, so the outside of a panel takes
@@ -209,8 +209,8 @@ static func _kuwarenta() -> RigSpec:
 	s.max_steer = deg_to_rad(30.0)
 	s.axle_roll_stiffness = 21000.0
 	s.fairlead = Vector3(0, 0.72, -1.98)
-	s.seat = Vector3(-0.36, 0.82, 0.3)
-	s.wheel_at = Vector3(-0.36, 1.22, -0.07)
+	s.seat = Vector3(-0.36, 0.82, 0.5)
+	s.wheel_at = Vector3(-0.36, 1.29, 0.05)
 	s.cabin_lo = Vector3(0, 0.49, -0.455)   # open tub: only flecks land in it
 	s.cabin_hi = Vector3(0.79, 2.0, 1.735)
 	s.cabin_open = true
@@ -252,8 +252,8 @@ static func _feroz() -> RigSpec:
 	s.max_steer = deg_to_rad(34.0)
 	s.axle_roll_stiffness = 14000.0
 	s.fairlead = Vector3(0, 0.66, -1.88)
-	s.seat = Vector3(-0.34, 0.78, 0.2)
-	s.wheel_at = Vector3(-0.34, 1.16, -0.17)
+	s.seat = Vector3(-0.34, 0.78, 0.46)
+	s.wheel_at = Vector3(-0.34, 1.23, 0.01)
 	s.cabin_lo = Vector3(0, 0.49, -0.495)   # closed cab: glass all round
 	s.cabin_hi = Vector3(0.73, 1.69, 1.615)
 	s.build_body = FerozBody.build
@@ -292,8 +292,8 @@ static func _ronda() -> RigSpec:
 	s.max_steer = deg_to_rad(30.0)
 	s.axle_roll_stiffness = 26000.0
 	s.fairlead = Vector3(0, 0.74, -2.56)
-	s.seat = Vector3(-0.42, 0.88, 0.02)
-	s.wheel_at = Vector3(-0.42, 1.28, -0.38)
+	s.seat = Vector3(-0.42, 0.88, 0.18)
+	s.wheel_at = Vector3(-0.42, 1.35, -0.27)
 	s.cabin_lo = Vector3(0, 0.54, -0.775)   # closed cab: glass all round
 	s.cabin_hi = Vector3(0.91, 1.97, 2.235)
 	s.build_body = RondaBody.build
@@ -333,8 +333,8 @@ static func _owner() -> RigSpec:
 	s.max_steer = deg_to_rad(33.0)
 	s.axle_roll_stiffness = 16000.0
 	s.fairlead = Vector3(0, 0.66, -1.98)
-	s.seat = Vector3(-0.34, 0.74, 0.12)
-	s.wheel_at = Vector3(-0.34, 1.13, -0.23)
+	s.seat = Vector3(-0.34, 0.74, 0.5)
+	s.wheel_at = Vector3(-0.34, 1.2, 0.05)
 	s.cabin_lo = Vector3(0, 0.49, -0.495)   # open tub: only flecks land in it
 	s.cabin_hi = Vector3(0.75, 1.9, 1.715)
 	s.cabin_open = true
@@ -376,8 +376,8 @@ static func _rubikon() -> RigSpec:
 	s.max_steer = deg_to_rad(33.0)
 	s.axle_roll_stiffness = 12000.0
 	s.fairlead = Vector3(0, 0.74, -2.48)
-	s.seat = Vector3(-0.4, 0.88, 0.0)
-	s.wheel_at = Vector3(-0.4, 1.28, -0.4)
+	s.seat = Vector3(-0.4, 0.88, 0.2)
+	s.wheel_at = Vector3(-0.4, 1.35, -0.25)
 	s.cabin_lo = Vector3(0, 0.54, -0.755)   # closed cab: glass all round
 	s.cabin_hi = Vector3(0.87, 1.95, 2.195)
 	s.build_body = RubikonBody.build

@@ -38,6 +38,34 @@
 - Known, older: `tests/tip_test` reads ~10 deg on older commits too.
 
 
+## The driver works the controls; seats where a real driver sits (branch `driver-controls`)
+
+- He drives it: right foot from the throttle to the brake, left foot on the
+  clutch for a shift, a stop on the brake, the handbrake or a stall (half up
+  pulling away), on the dead pedal otherwise; right hand off the wheel to the
+  gear lever (it goes through the H: back to neutral, across, into the gear),
+  the transfer lever (forward 4H, back 4L) and the handbrake (comes up), then
+  back to the wheel. Pedals swing on their pivots; the Gera, Gerilya and Owner
+  have Willys-style floor pedals up through the toe board.
+- Hands rebuilt: palm, thumb and finger pads, knuckles, three-bone fingers
+  curled round the rim (or the knob, the handle), nails. Arms and legs are one
+  skin each, shoulder to wrist and hip to ankle (no more open seams at the
+  shoulder or a stack of tubes at the elbow); mud stays put on the skin.
+- Real proportions: driver ~1.7 m (thigh 0.42, shin 0.40). Seats moved back so
+  the hips sit ~0.6 m behind the pedal (knee ~100 deg, 4-10 cm under the wheel
+  rim; was 0.33-0.5 m with knees jammed up into the wheel); wheels 0.45 m ahead
+  of the hips and 7 cm higher. The Gera's cage hoop and jerry can, the
+  Kuwarenta's roll bar and the Owner's door opening moved back with the seats.
+  Seat camera follows each rig's seat.
+- Gauges in the dash face on every rig (the pod that stood up above the dash
+  on the Feroz, Owner and others is gone).
+- `tests/driver_snap.tscn -- --rig X` pictures all of it and prints the fit.
+  well_test, parts_test, career_test PASS; damage_test's "tie rod bends"
+  failed once (no hit, 1.0) then passed (0.82): looks like a flaky hit.
+- Check by driving: shifting in auto (does the hand trip to the lever too
+  often in mud?), the seat camera now the wheel and seats moved, and whether
+  the feet/hands look right in motion.
+
 ## Inside the rigs (branch `car-detail`)
 
 - `cabin_kit.gd` on every rig: an engine under the hood (Gera/Gerilya V8

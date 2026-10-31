@@ -36,6 +36,11 @@ const WINCH_C := 16000.0    # N per m/s: damping, ~0.7 of critical for a 2 t rig
 var throttle := 0.0
 var brake := 0.0
 var steer := 0.0
+# what the driver's feet and hand are doing this step (the brake key backs up
+# at a standstill, on the throttle): Driver works the pedals and levers from these
+var pedal_gas := 0.0
+var pedal_brake := 0.0
+var handbrake_on := false
 var speed_kmh := 0.0
 var cake := 0.0          # 0..1 belly line from wallowing
 var corner_mud: Array[float] = [0.0, 0.0, 0.0, 0.0]  # 0..2 clay each tire has thrown on the body
@@ -530,6 +535,9 @@ func _physics_process(delta: float) -> void:
 	var reverse := brake > 0.0 and v_fwd < 0.6 and throttle <= 0.0
 	var pedal := brake * 0.6 if reverse else throttle
 	var braking := (brake > 0.0 and not reverse) or handbrake
+	pedal_gas = pedal
+	pedal_brake = 0.0 if reverse else brake
+	handbrake_on = handbrake
 	var tire_spin := 0.0
 	for w in wheels:
 		tire_spin += w.slip * 0.25

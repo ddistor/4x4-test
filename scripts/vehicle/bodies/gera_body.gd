@@ -121,21 +121,22 @@ static func _build(rig: Rig, trail: bool) -> void:
 		rb.call(paint, Vector3(0.05, 0.56, 0.05), 0.015, ws * at.call(Vector3(sx * 0.675, 0.29, 0)))
 	rb.call(paint, Vector3(0.03, 0.52, 0.035), 0.01, ws * at.call(Vector3(0, 0.29, 0)))
 
-	# seats, steering wheel, shifters
+	# seats (where the spec sits the driver), steering wheel
+	var sz := rig.spec.seat.z
 	var bucket := MeshKit.begin()
 	for sx: float in [-1.0, 1.0]:
 		if trail:
 			# bucket seats: tall backs with a headrest slot and side bolsters
-			rb.call(bucket, Vector3(0.46, 0.13, 0.46), 0.05, at.call(Vector3(sx * 0.33, 0.68, 0.2)))
-			var bb := Transform3D(Basis(Vector3.RIGHT, 0.14), Vector3(sx * 0.33, 1.1, 0.47))
+			rb.call(bucket, Vector3(0.46, 0.13, 0.46), 0.05, at.call(Vector3(sx * 0.33, 0.68, sz - 0.07)))
+			var bb := Transform3D(Basis(Vector3.RIGHT, 0.14), Vector3(sx * 0.33, 1.1, sz + 0.2))
 			rb.call(bucket, Vector3(0.44, 0.78, 0.1), 0.045, bb)
 			for side: float in [-1.0, 1.0]:
 				rb.call(bucket, Vector3(0.07, 0.5, 0.16), 0.03, bb * at.call(Vector3(side * 0.2, -0.08, -0.05)))
-				rb.call(bucket, Vector3(0.07, 0.1, 0.36), 0.03, at.call(Vector3(sx * 0.33 + side * 0.2, 0.76, 0.2)))
+				rb.call(bucket, Vector3(0.07, 0.1, 0.36), 0.03, at.call(Vector3(sx * 0.33 + side * 0.2, 0.76, sz - 0.07)))
 			rb.call(trim, Vector3(0.12, 0.06, 0.106), 0.02, bb * at.call(Vector3(0, 0.27, 0)))   # harness slot
 		else:
-			rb.call(trim, Vector3(0.46, 0.13, 0.46), 0.05, at.call(Vector3(sx * 0.33, 0.68, 0.2)))
-			var back := Transform3D(Basis(Vector3.RIGHT, 0.18), Vector3(sx * 0.33, 1.0, 0.47))
+			rb.call(trim, Vector3(0.46, 0.13, 0.46), 0.05, at.call(Vector3(sx * 0.33, 0.68, sz - 0.07)))
+			var back := Transform3D(Basis(Vector3.RIGHT, 0.18), Vector3(sx * 0.33, 1.0, sz + 0.2))
 			rb.call(trim, Vector3(0.44, 0.55, 0.1), 0.045, back)
 	rb.call(trim, Vector3(0.82, 0.13, 0.4), 0.05, at.call(Vector3(0, 0.68, 1.2)))
 	rb.call(trim, Vector3(0.82, 0.4, 0.09), 0.04, Transform3D(Basis(Vector3.RIGHT, 0.12), Vector3(0, 0.95, 1.46)))
@@ -143,12 +144,13 @@ static func _build(rig: Rig, trail: bool) -> void:
 	MeshKit.tube(chassis, Vector3(-0.33, 0.98, -0.42), rig.spec.wheel_at, 0.022, Transform3D.IDENTITY, c)
 
 	# roll cage: main hoop behind the seats, bars to the windshield and the back corners
-	var top_l := Vector3(-0.62, 1.95, 0.62)
-	var top_r := Vector3(0.62, 1.95, 0.62)
+	var hoop := sz + 0.35   # the main hoop, just behind the seat backs
+	var top_l := Vector3(-0.62, 1.95, hoop)
+	var top_r := Vector3(0.62, 1.95, hoop)
 	var cage: Array = [
-		[Vector3(-0.66, 1.17, 0.62), top_l], [Vector3(0.66, 1.17, 0.62), top_r], [top_l, top_r],
+		[Vector3(-0.66, 1.17, hoop), top_l], [Vector3(0.66, 1.17, hoop), top_r], [top_l, top_r],
 		[top_l, Vector3(-0.64, 1.17, 1.54)], [top_r, Vector3(0.64, 1.17, 1.54)],
-		[Vector3(-0.645, 1.45, 0.62), Vector3(0.645, 1.45, 0.62)],
+		[Vector3(-0.645, 1.45, hoop), Vector3(0.645, 1.45, hoop)],
 	]
 	var corners: Array[Vector3] = [top_l, top_r]
 	if trail:
@@ -208,7 +210,7 @@ static func _build(rig: Rig, trail: bool) -> void:
 			for z: float in [-0.56, 0.32]:
 				MeshKit.tube(steel, Vector3(sx * 0.78, 0.5, z), Vector3(sx * 0.705, 0.6, z + signf(z) * 0.06), 0.03, Transform3D.IDENTITY, c, 10)
 		# flat steel plate bolted on the cage for a roof, and a light bar under its front edge
-		rb.call(roof, Vector3(1.38, 0.02, 1.06), 0.008, at.call(Vector3(0, 1.975, 0.15)))
+		rb.call(roof, Vector3(1.38, 0.02, hoop + 0.44), 0.008, at.call(Vector3(0, 1.975, (hoop - 0.44) * 0.5)))
 		rb.call(roof, Vector3(1.38, 0.05, 0.02), 0.006, at.call(Vector3(0, 1.96, -0.38)))
 		rb.call(steel, Vector3(1.0, 0.08, 0.08), 0.015, at.call(Vector3(0, 1.88, -0.33)))
 		# the army blackout lamp on the left fender, and round mirrors on the cowl
@@ -219,12 +221,12 @@ static func _build(rig: Rig, trail: bool) -> void:
 		for sx: float in [-1.0, 1.0]:
 			MeshKit.tube(steel, Vector3(sx * 0.7, 1.15, -0.36), Vector3(sx * 0.86, 1.4, -0.4), 0.01, Transform3D.IDENTITY, c, 6)
 			MeshKit.cylinder(steel, 0.075, 0.025, Transform3D(Basis(Vector3.RIGHT, PI * 0.5), Vector3(sx * 0.87, 1.43, -0.41)), c, 16)
-		# jerry can behind the passenger seat
-		var can: Transform3D = at.call(Vector3(0.4, 0.8, 0.88))
+		# jerry can strapped upright on the back seat, passenger side
+		var can: Transform3D = at.call(Vector3(0.3, 0.98, 1.12))
 		rb.call(drab, Vector3(0.16, 0.46, 0.34), 0.02, can)
 		rb.call(drab, Vector3(0.05, 0.05, 0.12), 0.01, can * at.call(Vector3(0, 0.25, -0.06)))
 		for d: float in [-1.0, 1.0]:
-			rb.call(drab, Vector3(0.012, 0.36, 0.03), 0.005, Transform3D(Basis(Vector3.RIGHT, d * 0.62), Vector3(0.48, 0.8, 0.88)))
+			rb.call(drab, Vector3(0.012, 0.36, 0.03), 0.005, Transform3D(Basis(Vector3.RIGHT, d * 0.62), Vector3(0.38, 0.98, 1.12)))
 
 	# spare on the back panel
 	var spare := MeshInstance3D.new()

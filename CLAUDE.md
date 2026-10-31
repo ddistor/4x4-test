@@ -75,10 +75,11 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 - `scripts/vehicle/bodies/cabin_kit.gd` — what every rig has inside and under the hood, from a
   per-rig LAYOUT (floor, firewall, dash, engine bay, closed cab): its own engine (V8, V6,
   straight-six, four, diesels) with radiator, fan, battery and an exhaust to a muffler;
-  pedals where the driver's feet land (Driver reaches its legs to `pedal_targets`),
-  tunnel, levers, mats; a dash with a gauge pod and live tach/speedo needles; door
-  cards, headliner, mirror and visors in a closed cab. `tests/interior_snap.tscn`
-  pictures it.
+  pedals that swing as they're pressed (hung from under the dash, or up through the
+  floor on the Willys-type tubs; `set_pedals`, `foot_on`), a dead pedal, tunnel, a gear
+  lever through its H, the transfer-case lever and a handbrake that move (`grip_at`), mats;
+  gauges in the dash face with live tach/speedo needles; door cards, headliner, mirror
+  and visors in a closed cab. `tests/interior_snap.tscn` pictures it.
 - `scripts/vehicle/gearbox.gd` — engine (torque curve, idle, redline), gears,
   final drive, low range, engine braking, auto/manual (E/Q, T), stalling; the
   numbers per rig are in `RigSpec`. Its rpm drives the engine sound.
@@ -92,10 +93,14 @@ so there is almost nothing in `.tscn` files. Open `project.godot` in Godot and p
 - `scripts/vehicle/winch_aim.gd` — choosing a winch anchor: rings on everything in
   reach, mouse hover or Tab to pick, F to hook.
 - `scripts/vehicle/driver.gd` — the driver (motocross helmet, sleeveless tee with the
-  club logo, jorts, tsinelas) and the turning steering wheel. Body is lofted from
-  cross-sections (`MeshKit.grid`), hands wrap the rim. Torso and head are physics bodies
-  on joints, held up by damped muscle torques; arms reach the wheel by two-bone IK.
-  Helmet is on render layer 2, hidden from the seat camera.
+  club logo, jorts, tsinelas, ~1.7 m) and the turning steering wheel. Torso and head are
+  physics bodies on joints, held up by damped muscle torques. Arms (shoulder to wrist) and
+  legs (hip to ankle) are each one skin rebuilt every step (`_loft`) by two-bone IK; hands
+  have jointed fingers curled round what they hold. He works the controls (`_work_controls`):
+  right foot gas/brake, left foot clutch for a shift or a stop, right hand to the gear
+  lever, transfer lever and handbrake. Helmet is on render layer 2, hidden from the seat
+  camera. `tests/driver_snap.tscn -- --rig X` pictures him at it and prints how he fits
+  the seat (hip to pedal, knee bend, knee under the wheel).
 - `scripts/vehicle/mesh_kit.gd` — procedural modelling helpers (rounded boxes,
   lathes, tubes, tori) appended into a SurfaceTool.
 - `scripts/vehicle/wheel.gd` — one corner: raycast suspension, brush tire, sink/drag/
@@ -129,6 +134,21 @@ Add `--snap-driver` for just the driver close-ups (`snaps/98_driver*.png`),
 
 ## Conventions
 
+- Realistic is the requirement for everything, not a polish pass, and it is
+  never left for the user to ask for. That covers:
+  - the world: terrain shapes and sizes, soils, water, plants, weather, light,
+    all as they really are in Morong;
+  - how the rig reacts to it: grip, sinkage, suspension, traction, the engine and
+    gearing, damage, recovery gear, judged against how a real 4x4 behaves on that
+    ground;
+  - the rigs and the driver: real dimensions, proportions and ergonomics, parts
+    that move as they're used;
+  - sound and the UI's numbers.
+  Start from real-world figures (look them up when unsure), build to them, then
+  check the result: pictures from where the player sees it (seat cam, chase
+  cam, `--snap`) and tests or drives that measure the behaviour. Fix seams, gaps,
+  intersections, wrong proportions and unrealistic behaviour before calling it
+  done, and say plainly what wasn't verified.
 - Forward is -Z (Godot). The stage runs along world +Z; the rig spawns facing up it.
 - Units are metres, newtons, seconds. Tune a vehicle in its `RigSpec` kind
   (`rig_spec.gd`) and the `@export` vars in `wheel.gd` before touching the formulas.

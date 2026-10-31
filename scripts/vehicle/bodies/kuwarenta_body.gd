@@ -34,7 +34,7 @@ const WS_TILT := 0.12
 const WS_H := 0.6
 const WS_BAR := 0.07                   # width of the frame bars
 # roll bar hoop behind the front seats
-const HOOP_Z := 0.66
+const HOOP_Z := 0.82
 const HOOP_X := 0.72
 const HOOP_TOP := 1.86
 
